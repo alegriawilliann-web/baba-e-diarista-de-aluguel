@@ -1,0 +1,32 @@
+{
+  "name": "baba-de-aluguel-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "cap:sync": "vite build && npx cap sync",
+    "android:open": "npm run cap:sync && npx cap open android",
+    "android:build": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
+    "android:dev": "concurrently --kill-others-on-fail -n vite,install \"vite\" \"node scripts/dev-android.mjs\""
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "lucide-react": "^1.47.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "oxlint": "^1.81.0",
+    "vite": "^8.3.0"
+  }
+}
