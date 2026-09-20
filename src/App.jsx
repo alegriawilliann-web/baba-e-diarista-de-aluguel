@@ -5218,7 +5218,7 @@ export default function App() {
   const pendentesDiarista = contratacoes.filter((c) => c.prestadorTipo === "diarista" && c.prestadorId === meuPerfilDiarista.id && c.status === "pendente").length;
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", background: "#EFE3D0", padding: "28px 12px", minHeight: 680 }}>
+    <div style={{ display: "flex", justifyContent: "center", background: PAPER, minHeight: "100dvh" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Manrope:wght@400;500;700&display=swap');
         @keyframes logo-shine-sweep {
@@ -5241,9 +5241,8 @@ export default function App() {
         }
       `}</style>
       <div style={{
-        width: 380, height: 730, background: PAPER, borderRadius: 30,
-        overflow: "hidden", boxShadow: "0 24px 48px rgba(22,64,60,0.22)",
-        border: "7px solid #12302C", display: "flex", flexDirection: "column", position: "relative",
+        width: "100%", maxWidth: 480, minHeight: "100dvh", background: PAPER,
+        display: "flex", flexDirection: "column", position: "relative",
       }}>
         {tela === "hub" && (
           <HubScreen
