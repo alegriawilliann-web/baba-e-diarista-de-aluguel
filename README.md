@@ -14,8 +14,9 @@ App React empacotado com [Capacitor](https://capacitorjs.com) para rodar como ap
 
 1. Substitua os arquivos em `assets/icon-only.png` / `icon-foreground.png` / `icon-background.png` (todos quadrados, pelo menos 1024×1024).
 2. Rode `npx capacitor-assets generate --android` (gera de novo todos os tamanhos em `android/app/src/main/res/mipmap-*`).
-3. Rode `npm run android:dev` (ou `npm run android:build`) para reinstalar o app com o novo ícone — o Android só atualiza o ícone do launcher numa instalação nova, não com o live-reload.
-4. Quando for gerar o app para iOS (`npx cap add ios`), rode `npx capacitor-assets generate --ios` também — ele usa os mesmos arquivos em `assets/`.
+3. Esse comando sempre reseta um recuo de 16.7% nos arquivos `android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` e `ic_launcher_round.xml` (as duas tags `<inset android:inset="16.7%" />`). Como a arte já foi desenhada preenchendo o espaço certo, troque as duas de volta para `android:inset="0%"` depois de rodar o comando acima — senão o ícone volta a ficar pequeno.
+4. Rode `npm run android:dev` (ou `npm run android:build`) para reinstalar o app com o novo ícone — o Android só atualiza o ícone do launcher numa instalação nova, não com o live-reload.
+5. Quando for gerar o app para iOS (`npx cap add ios`), rode `npx capacitor-assets generate --ios` também — ele usa os mesmos arquivos em `assets/`.
 
 ## Ambiente já instalado nesta máquina
 
