@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">baba e diarista de aluguel</string>
-    <string name="title_activity_main">baba e diarista de aluguel</string>
+    <string name="app_name">baba diarista aluguel</string>
+    <string name="title_activity_main">baba diarista aluguel</string>
     <string name="package_name">com.babadealuguel.app</string>
     <string name="custom_url_scheme">com.babadealuguel.app</string>
 </resources>
