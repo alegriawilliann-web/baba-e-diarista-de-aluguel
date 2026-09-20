@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "vite",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "cap:sync": "vite build && npx cap sync",
     "android:open": "npm run cap:sync && npx cap open android",
     "android:build": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
-    "android:dev": "concurrently --kill-others-on-fail -n vite,install \"vite\" \"node scripts/dev-android.mjs\""
+    "android:dev": "concurrently --kill-others-on-fail -n vite,install,usb \"vite\" \"node scripts/dev-android.mjs\" \"node scripts/watch-adb-reverse.mjs\""
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

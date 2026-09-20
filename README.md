@@ -36,8 +36,9 @@ Se abrir um terminal **novo** essas variáveis já devem estar disponíveis. Se 
 ### Se algo não carregar no celular
 
 - Confira que o celular aparece como `device` (não `unauthorized`) em `adb devices`.
-- Confira que `npm run dev` está rodando e mostrando `http://localhost:5173`.
-- `npm run android:dev` já roda o `adb reverse` sozinho; se precisar refazer manualmente: `adb reverse tcp:5173 tcp:5173`.
+- Confira que `npm run dev` está rodando e mostrando `http://127.0.0.1:5173`.
+- `npm run android:dev` já roda o `adb reverse` sozinho e mantém um vigia (`scripts/watch-adb-reverse.mjs`) reaplicando o túnel automaticamente sempre que o cabo USB reconectar (isso derruba o túnel e causa a tela de "Página da Web não disponível"). Se precisar refazer manualmente: `adb reverse tcp:5173 tcp:5173`.
+- O `vite.config.js` fixa `server.host: '127.0.0.1'` de propósito: por padrão o Vite escuta só em IPv6 (`::1`) nesta máquina, mas o túnel `adb reverse` conecta via IPv4, o que gerava `net::ERR_EMPTY_RESPONSE` no celular mesmo com o servidor rodando normalmente no PC.
 
 ## Gerar o .apk / .aab para publicar na Play Store (Android)
 
