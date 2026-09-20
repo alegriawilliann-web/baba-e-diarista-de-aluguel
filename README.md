@@ -8,6 +8,14 @@ App React empacotado com [Capacitor](https://capacitorjs.com) para rodar como ap
 - `android/` — projeto nativo Android (Gradle), gerado pelo Capacitor. Pode ser aberto direto no Android Studio.
 - `capacitor.config.json` — configuração do Capacitor (appId, nome, pasta web).
 - `scripts/dev-android.mjs` — builda, instala e abre o app no celular conectado via USB, já apontado para o servidor de desenvolvimento (live-reload). Existe porque no Windows o comando `npx cap run android` do próprio Capacitor CLI falha (ele chama `./gradlew`, que o Windows não resolve).
+- `assets/icon-only.png`, `icon-foreground.png`, `icon-background.png` — fonte do ícone do app (logo "Babá & Diarista de Aluguel"). `icon-only` é a logo completa com texto (usada como ícone "legado" e na listagem da loja); `icon-foreground`/`icon-background` são a versão sem texto usada no ícone adaptativo do Android (o texto foi removido dali de propósito, porque o Android corta as bordas do ícone em formatos diferentes — círculo, quadrado arredondado etc. — dependendo do celular, e texto cortado fica ilegível).
+
+### Trocar o ícone do app no futuro
+
+1. Substitua os arquivos em `assets/icon-only.png` / `icon-foreground.png` / `icon-background.png` (todos quadrados, pelo menos 1024×1024).
+2. Rode `npx capacitor-assets generate --android` (gera de novo todos os tamanhos em `android/app/src/main/res/mipmap-*`).
+3. Rode `npm run android:dev` (ou `npm run android:build`) para reinstalar o app com o novo ícone — o Android só atualiza o ícone do launcher numa instalação nova, não com o live-reload.
+4. Quando for gerar o app para iOS (`npx cap add ios`), rode `npx capacitor-assets generate --ios` também — ele usa os mesmos arquivos em `assets/`.
 
 ## Ambiente já instalado nesta máquina
 
