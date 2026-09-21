@@ -3342,16 +3342,63 @@ function RoleToggle({ tipo, setTipo }) {
 }
 
 function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel.com.br" }) {
+  const [aberto, setAberto] = useState(null);
+  const telefoneNumero = "+5567992430206";
+  const telefoneExibicao = "+55 67 99243-0206";
+
   const topicos = [
-    { icone: CreditCard, label: "Pagamentos", desc: "Dúvidas sobre a mensalidade, cobrança ou formas de pagamento." },
-    { icone: XCircle, label: "Cancelamento", desc: "Cancelar a assinatura ou encerrar seu cadastro na plataforma." },
-    { icone: HelpCircle, label: "Ajuda geral", desc: "Qualquer outra dúvida sobre o uso do aplicativo." },
+    {
+      icone: CreditCard,
+      label: "Pagamentos",
+      perguntas: [
+        { q: "Quais formas de pagamento são aceitas?", a: "Aceitamos Pix e cartão de crédito, com pagamento seguro direto pelo aplicativo." },
+        { q: "Quando o pagamento é cobrado?", a: "A cobrança acontece na confirmação do agendamento. Em planos mensais, a renovação é cobrada automaticamente todo mês na mesma data." },
+        { q: "O valor vai direto para a profissional?", a: "Não. O pagamento é processado pela plataforma e o repasse é feito depois da confirmação do serviço, para dar mais segurança para as duas partes." },
+        { q: "Posso parcelar o pagamento?", a: "Sim, no cartão de crédito dá para parcelar em até 3x sem juros, dependendo do valor do serviço." },
+        { q: "Fiz o pagamento e não recebi confirmação, o que faço?", a: "Confira em Notificações dentro do app. Se não aparecer em até 1 hora, fale com a gente pelo telefone ou WhatsApp acima." },
+      ],
+    },
+    {
+      icone: XCircle,
+      label: "Cancelamento",
+      perguntas: [
+        { q: "Como cancelo um agendamento?", a: "Vá em Histórico, selecione o agendamento e toque em Cancelar. Cancelamentos com menos de 24h de antecedência podem ter cobrança de taxa." },
+        { q: "Tem multa por cancelamento?", a: "Cancelamentos com mais de 24h de antecedência não têm custo. Cancelamentos de última hora podem ter uma taxa para compensar a profissional." },
+        { q: "Como cancelo minha assinatura ou cadastro?", a: "Acesse Meu Perfil > Configurações > Encerrar cadastro. Seu perfil deixa de aparecer nas buscas imediatamente." },
+        { q: "Fui cobrado depois de cancelar, o que faço?", a: "Isso não deveria acontecer. Fale com a gente pelo telefone ou WhatsApp com o comprovante do cancelamento que resolvemos rapidinho." },
+        { q: "Posso remarcar em vez de cancelar?", a: "Sim! Em Histórico, use a opção Remarcar — assim você não perde o valor já pago nem corre risco de taxa." },
+      ],
+    },
+    {
+      icone: HelpCircle,
+      label: "Ajuda geral",
+      perguntas: [
+        { q: "Como funciona a plataforma?", a: "Você busca profissionais perto de você, vê perfil, avaliações e preço, escolhe um horário e confirma o agendamento direto pelo app." },
+        { q: "Como me cadastro como babá ou diarista?", a: "Na tela inicial, escolha o serviço desejado e toque em Cadastre-se. Vamos pedir seus dados, referências e uma foto de perfil." },
+        { q: "Como entro em contato com a profissional?", a: "Depois de agendar, use o chat ou o botão de ligação no perfil dela — tudo direto pelo app, sem precisar trocar números pessoais." },
+        { q: "Como funciona a verificação de antecedentes?", a: "Todas as profissionais passam por checagem de documentos e antecedentes antes de aparecerem nas buscas. O selo verde no perfil indica que já foi verificada." },
+        { q: "Esqueci minha senha, como recupero?", a: "Na tela de login, toque em Esqueci minha senha e siga as instruções enviadas para seu e-mail." },
+        { q: "Como avalio um atendimento?", a: "Quando o serviço é concluído, o app abre a tela de avaliação automaticamente. Você também pode avaliar depois em Histórico." },
+        { q: "Como denuncio um comportamento inadequado?", a: "No perfil da pessoa, toque nos três pontinhos e em Denunciar. Nossa equipe analisa em até 48h e o perfil pode ser suspenso." },
+        { q: "Meus dados estão seguros?", a: "Sim. Seus dados são criptografados e nunca são compartilhados sem sua autorização." },
+      ],
+    },
   ];
+
+  const btnContato = {
+    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+    background: corDestaque, color: "#fff", border: "none", borderRadius: 12,
+    padding: "11px 10px", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12.5,
+    cursor: "pointer", textDecoration: "none",
+  };
+  const btnContatoSecundario = { ...btnContato, background: "transparent", color: corDestaque, border: `1.5px solid ${corDestaque}` };
+
   return (
     <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{
         background: CARD, width: "100%", borderRadius: "22px 22px 0 0",
         padding: "22px 20px 28px", fontFamily: "Manrope, sans-serif",
+        maxHeight: "82vh", overflowY: "auto",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <span style={{ fontFamily: "Fraunces, serif", fontSize: 17, color: INK }}>Central de atendimento</span>
@@ -3362,7 +3409,7 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
 
         <div style={{
           display: "flex", alignItems: "center", gap: 12, background: "#FBEBD9",
-          borderRadius: 14, padding: "13px 14px", marginBottom: 16,
+          borderRadius: 14, padding: "13px 14px", marginBottom: 12,
         }}>
           <div style={{
             width: 38, height: 38, borderRadius: "50%", background: CARD,
@@ -3371,21 +3418,52 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
             <Phone size={17} color={corDestaque} />
           </div>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>0800 456 7890</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>{telefoneExibicao}</p>
             <p style={{ fontSize: 11, color: INK_SOFT, margin: "2px 0 0" }}>Todos os dias, das 8h às 20h</p>
           </div>
         </div>
 
-        <p style={{ fontSize: 11, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Fale sobre</p>
+        <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+          <a href={`tel:${telefoneNumero}`} style={btnContato}>
+            <PhoneCall size={15} /> Ligar
+          </a>
+          <a href={`https://wa.me/${telefoneNumero.replace("+", "")}`} target="_blank" rel="noreferrer" style={btnContatoSecundario}>
+            <MessageCircle size={15} /> WhatsApp
+          </a>
+        </div>
+
+        <p style={{ fontSize: 11, fontWeight: 700, color: INK_SOFT, marginBottom: 4 }}>Fale sobre</p>
         {topicos.map((t) => {
           const Icone = t.icone;
+          const aberta = aberto === t.label;
           return (
-            <div key={t.label} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: `1px solid ${LINE}` }}>
-              <Icone size={16} color={FOREST} style={{ flexShrink: 0, marginTop: 1 }} />
-              <div>
-                <p style={{ fontSize: 12.5, fontWeight: 700, color: INK, margin: 0 }}>{t.label}</p>
-                <p style={{ fontSize: 11, color: INK_SOFT, margin: "2px 0 0", lineHeight: 1.4 }}>{t.desc}</p>
-              </div>
+            <div key={t.label} style={{ borderBottom: `1px solid ${LINE}` }}>
+              <button
+                onClick={() => setAberto(aberta ? null : t.label)}
+                style={{
+                  width: "100%", background: "none", border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Icone size={16} color={FOREST} />
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: INK, fontFamily: "Manrope, sans-serif" }}>{t.label}</span>
+                </span>
+                <ChevronDown
+                  size={16} color={INK_SOFT}
+                  style={{ transform: aberta ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
+                />
+              </button>
+              {aberta && (
+                <div style={{ paddingBottom: 14 }}>
+                  {t.perguntas.map((p, i) => (
+                    <div key={i} style={{ marginBottom: i === t.perguntas.length - 1 ? 0 : 12 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: 0 }}>{p.q}</p>
+                      <p style={{ fontSize: 11.5, color: INK_SOFT, margin: "3px 0 0", lineHeight: 1.45 }}>{p.a}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
