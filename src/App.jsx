@@ -3341,10 +3341,13 @@ function RoleToggle({ tipo, setTipo }) {
   );
 }
 
-function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel.com.br" }) {
+function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel.com.br", servico = "Babá de Aluguel" }) {
   const [aberto, setAberto] = useState(null);
   const telefoneNumero = "+5567992430206";
   const telefoneExibicao = "+55 67 99243-0206";
+  const mensagemWhats = encodeURIComponent(
+    `Olá! Vim pelo app *${servico}*. 👋\n\nMeu assunto é sobre:\n( ) Pagamentos\n( ) Cancelamento\n( ) Erro ou problema no app\n( ) Outra dúvida\n\nMarque uma opção acima (ou descreva) e me conte o que está acontecendo :)`
+  );
 
   const topicos = [
     {
@@ -3427,7 +3430,7 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
           <a href={`tel:${telefoneNumero}`} style={btnContato}>
             <PhoneCall size={15} /> Ligar
           </a>
-          <a href={`https://wa.me/${telefoneNumero.replace("+", "")}`} target="_blank" rel="noreferrer" style={btnContatoSecundario}>
+          <a href={`https://wa.me/${telefoneNumero.replace("+", "")}?text=${mensagemWhats}`} target="_blank" rel="noreferrer" style={btnContatoSecundario}>
             <MessageCircle size={15} /> WhatsApp
           </a>
         </div>
@@ -3700,7 +3703,7 @@ function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) 
         </button>
       </div>
 
-      {showSac && <SACModal onClose={() => setShowSac(false)} corDestaque={D_CORAL_DEEP} email="sac@diaristadealuguel.com.br" />}
+      {showSac && <SACModal onClose={() => setShowSac(false)} corDestaque={D_CORAL_DEEP} email="sac@diaristadealuguel.com.br" servico="Diarista de Aluguel" />}
     </div>
   );
 }
