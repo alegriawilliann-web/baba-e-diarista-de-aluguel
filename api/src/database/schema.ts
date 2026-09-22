@@ -9,3 +9,4 @@ export * from "../modules/professionals/professionals.model";
 export * from "../modules/bookings/bookings.model";
 export * from "../modules/reviews/reviews.model";
 export * from "../modules/payments/payments.model";
+export * from "../modules/boosts/boosts.model";

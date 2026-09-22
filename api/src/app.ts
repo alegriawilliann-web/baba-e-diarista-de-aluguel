@@ -9,6 +9,7 @@ import { professionalsRoutes } from "./modules/professionals/professionals.route
 import { bookingsRoutes } from "./modules/bookings/bookings.routes";
 import { reviewsRoutes } from "./modules/reviews/reviews.routes";
 import { paymentsRoutes, paymentsWebhookRoutes } from "./modules/payments/payments.routes";
+import { boostsRoutes } from "./modules/boosts/boosts.routes";
 
 export const app = new Elysia()
   .use(errorMiddleware)
@@ -18,6 +19,14 @@ export const app = new Elysia()
   .get("/health", () => ({ ok: true, service: "baba-de-aluguel-api" }))
   .get("/", () => ({ ok: true, docs: "/docs" }))
   .group("/api", (api) =>
-    api.use(authRoutes).use(usersRoutes).use(professionalsRoutes).use(bookingsRoutes).use(reviewsRoutes).use(paymentsRoutes).use(paymentsWebhookRoutes)
+    api
+      .use(authRoutes)
+      .use(usersRoutes)
+      .use(professionalsRoutes)
+      .use(bookingsRoutes)
+      .use(reviewsRoutes)
+      .use(paymentsRoutes)
+      .use(paymentsWebhookRoutes)
+      .use(boostsRoutes)
   );
 // Each checkpoint adds `.use(xModuleRoutes)` inside the group above.

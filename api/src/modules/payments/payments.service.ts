@@ -46,8 +46,20 @@ async function applyApprovedSideEffects(payment: typeof payments.$inferSelect) {
       .set({ statusPagamento: "liberado", subscriptionExpiresAt: addDays(new Date(), 30) })
       .where(eq(professionalProfiles.id, payment.referenceId));
   }
-  // purpose === "boost" fica pro modulo boosts (checkpoint seguinte), que
-  // chama updatePaymentStatus/consulta o mesmo jeito.
+
+  if (payment.purpose === "boost" && payment.referenceId) {
+    // Import tardio pra evitar qualquer risco de ciclo de import entre os
+    // dois módulos — boosts.model já depende de payments.model.
+    const { boostPurchases } = await import("../boosts/boosts.model");
+    const purchase = await db.query.boostPurchases.findFirst({ where: eq(boostPurchases.id, payment.referenceId) });
+    if (purchase) {
+      const startedAt = new Date();
+      await db
+        .update(boostPurchases)
+        .set({ status: "ativo", startedAt, expiresAt: addDays(startedAt, purchase.duracaoDias) })
+        .where(eq(boostPurchases.id, purchase.id));
+    }
+  }
 }
 
 // Resolve o professional_profiles do PRÓPRIO usuário logado a partir do
