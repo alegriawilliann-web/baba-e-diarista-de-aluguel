@@ -4,7 +4,7 @@ import { AppError } from "../errors";
 /** Maps known AppError subclasses to consistent JSON responses; anything
  * unexpected logs server-side and returns a bare 500 without leaking
  * internals to the client. */
-export const errorMiddleware = new Elysia({ name: "error-middleware" }).onError(({ error, set, code }) => {
+export const errorMiddleware = new Elysia({ name: "error-middleware" }).onError({ as: "global" }, ({ error, set, code }) => {
   if (error instanceof AppError) {
     set.status = error.status;
     return { error: { code: error.code, message: error.message } };

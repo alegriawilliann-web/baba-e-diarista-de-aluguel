@@ -3,3 +3,5 @@
 // from here instead of reaching into other modules' folders directly.
 //
 // Each checkpoint appends its module's export line here as it's built.
+
+export * from "../modules/users/users.model";

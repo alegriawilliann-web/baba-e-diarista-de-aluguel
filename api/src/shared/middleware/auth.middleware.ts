@@ -19,13 +19,15 @@ export const authPlugin = new Elysia({ name: "auth-plugin" })
     const payload = token ? await accessJwt.verify(token) : false;
     return { user: (payload || null) as JwtPayload | null };
   })
-  .macro(({ onBeforeHandle }) => ({
+  .macro({
     role(roles: Role[]) {
-      onBeforeHandle(({ user }) => {
-        if (!user) throw new UnauthorizedError();
-        if (roles.length === 0) return;
-        const allowed = user.roles.includes("admin") || roles.some((r) => user.roles.includes(r));
-        if (!allowed) throw new ForbiddenError();
-      });
+      return {
+        beforeHandle({ user }: { user: JwtPayload | null }) {
+          if (!user) throw new UnauthorizedError();
+          if (roles.length === 0) return;
+          const allowed = user.roles.includes("admin") || roles.some((r) => user.roles.includes(r));
+          if (!allowed) throw new ForbiddenError();
+        },
+      };
     },
-  }));
+  });
