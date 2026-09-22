@@ -5,3 +5,4 @@
 // Each checkpoint appends its module's export line here as it's built.
 
 export * from "../modules/users/users.model";
+export * from "../modules/professionals/professionals.model";
