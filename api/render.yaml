@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: baba-de-aluguel-api
+    runtime: docker
+    rootDir: api
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: MP_PUBLIC_KEY
+        sync: false
+      - key: MP_WEBHOOK_SECRET
+        sync: false
+      - key: DEFAULT_COUNTRY_CODE
+        value: BR
+      - key: DEFAULT_CURRENCY
+        value: BRL
+      - key: APP_BASE_URL
+        sync: false
+      - key: NODE_ENV
+        value: production
