@@ -6,3 +6,5 @@
 
 export * from "../modules/users/users.model";
 export * from "../modules/professionals/professionals.model";
+export * from "../modules/bookings/bookings.model";
+export * from "../modules/reviews/reviews.model";
