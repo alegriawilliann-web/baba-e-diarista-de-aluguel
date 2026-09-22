@@ -19,6 +19,26 @@ Ver o plano completo de arquitetura em `../` (histórico da conversa) — resumo
 
 Ver `src/` — um módulo por domínio (`modules/auth`, `modules/users`, `modules/professionals`, etc.), cada um com `controller` (HTTP), `service` (regra de negócio), `model` (tabelas Drizzle), `schema` (validação de entrada/saída), `routes` (registro das rotas) e `types`.
 
+## Módulos e status
+
+Todos testados manualmente ponta a ponta (registro → ação → efeito no banco), exceto onde marcado.
+
+| Módulo | O que faz | Status |
+|---|---|---|
+| `auth` | Registro, login, refresh (com rotação), logout, `/me` | ✅ testado |
+| `users` | Perfil, concessão de role de cliente, contatos de confiança, admin | ✅ testado |
+| `professionals` | Cadastro de babá/diarista, busca com filtros, portfólio (diarista) | ✅ testado |
+| `bookings` | Agendar, aceitar/recusar, check-in/out, concluir, cancelar | ✅ testado |
+| `reviews` | Avaliar após conclusão, recalcula rating do profissional | ✅ testado |
+| `payments` | Mensalidade via Pix/cartão (Mercado Pago), webhook | ⚠️ construído e testado até a chamada real ao Mercado Pago — falta validar com credenciais de teste |
+| `boosts` | Catálogo de planos (seedado), compra via Pix | ⚠️ mesma pendência acima (usa `payments`) |
+| `notifications` | Listar, marcar como lida | ✅ testado |
+| `trust-safety` | Bloquear/denunciar; busca exclui bloqueados | ✅ testado |
+| `messages` | Conversas simples (sem tempo real ainda) | ✅ testado |
+| `verifications` | Fila básica de aprovação de documentos (sem upload de arquivo ainda) | ✅ testado |
+
+**Fora do escopo desta API** (avisado desde o início): reescrever `src/App.jsx` pra consumir esses endpoints em vez do estado mockado local — é um projeto grande à parte.
+
 ## Deploy (Render)
 
 - Runtime: Bun
