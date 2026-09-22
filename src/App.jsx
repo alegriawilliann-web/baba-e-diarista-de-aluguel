@@ -9,6 +9,7 @@ import {
   Send, CalendarCheck, CalendarClock, History, ClipboardList, MoreVertical, Flag, Ban, Siren, PhoneCall, MapPinned,
   Radio, Vibrate
 } from "lucide-react";
+import { criarPagamentoPix, criarPagamentoCartao, consultarPagamento, buscarChavePublica } from "./pagamentos.js";
 
 // ---- paleta ----
 const INK = "#16403C";        // verde-petróleo profundo — como o texto da logo
@@ -4814,7 +4815,7 @@ function construirPerfilBaba(r) {
     agenda[d] = dias.includes(d) ? "A combinar" : "Indisponível";
   });
 
-  const statusPagamento = r.formaPagamento === "Boleto" ? "pendente" : "liberado";
+  const statusPagamento = r.formaPagamento === "Boleto" ? "pendente" : "processando";
 
   return {
     id: Date.now(),
@@ -4894,7 +4895,7 @@ function construirPerfilDiarista(r) {
         ...(r.valorPosObraEvento ? [{ label: "Limpeza pós-obra ou pós-evento", valor: `R$ ${r.valorPosObraEvento}` }] : []),
       ];
 
-  const statusPagamento = r.formaPagamento === "Boleto" ? "pendente" : "liberado";
+  const statusPagamento = r.formaPagamento === "Boleto" ? "pendente" : "processando";
 
   return {
     id: Date.now(),
@@ -4928,6 +4929,204 @@ function construirPerfilDiarista(r) {
     formaPagamento: r.formaPagamento,
     statusPagamento,
   };
+}
+
+// ---- pagamento real (Mercado Pago) ----
+
+const MENSALIDADE_CENTAVOS = 2990;
+
+function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) {
+  const metodoInicial = perfil.formaPagamento === "Pix" ? "pix" : "cartao";
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [pix, setPix] = useState(null);
+
+  const [numero, setNumero] = useState("");
+  const [validade, setValidade] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [nomeCartao, setNomeCartao] = useState(perfil.name || "");
+  const [parcelas, setParcelas] = useState(1);
+
+  useEffect(() => {
+    if (metodoInicial !== "pix" || pix) return;
+    let cancelado = false;
+    setCarregando(true);
+    setErro("");
+    criarPagamentoPix({
+      servico,
+      valorCentavos: MENSALIDADE_CENTAVOS,
+      descricao: `Mensalidade ${servico}`,
+      email: perfil.email,
+      nome: perfil.name,
+    })
+      .then((res) => {
+        if (cancelado) return;
+        setPix(res);
+      })
+      .catch(() => {
+        if (cancelado) return;
+        setErro("Não foi possível gerar o Pix agora. Verifique sua internet e tente novamente.");
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!pix || pix.status === "approved") return;
+    const intervalo = setInterval(async () => {
+      try {
+        const status = await consultarPagamento(pix.id);
+        if (status.status === "approved") {
+          clearInterval(intervalo);
+          onSucesso("liberado");
+        }
+      } catch {
+        // tenta de novo no próximo intervalo
+      }
+    }, 3000);
+    return () => clearInterval(intervalo);
+  }, [pix, onSucesso]);
+
+  const copiarCodigoPix = () => {
+    if (!pix?.qrCodeCopiaECola) return;
+    navigator.clipboard?.writeText(pix.qrCodeCopiaECola).catch(() => {});
+  };
+
+  const pagarComCartao = async (e) => {
+    e.preventDefault();
+    setErro("");
+    setCarregando(true);
+    try {
+      if (!window.MercadoPago) throw new Error("O carregador de pagamento não iniciou. Feche e abra o app de novo.");
+      const publicKey = await buscarChavePublica();
+      const mp = new window.MercadoPago(publicKey, { locale: "pt-BR" });
+
+      const numeroLimpo = numero.replace(/\s/g, "");
+      const [mesStr, anoStr] = validade.split("/").map((s) => s.trim());
+      const anoCompleto = anoStr?.length === 2 ? `20${anoStr}` : anoStr;
+
+      const token = await mp.createCardToken({
+        cardNumber: numeroLimpo,
+        cardholderName: nomeCartao,
+        cardExpirationMonth: mesStr,
+        cardExpirationYear: anoCompleto,
+        securityCode: cvv,
+      });
+
+      const metodos = await mp.getPaymentMethods({ bin: numeroLimpo.slice(0, 6) });
+      const metodo = metodos?.results?.[0];
+      if (!metodo) throw new Error("Não reconhecemos a bandeira desse cartão.");
+
+      const resultado = await criarPagamentoCartao({
+        servico,
+        valorCentavos: MENSALIDADE_CENTAVOS,
+        descricao: `Mensalidade ${servico}`,
+        email: perfil.email,
+        token: token.id,
+        parcelas: Number(parcelas),
+        issuerId: metodo.issuer?.id,
+        paymentMethodId: metodo.id,
+      });
+
+      if (resultado.status === "approved") {
+        onSucesso("liberado");
+      } else {
+        setErro("O pagamento não foi aprovado. Confira os dados do cartão ou tente outro cartão.");
+      }
+    } catch (err) {
+      setErro(err?.message || "Não foi possível processar o pagamento no cartão.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 26px", background: PAPER }}>
+      <p style={{ fontFamily: "Fraunces, serif", fontSize: 19, color: INK, fontWeight: 600, textAlign: "center", marginBottom: 6 }}>
+        Pagamento da mensalidade
+      </p>
+      <p style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif", textAlign: "center", marginBottom: 22 }}>
+        R$ 29,90 · {perfil.formaPagamento}
+      </p>
+
+      {erro && (
+        <div style={{ background: "#FBEAEA", border: "1px solid #E3B3B3", borderRadius: 12, padding: "10px 12px", marginBottom: 16 }}>
+          <p style={{ fontSize: 12, color: "#8C2E2E", fontFamily: "Manrope, sans-serif", margin: 0 }}>{erro}</p>
+        </div>
+      )}
+
+      {metodoInicial === "pix" && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          {carregando && !pix && <p style={{ fontSize: 13, color: INK_SOFT, fontFamily: "Manrope, sans-serif" }}>Gerando seu Pix...</p>}
+          {pix?.qrCodeBase64 && (
+            <>
+              <img
+                src={`data:image/png;base64,${pix.qrCodeBase64}`}
+                alt="QR Code Pix"
+                style={{ width: 200, height: 200, borderRadius: 12, border: `1px solid ${LINE}`, marginBottom: 16 }}
+              />
+              <p style={{ fontSize: 11.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", textAlign: "center", marginBottom: 10 }}>
+                Abra o app do seu banco e escaneie o QR code, ou copie o código:
+              </p>
+              <button
+                onClick={copiarCodigoPix}
+                style={{ ...btnSecondary, width: "100%", borderColor: corDestaque, color: corDestaque, marginBottom: 6 }}
+              >
+                <FileText size={15} /> Copiar código Pix
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+                <Clock3 size={14} color={GOLD_DEEP} />
+                <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", margin: 0 }}>
+                  Aguardando confirmação do pagamento...
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {metodoInicial === "cartao" && (
+        <form onSubmit={pagarComCartao} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <input
+            required placeholder="Número do cartão" inputMode="numeric" value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
+          />
+          <input
+            required placeholder="Nome impresso no cartão" value={nomeCartao}
+            onChange={(e) => setNomeCartao(e.target.value)}
+            style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
+          />
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
+              required placeholder="MM/AA" value={validade} onChange={(e) => setValidade(e.target.value)}
+              style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
+            />
+            <input
+              required placeholder="CVV" inputMode="numeric" value={cvv} onChange={(e) => setCvv(e.target.value)}
+              style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
+            />
+          </div>
+          <select
+            value={parcelas} onChange={(e) => setParcelas(e.target.value)}
+            style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif", background: CARD }}
+          >
+            <option value={1}>À vista</option>
+            <option value={2}>2x sem juros</option>
+            <option value={3}>3x sem juros</option>
+          </select>
+          <button type="submit" disabled={carregando} className="shine-cta" style={{ ...btnPrimary, width: "100%", marginTop: 6, opacity: carregando ? 0.7 : 1 }}>
+            {carregando ? "Processando..." : "Pagar R$ 29,90"}
+          </button>
+        </form>
+      )}
+    </div>
+  );
 }
 
 // ---- confirmação de pagamento ----
@@ -5354,7 +5553,16 @@ export default function App() {
         )}
 
         {tela === "confirmacaoPagamentoDiarista" && perfilDiaristaPendente && (
-          <ConfirmacaoPagamento perfil={perfilDiaristaPendente} onContinuar={pagamentoConfirmadoDiarista} />
+          perfilDiaristaPendente.statusPagamento === "processando" ? (
+            <PagamentoReal
+              perfil={perfilDiaristaPendente}
+              servico="Diarista de Aluguel"
+              corDestaque={D_CORAL_DEEP}
+              onSucesso={(status) => setPerfilDiaristaPendente((p) => ({ ...p, statusPagamento: status }))}
+            />
+          ) : (
+            <ConfirmacaoPagamento perfil={perfilDiaristaPendente} onContinuar={pagamentoConfirmadoDiarista} />
+          )
         )}
 
         {tela === "confirmacaoEmailDiarista" && perfilDiaristaPendente && (
@@ -5523,7 +5731,15 @@ export default function App() {
         )}
 
         {tela === "confirmacaoPagamento" && perfilPendente && (
-          <ConfirmacaoPagamento perfil={perfilPendente} onContinuar={pagamentoConfirmado} />
+          perfilPendente.statusPagamento === "processando" ? (
+            <PagamentoReal
+              perfil={perfilPendente}
+              servico="Babá de Aluguel"
+              onSucesso={(status) => setPerfilPendente((p) => ({ ...p, statusPagamento: status }))}
+            />
+          ) : (
+            <ConfirmacaoPagamento perfil={perfilPendente} onContinuar={pagamentoConfirmado} />
+          )
         )}
 
         {tela === "confirmacaoEmailBaba" && perfilPendente && (
