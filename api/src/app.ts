@@ -12,6 +12,8 @@ import { paymentsRoutes, paymentsWebhookRoutes } from "./modules/payments/paymen
 import { boostsRoutes } from "./modules/boosts/boosts.routes";
 import { notificationsRoutes } from "./modules/notifications/notifications.routes";
 import { trustSafetyRoutes } from "./modules/trust-safety/trust-safety.routes";
+import { messagesRoutes } from "./modules/messages/messages.routes";
+import { verificationsRoutes } from "./modules/verifications/verifications.routes";
 
 export const app = new Elysia()
   .use(errorMiddleware)
@@ -32,5 +34,7 @@ export const app = new Elysia()
       .use(boostsRoutes)
       .use(notificationsRoutes)
       .use(trustSafetyRoutes)
+      .use(messagesRoutes)
+      .use(verificationsRoutes)
   );
 // Each checkpoint adds `.use(xModuleRoutes)` inside the group above.

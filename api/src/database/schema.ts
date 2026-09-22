@@ -12,3 +12,5 @@ export * from "../modules/payments/payments.model";
 export * from "../modules/boosts/boosts.model";
 export * from "../modules/notifications/notifications.model";
 export * from "../modules/trust-safety/trust-safety.model";
+export * from "../modules/messages/messages.model";
+export * from "../modules/verifications/verifications.model";

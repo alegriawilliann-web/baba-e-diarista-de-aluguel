@@ -50,6 +50,13 @@
       "when": 1790043331727,
       "tag": "0006_breezy_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790043601674,
+      "tag": "0007_unusual_sleepwalker",
+      "breakpoints": true
     }
   ]
 }
