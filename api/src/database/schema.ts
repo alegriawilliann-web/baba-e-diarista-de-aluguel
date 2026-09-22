@@ -10,3 +10,5 @@ export * from "../modules/bookings/bookings.model";
 export * from "../modules/reviews/reviews.model";
 export * from "../modules/payments/payments.model";
 export * from "../modules/boosts/boosts.model";
+export * from "../modules/notifications/notifications.model";
+export * from "../modules/trust-safety/trust-safety.model";

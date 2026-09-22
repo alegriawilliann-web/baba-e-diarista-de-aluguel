@@ -43,6 +43,13 @@
       "when": 1790043003889,
       "tag": "0005_talented_sphinx",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790043331727,
+      "tag": "0006_breezy_red_wolf",
+      "breakpoints": true
     }
   ]
 }

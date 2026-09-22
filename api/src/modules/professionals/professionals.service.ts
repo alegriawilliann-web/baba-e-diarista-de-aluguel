@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, ilike, or, sql, count } from "drizzle-orm";
+import { eq, and, gte, lte, ilike, or, sql, count, notInArray } from "drizzle-orm";
 import { db } from "../../config/database";
 import { professionalProfiles, portfolioPosts } from "./professionals.model";
 import { users, addresses } from "../users/users.model";
@@ -125,12 +125,20 @@ export async function createProfessionalProfile(userId: string, input: CreatePro
   return shapeProfile(row!);
 }
 
-export async function searchProfessionals(query: SearchProfessionalsQuery) {
+export async function searchProfessionals(query: SearchProfessionalsQuery, callerUserId?: string) {
   const { page, limit, offset } = parsePagination(query);
   const conditions = [
     eq(professionalProfiles.serviceType, query.serviceType),
     eq(professionalProfiles.statusPagamento, "liberado"),
   ];
+
+  if (callerUserId) {
+    // Import tardio pra não criar uma dependência estática entre os dois
+    // módulos além do necessário — só usado quando há um usuário logado.
+    const { blockedProfessionalIds } = await import("../trust-safety/trust-safety.service");
+    const blocked = await blockedProfessionalIds(callerUserId);
+    if (blocked.length > 0) conditions.push(notInArray(professionalProfiles.id, blocked));
+  }
 
   if (query.bairro) conditions.push(ilike(addresses.neighborhood, `%${query.bairro}%`));
   if (query.minRating) conditions.push(gte(professionalProfiles.rating, String(query.minRating)));

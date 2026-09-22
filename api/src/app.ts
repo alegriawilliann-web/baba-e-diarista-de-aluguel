@@ -10,6 +10,8 @@ import { bookingsRoutes } from "./modules/bookings/bookings.routes";
 import { reviewsRoutes } from "./modules/reviews/reviews.routes";
 import { paymentsRoutes, paymentsWebhookRoutes } from "./modules/payments/payments.routes";
 import { boostsRoutes } from "./modules/boosts/boosts.routes";
+import { notificationsRoutes } from "./modules/notifications/notifications.routes";
+import { trustSafetyRoutes } from "./modules/trust-safety/trust-safety.routes";
 
 export const app = new Elysia()
   .use(errorMiddleware)
@@ -28,5 +30,7 @@ export const app = new Elysia()
       .use(paymentsRoutes)
       .use(paymentsWebhookRoutes)
       .use(boostsRoutes)
+      .use(notificationsRoutes)
+      .use(trustSafetyRoutes)
   );
 // Each checkpoint adds `.use(xModuleRoutes)` inside the group above.

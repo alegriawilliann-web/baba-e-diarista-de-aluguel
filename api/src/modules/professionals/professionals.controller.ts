@@ -7,7 +7,7 @@ export async function create(ctx: any) {
 }
 
 export async function search(ctx: any) {
-  return professionalsService.searchProfessionals(ctx.query as SearchProfessionalsQuery);
+  return professionalsService.searchProfessionals(ctx.query as SearchProfessionalsQuery, ctx.user?.sub);
 }
 
 export async function getById(ctx: any) {
