@@ -8,6 +8,7 @@ import { usersRoutes } from "./modules/users/users.routes";
 import { professionalsRoutes } from "./modules/professionals/professionals.routes";
 import { bookingsRoutes } from "./modules/bookings/bookings.routes";
 import { reviewsRoutes } from "./modules/reviews/reviews.routes";
+import { paymentsRoutes, paymentsWebhookRoutes } from "./modules/payments/payments.routes";
 
 export const app = new Elysia()
   .use(errorMiddleware)
@@ -16,5 +17,7 @@ export const app = new Elysia()
   .use(swaggerPlugin)
   .get("/health", () => ({ ok: true, service: "baba-de-aluguel-api" }))
   .get("/", () => ({ ok: true, docs: "/docs" }))
-  .group("/api", (api) => api.use(authRoutes).use(usersRoutes).use(professionalsRoutes).use(bookingsRoutes).use(reviewsRoutes));
+  .group("/api", (api) =>
+    api.use(authRoutes).use(usersRoutes).use(professionalsRoutes).use(bookingsRoutes).use(reviewsRoutes).use(paymentsRoutes).use(paymentsWebhookRoutes)
+  );
 // Each checkpoint adds `.use(xModuleRoutes)` inside the group above.
