@@ -30,8 +30,8 @@ Todos testados manualmente ponta a ponta (registro → ação → efeito no banc
 | `professionals` | Cadastro de babá/diarista, busca com filtros, portfólio (diarista) | ✅ testado |
 | `bookings` | Agendar, aceitar/recusar, check-in/out, concluir, cancelar | ✅ testado |
 | `reviews` | Avaliar após conclusão, recalcula rating do profissional | ✅ testado |
-| `payments` | Mensalidade via Pix/cartão (Mercado Pago), webhook | ⚠️ construído e testado até a chamada real ao Mercado Pago — falta validar com credenciais de teste |
-| `boosts` | Catálogo de planos (seedado), compra via Pix | ⚠️ mesma pendência acima (usa `payments`) |
+| `payments` | Mensalidade via Pix/cartão (Mercado Pago), webhook | ✅ testado (Pix real gerado com credenciais de teste; cartão só compila, não foi testado por exigir um cartão de verdade) |
+| `boosts` | Catálogo de planos (seedado), compra via Pix | ✅ testado |
 | `notifications` | Listar, marcar como lida | ✅ testado |
 | `trust-safety` | Bloquear/denunciar; busca exclui bloqueados | ✅ testado |
 | `messages` | Conversas simples (sem tempo real ainda) | ✅ testado |
@@ -41,8 +41,7 @@ Todos testados manualmente ponta a ponta (registro → ação → efeito no banc
 
 ## Deploy (Render)
 
-- Runtime: Bun
-- Build command: `bun install`
-- Start command: `bun run start`
-- Variáveis de ambiente: as mesmas do `.env`, configuradas no painel do Render (nunca commitadas).
+- Usa `Dockerfile` (imagem oficial `oven/bun`) — evita depender do suporte nativo a Bun do Render, funciona em qualquer host Docker.
+- `render.yaml` já descreve o serviço (Blueprint) — no Render, "New" > "Blueprint", aponte pro repositório e ele detecta sozinho.
+- Variáveis de ambiente marcadas `sync: false` no `render.yaml` precisam ser preenchidas manualmente no painel do Render (não são commitadas): `DATABASE_URL`, `JWT_SECRET`, `MP_ACCESS_TOKEN`, `MP_PUBLIC_KEY`, `MP_WEBHOOK_SECRET`, `APP_BASE_URL`.
 - Configure o webhook do Mercado Pago apontando para `https://<seu-servico>.onrender.com/api/webhooks/mercadopago`.
