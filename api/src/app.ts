@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { corsPlugin } from "./shared/plugins/cors.plugin";
 import { swaggerPlugin } from "./shared/plugins/swagger.plugin";
+import { globalRateLimit } from "./shared/plugins/rate-limit.plugin";
 import { errorMiddleware } from "./shared/middleware/error.middleware";
 import { loggerMiddleware } from "./shared/middleware/logger.middleware";
 import { authRoutes } from "./modules/auth/auth.routes";
@@ -18,6 +19,13 @@ import { verificationsRoutes } from "./modules/verifications/verifications.route
 export const app = new Elysia()
   .use(errorMiddleware)
   .use(loggerMiddleware)
+  .use(globalRateLimit(300, 60 * 1000))
+  .onAfterHandle({ as: "global" }, ({ set }) => {
+    set.headers["x-content-type-options"] = "nosniff";
+    set.headers["x-frame-options"] = "DENY";
+    set.headers["referrer-policy"] = "no-referrer";
+    set.headers["strict-transport-security"] = "max-age=15552000; includeSubDomains";
+  })
   .use(corsPlugin)
   .use(swaggerPlugin)
   .get("/health", () => ({ ok: true, service: "baba-de-aluguel-api" }))
