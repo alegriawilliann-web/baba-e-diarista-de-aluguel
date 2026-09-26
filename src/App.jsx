@@ -5,7 +5,7 @@ import {
   SlidersHorizontal, ChevronDown, RotateCcw, Check, Heart,
   CheckCircle2, XCircle, Home, Car, Camera, RefreshCw, CreditCard,
   QrCode, FileText, Clock3, User, Mail, HelpCircle, Edit3,
-  Rocket, Image, Bell, TrendingUp, Sparkles, Share2, Users, UserPlus, Tag, Eye, EyeOff, ShieldAlert, Lock,
+  Rocket, Image, Bell, Sparkles, Share2, Users, UserPlus, Tag, Eye, EyeOff, ShieldAlert, Lock,
   Send, CalendarCheck, CalendarClock, History, ClipboardList, MoreVertical, Flag, Ban, Siren, PhoneCall, MapPinned,
   Radio, Vibrate
 } from "lucide-react";
@@ -21,7 +21,7 @@ import {
 } from "./api/bookings.js";
 import { createReview } from "./api/reviews.js";
 import { blockProfessional, unblockProfessional, listMyBlocks, reportProfessional } from "./api/trustSafety.js";
-import { getBoostPlans, purchaseBoost, getMyBoosts } from "./api/boosts.js";
+import { getMyBoosts } from "./api/boosts.js";
 import { respostasParaCreateProfessionalInput, respostasParaAgenda } from "./mappers.js";
 
 // ---- paleta ----
@@ -911,9 +911,8 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
 function BabaDetail({
   baba, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAgendar, avaliacoesExtras = [],
   onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso,
-  boosts, planos, carregandoPlanos, onAtivar, tabInicial = "Sobre",
 }) {
-  const [tab, setTab] = useState(tabInicial);
+  const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showAgendar, setShowAgendar] = useState(false);
@@ -924,7 +923,6 @@ function BabaDetail({
   const [seguidores, setSeguidores] = useState(baba.seguidores || 0);
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
-  const [planoAberto, setPlanoAberto] = useState(null);
 
   const extras = avaliacoesExtras.filter((a) => a.prestadorId === baba.id);
   const ratingCount = baba.ratingCount + extras.length;
@@ -935,9 +933,7 @@ function BabaDetail({
     ...extras.filter((a) => a.comentario).map((a) => ({ author: a.autor || "Cliente", relacao: "avaliação recente", texto: a.comentario })),
     ...(baba.depoimentos || []),
   ];
-  const tabs = editable
-    ? ["Sobre", "Depoimentos", "Avaliações", "Valores & agenda", "Impulsionar"]
-    : ["Sobre", "Depoimentos", "Avaliações", "Valores & agenda"];
+  const tabs = ["Sobre", "Depoimentos", "Avaliações", "Valores & agenda"];
   const editando = edit !== null;
 
   const iniciarEdicao = () => {
@@ -1358,36 +1354,8 @@ function BabaDetail({
               )}
             </div>
           )}
-
-          {tab === "Impulsionar" && editable && (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <Sparkles size={16} color={GOLD_DEEP} />
-                <span style={{ fontFamily: "Fraunces, serif", fontSize: 15, color: INK, fontWeight: 600 }}>Divulgue seu trabalho</span>
-              </div>
-              <p style={{ fontSize: 12, color: INK_SOFT, fontFamily: "Manrope, sans-serif", lineHeight: 1.6, marginBottom: 16 }}>
-                Aumente suas chances de ser encontrada pelas famílias com essas opções de divulgação dentro do aplicativo.
-              </p>
-              {carregandoPlanos && (
-                <p style={{ fontSize: 12, color: INK_SOFT, fontFamily: "Manrope, sans-serif" }}>Carregando planos...</p>
-              )}
-              {Object.entries(planos || {}).map(([key, plano]) => (
-                <CardImpulsionamento key={key} planoKey={key} plano={plano} boost={boosts?.[key]} onImpulsionar={setPlanoAberto} />
-              ))}
-            </div>
-          )}
         </div>
       </div>
-
-      {planoAberto && planos?.[planoAberto] && (
-        <PlanoModal
-          planoKey={planoAberto}
-          plano={planos[planoAberto]}
-          serviceType="baba"
-          onClose={() => setPlanoAberto(null)}
-          onConfirmar={async () => { await onAtivar(); }}
-        />
-      )}
 
       {!editable && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, display: "flex", flexDirection: "column", gap: 8, background: `linear-gradient(180deg, transparent, ${PAPER} 30%)` }}>
@@ -2069,9 +2037,8 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
 function DiaristaDetail({
   diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onAgendar, avaliacoesExtras = [],
   onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso,
-  boosts, planos, carregandoPlanos, onAtivar, tabInicial = "Sobre",
 }) {
-  const [tab, setTab] = useState(tabInicial);
+  const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showAgendar, setShowAgendar] = useState(false);
@@ -2083,7 +2050,6 @@ function DiaristaDetail({
   const [seguidores, setSeguidores] = useState(diarista.seguidores || 0);
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
-  const [planoAberto, setPlanoAberto] = useState(null);
 
   const extras = avaliacoesExtras.filter((a) => a.prestadorId === diarista.id);
   const ratingCount = diarista.ratingCount + extras.length;
@@ -2094,9 +2060,7 @@ function DiaristaDetail({
     ...extras.filter((a) => a.comentario).map((a) => ({ author: a.autor || "Cliente", relacao: "avaliação recente", texto: a.comentario })),
     ...(diarista.depoimentos || []),
   ];
-  const tabs = editable
-    ? ["Sobre", "Trabalhos", "Depoimentos", "Avaliações", "Valores & agenda", "Impulsionar"]
-    : ["Sobre", "Trabalhos", "Depoimentos", "Avaliações", "Valores & agenda"];
+  const tabs = ["Sobre", "Trabalhos", "Depoimentos", "Avaliações", "Valores & agenda"];
   const editando = edit !== null;
 
   const iniciarEdicao = () => {
@@ -2588,36 +2552,8 @@ function DiaristaDetail({
               )}
             </div>
           )}
-
-          {tab === "Impulsionar" && editable && (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <Sparkles size={16} color={D_CORAL_DEEP} />
-                <span style={{ fontFamily: "Fraunces, serif", fontSize: 15, color: "#3A2420", fontWeight: 600 }}>Divulgue seu trabalho</span>
-              </div>
-              <p style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif", lineHeight: 1.6, marginBottom: 16 }}>
-                Aumente suas chances de ser encontrada pelos clientes com essas opções de divulgação dentro do aplicativo.
-              </p>
-              {carregandoPlanos && (
-                <p style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Carregando planos...</p>
-              )}
-              {Object.entries(planos || {}).map(([key, plano]) => (
-                <CardImpulsionamento key={key} planoKey={key} plano={plano} boost={boosts?.[key]} onImpulsionar={setPlanoAberto} />
-              ))}
-            </div>
-          )}
         </div>
       </div>
-
-      {planoAberto && planos?.[planoAberto] && (
-        <PlanoModal
-          planoKey={planoAberto}
-          plano={planos[planoAberto]}
-          serviceType="diarista"
-          onClose={() => setPlanoAberto(null)}
-          onConfirmar={async () => { await onAtivar(); }}
-        />
-      )}
 
       {!editable && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, display: "flex", flexDirection: "column", gap: 8, background: "linear-gradient(180deg, transparent, #FFF6F1 30%)" }}>
@@ -4487,20 +4423,11 @@ function FotoCameraStep({ foto, setFoto }) {
 
 // ---- forma de pagamento da mensalidade ----
 
-const CEP_MOCK = {
-  "04101000": { rua: "Rua Domingos de Morais", bairro: "Vila Mariana", cidade: "São Paulo" },
-  "04104000": { rua: "Rua Vergueiro", bairro: "Vila Mariana", cidade: "São Paulo" },
-  "03310000": { rua: "Rua Tuiuti", bairro: "Tatuapé", cidade: "São Paulo" },
-  "03323000": { rua: "Rua Serra de Bragança", bairro: "Tatuapé", cidade: "São Paulo" },
-  "02017000": { rua: "Rua Voluntários da Pátria", bairro: "Santana", cidade: "São Paulo" },
-  "02403000": { rua: "Avenida Cruzeiro do Sul", bairro: "Santana", cidade: "São Paulo" },
-};
-
 function EnderecoStep({ respostas, setCampo, corDestaque = GOLD_DEEP }) {
   const [buscando, setBuscando] = useState(false);
   const [statusBusca, setStatusBusca] = useState(null); // null | "ok" | "naoEncontrado" | "invalido"
 
-  const buscarCep = () => {
+  const buscarCep = async () => {
     const limpo = (respostas.cep || "").replace(/\D/g, "");
     if (limpo.length !== 8) {
       setStatusBusca("invalido");
@@ -4508,18 +4435,23 @@ function EnderecoStep({ respostas, setCampo, corDestaque = GOLD_DEEP }) {
     }
     setBuscando(true);
     setStatusBusca(null);
-    setTimeout(() => {
-      const achado = CEP_MOCK[limpo];
-      if (achado) {
-        setCampo("rua", achado.rua);
-        setCampo("bairro", achado.bairro);
-        setCampo("cidade", achado.cidade);
-        setStatusBusca("ok");
-      } else {
+    try {
+      const resposta = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+      const dados = await resposta.json();
+      if (!resposta.ok || dados.erro) {
         setStatusBusca("naoEncontrado");
+      } else {
+        setCampo("rua", dados.logradouro || "");
+        setCampo("bairro", dados.bairro || "");
+        setCampo("cidade", dados.localidade || "");
+        setCampo("estado", dados.uf || "");
+        setStatusBusca("ok");
       }
+    } catch {
+      setStatusBusca("naoEncontrado");
+    } finally {
       setBuscando(false);
-    }, 600);
+    }
   };
 
   return (
@@ -4542,10 +4474,10 @@ function EnderecoStep({ respostas, setCampo, corDestaque = GOLD_DEEP }) {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 5, marginBottom: 14 }}>
         {statusBusca === "ok" ? <ShieldCheck size={12} color={FOREST} style={{ marginTop: 1, flexShrink: 0 }} /> : <MapPin size={12} color="#8B6A52" style={{ marginTop: 1, flexShrink: 0 }} />}
         <span style={{ fontSize: 10.5, color: statusBusca === "ok" ? FOREST : "#8B6A52", fontFamily: "Manrope, sans-serif", lineHeight: 1.4 }}>
-          {statusBusca === "ok" && "Endereço localizado e validado com o Google Maps."}
+          {statusBusca === "ok" && "Endereço localizado automaticamente pelo CEP."}
           {statusBusca === "naoEncontrado" && "CEP não encontrado — confirme e preencha os campos abaixo."}
           {statusBusca === "invalido" && "Digite um CEP com 8 números."}
-          {!statusBusca && "Buscamos e confirmamos seu endereço com o Google Maps, para não errar a localização."}
+          {!statusBusca && "Buscamos seu endereço automaticamente pelo CEP, pra não errar a localização."}
         </span>
       </div>
 
@@ -4556,7 +4488,10 @@ function EnderecoStep({ respostas, setCampo, corDestaque = GOLD_DEEP }) {
           <input style={{ ...inputStyle, flex: 2 }} placeholder="Complemento (opcional)" value={respostas.complemento || ""} onChange={(e) => setCampo("complemento", e.target.value)} />
         </div>
         <input style={inputStyle} placeholder="Bairro" value={respostas.bairro || ""} onChange={(e) => setCampo("bairro", e.target.value)} />
-        <input style={inputStyle} placeholder="Cidade" value={respostas.cidade || ""} onChange={(e) => setCampo("cidade", e.target.value)} />
+        <div style={{ display: "flex", gap: 10 }}>
+          <input style={{ ...inputStyle, flex: 3 }} placeholder="Cidade" value={respostas.cidade || ""} onChange={(e) => setCampo("cidade", e.target.value)} />
+          <input style={{ ...inputStyle, flex: 1 }} placeholder="UF" maxLength={2} value={respostas.estado || ""} onChange={(e) => setCampo("estado", e.target.value.toUpperCase())} />
+        </div>
       </div>
     </div>
   );
@@ -4668,23 +4603,6 @@ function CartaoStep({ respostas, setCampo }) {
 
 // ---- impulsionamento (divulgação paga do perfil da babá) ----
 
-const BOOST_ICONS = { "trending-up": TrendingUp, "image": Image, "sparkles": Sparkles };
-
-/** Converte o catálogo real (GET /boosts/plans, preços em centavos) pro
- * formato que PlanoModal/CardImpulsionamento já sabem renderizar. */
-function adaptarPlanosBoost(planosDto) {
-  const mapa = {};
-  (planosDto || []).forEach((p) => {
-    mapa[p.key] = {
-      titulo: p.titulo,
-      descricao: p.descricao,
-      icone: BOOST_ICONS[p.iconeKey] || Sparkles,
-      opcoes: (p.opcoes || []).map((o) => ({ dias: o.dias, preco: o.precoCents / 100 })),
-    };
-  });
-  return mapa;
-}
-
 /** Converte as compras reais (GET /boosts/mine) no formato local
  * { [planKey]: { ativo, dias } } que MaeView/BabaCard já leem. */
 function reduzirBoostsAtivos(rows) {
@@ -4697,203 +4615,6 @@ function reduzirBoostsAtivos(rows) {
     }
   });
   return mapa;
-}
-
-function formatarPreco(v) {
-  return v.toFixed(2).replace(".", ",");
-}
-
-function PlanoModal({ planoKey, plano, serviceType, onClose, onConfirmar }) {
-  const [duracao, setDuracao] = useState(plano.opcoes[1]);
-  const [etapa, setEtapa] = useState("escolha"); // escolha | pagando | confirmado
-  const [pix, setPix] = useState(null);
-  const [erro, setErro] = useState("");
-  const [gerando, setGerando] = useState(false);
-  const Icone = plano.icone;
-
-  useEffect(() => {
-    if (etapa !== "pagando" || !pix || pix.status === "aprovado") return;
-    const intervalo = setInterval(async () => {
-      try {
-        const status = await getPaymentStatus(pix.id);
-        if (status.status === "aprovado") {
-          clearInterval(intervalo);
-          await onConfirmar();
-          setEtapa("confirmado");
-        }
-      } catch {
-        // tenta de novo no próximo intervalo
-      }
-    }, 3000);
-    return () => clearInterval(intervalo);
-  }, [etapa, pix, onConfirmar]);
-
-  const copiarCodigoPix = () => {
-    if (!pix?.qrCodeCopiaECola) return;
-    navigator.clipboard?.writeText(pix.qrCodeCopiaECola).catch(() => {});
-  };
-
-  const iniciarPagamento = async () => {
-    setErro("");
-    setGerando(true);
-    setEtapa("pagando");
-    try {
-      const resultado = await purchaseBoost({ planKey: planoKey, durationDays: duracao.dias, serviceType });
-      setPix(resultado.payment);
-    } catch (e) {
-      setErro(e.message || "Não foi possível gerar o Pix agora. Tente novamente.");
-      setEtapa("escolha");
-    } finally {
-      setGerando(false);
-    }
-  };
-
-  if (etapa === "confirmado") {
-    return (
-      <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
-        <div onClick={(e) => e.stopPropagation()} style={{
-          background: CARD, width: "100%", borderRadius: "22px 22px 0 0", padding: "26px 22px 30px",
-          fontFamily: "Manrope, sans-serif", display: "flex", flexDirection: "column", alignItems: "center",
-        }}>
-          <div style={{
-            width: 60, height: 60, borderRadius: "50%", background: "#DCEEE9",
-            display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14,
-          }}>
-            <CheckCircle2 size={28} color={FOREST} />
-          </div>
-          <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, color: INK, fontWeight: 600, marginBottom: 6, textAlign: "center" }}>
-            Impulsionamento ativado!
-          </p>
-          <p style={{ fontSize: 12.5, color: "#3A2F26", textAlign: "center", lineHeight: 1.6, marginBottom: 20 }}>
-            {plano.titulo} por {duracao.dias} dias. Seu perfil já está sendo divulgado para as famílias.
-          </p>
-          <button className="shine-cta" onClick={onClose} style={{ ...btnPrimary, width: "100%" }}>Fechar</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{
-        background: CARD, width: "100%", borderRadius: "22px 22px 0 0", padding: "22px 20px 28px", fontFamily: "Manrope, sans-serif",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Icone size={16} color={GOLD_DEEP} />
-            <span style={{ fontFamily: "Fraunces, serif", fontSize: 16, color: INK }}>{plano.titulo}</span>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
-            <X size={18} color={INK} />
-          </button>
-        </div>
-        <p style={{ fontSize: 11.5, color: INK_SOFT, lineHeight: 1.5, marginBottom: 16 }}>{plano.descricao}</p>
-
-        {etapa === "escolha" && (
-          <>
-            <p style={{ fontSize: 11, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Escolha a duração</p>
-            <div style={{ display: "flex", gap: 7, marginBottom: 16 }}>
-              {plano.opcoes.map((opt) => (
-                <button key={opt.dias} onClick={() => setDuracao(opt)} style={{
-                  flex: 1, padding: "10px 4px", borderRadius: 12, cursor: "pointer", textAlign: "center",
-                  border: `1.5px solid ${duracao.dias === opt.dias ? GOLD_DEEP : LINE}`,
-                  background: duracao.dias === opt.dias ? GOLD : CARD,
-                  color: duracao.dias === opt.dias ? "#4A2A12" : INK_SOFT,
-                }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{opt.dias} dias</div>
-                  <div style={{ fontSize: 10.5 }}>R$ {formatarPreco(opt.preco)}</div>
-                </button>
-              ))}
-            </div>
-
-            <p style={{ fontSize: 10.5, color: "#8B6A52", marginBottom: 16 }}>Pagamento via Pix.</p>
-
-            {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginBottom: 10 }}>{erro}</p>}
-            <button className="shine-cta" onClick={iniciarPagamento} disabled={gerando} style={{
-              ...btnPrimary, width: "100%", marginTop: 2, opacity: gerando ? 0.6 : 1, cursor: gerando ? "default" : "pointer",
-            }}>
-              {gerando ? "Gerando Pix..." : `Pagar com Pix — R$ ${formatarPreco(duracao.preco)}`}
-            </button>
-          </>
-        )}
-
-        {etapa === "pagando" && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            {!pix && <p style={{ fontSize: 13, color: INK_SOFT, fontFamily: "Manrope, sans-serif" }}>Gerando seu Pix...</p>}
-            {pix?.qrCodeBase64 && (
-              <>
-                <img
-                  src={`data:image/png;base64,${pix.qrCodeBase64}`}
-                  alt="QR Code Pix"
-                  style={{ width: 200, height: 200, borderRadius: 12, border: `1px solid ${LINE}`, marginBottom: 16 }}
-                />
-                <p style={{ fontSize: 11.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", textAlign: "center", marginBottom: 10 }}>
-                  Abra o app do seu banco e escaneie o QR code, ou copie o código:
-                </p>
-                <button onClick={copiarCodigoPix} style={{ ...btnSecondary, width: "100%", marginBottom: 6 }}>
-                  <FileText size={15} /> Copiar código Pix
-                </button>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
-                  <Clock3 size={14} color={GOLD_DEEP} />
-                  <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", margin: 0 }}>
-                    Aguardando confirmação do pagamento...
-                  </p>
-                </div>
-              </>
-            )}
-            {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginTop: 10 }}>{erro}</p>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CardImpulsionamento({ planoKey, plano, boost, onImpulsionar }) {
-  const Icone = plano.icone;
-  const ativo = boost?.ativo;
-  return (
-    <div style={{
-      background: CARD, border: `1px solid ${ativo ? GOLD_DEEP : LINE}`, borderRadius: 16,
-      padding: "14px 15px", marginBottom: 12, fontFamily: "Manrope, sans-serif",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 6 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: "50%", background: "#FBEBD9",
-          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-        }}>
-          <Icone size={15} color={GOLD_DEEP} />
-        </div>
-        <span style={{ fontSize: 14, fontWeight: 700, color: INK, flex: 1 }}>{plano.titulo}</span>
-        {ativo && (
-          <span style={{ fontSize: 9.5, fontWeight: 700, color: FOREST, background: "#DCEEE9", padding: "3px 9px", borderRadius: 10 }}>
-            Ativo
-          </span>
-        )}
-      </div>
-      <p style={{ fontSize: 11.5, color: INK_SOFT, lineHeight: 1.5, marginBottom: 12 }}>{plano.descricao}</p>
-
-      {ativo ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#F4EADC", borderRadius: 10, padding: "9px 11px" }}>
-          <Clock3 size={13} color={GOLD_DEEP} />
-          <span style={{ fontSize: 11.5, color: "#6B4A24" }}>Plano de {boost.dias} dias em andamento</span>
-        </div>
-      ) : (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11.5, color: "#8B6A52" }}>
-            A partir de <span style={{ color: INK, fontWeight: 700 }}>R$ {formatarPreco(plano.opcoes[0].preco)}</span>
-          </span>
-          <button onClick={() => onImpulsionar(planoKey)} style={{
-            display: "flex", alignItems: "center", gap: 5, background: GOLD, border: "none",
-            borderRadius: 20, padding: "8px 14px", cursor: "pointer",
-          }}>
-            <TrendingUp size={13} color="#4A2A12" />
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#4A2A12" }}>Impulsionar</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function CadastroMae({
@@ -4959,7 +4680,7 @@ const perguntasBaba = [
     ajuda: "A foto só pode ser tirada pela câmera, na hora — nunca enviada da galeria. Se preferir, você pode fazer isso depois, direto no seu perfil." },
   { key: "idade", pergunta: "Quantos anos você tem?", tipo: "numero", placeholder: "Ex: 29", min: 16, max: 100 },
   { key: "endereco", pergunta: "Qual é o seu endereço?", tipo: "endereco",
-    ajuda: "Usamos o Google Maps para confirmar direitinho a localização do seu endereço." },
+    ajuda: "Digite seu CEP para preencher o endereço automaticamente." },
   { key: "experienciaBebe", pergunta: "Você tem experiência com bebês?", tipo: "escolha", opcoes: ["Sim", "Não"] },
   { key: "experienciaRecemNascido", pergunta: "E com recém-nascidos, também tem experiência?", tipo: "escolha", opcoes: ["Sim", "Não"] },
   { key: "sabeCozinhar", pergunta: "Você sabe cozinhar?", tipo: "escolha", opcoes: ["Sim", "Não"] },
@@ -5001,7 +4722,7 @@ const perguntasDiarista = [
     ajuda: "A foto só pode ser tirada pela câmera, na hora — nunca enviada da galeria. Se preferir, você pode fazer isso depois, direto no seu perfil." },
   { key: "idade", pergunta: "Quantos anos você tem?", tipo: "numero", placeholder: "Ex: 35", min: 16, max: 100 },
   { key: "endereco", pergunta: "Qual é o seu endereço?", tipo: "endereco",
-    ajuda: "Usamos o Google Maps para confirmar direitinho a localização do seu endereço." },
+    ajuda: "Digite seu CEP para preencher o endereço automaticamente." },
   { key: "fazFaxina", pergunta: "Você faz faxina completa (limpeza pesada)?", tipo: "escolha", opcoes: ["Sim", "Não"] },
   { key: "trabalhaComMaisPessoas", pergunta: "Você trabalha sozinha ou com mais pessoas?", tipo: "escolha",
     opcoes: ["Trabalho sozinha", "Trabalho com mais pessoas"] },
@@ -5710,14 +5431,11 @@ export default function App() {
     try { return localStorage.getItem("lastModoBaba") || "mae"; } catch { return "mae"; }
   });
   const [selecionada, setSelecionada] = useState(null);
-  const [abaPerfilInicial, setAbaPerfilInicial] = useState("Sobre");
   const [meuPerfilBaba, setMeuPerfilBaba] = useState(minhaBaba);
   const [meuPerfilMae, setMeuPerfilMae] = useState(null);
   const [verPerfilMae, setVerPerfilMae] = useState(false);
   const [perfilPendente, setPerfilPendente] = useState(null);
   const [boosts, setBoosts] = useState({});
-  const [planosImpulsionamento, setPlanosImpulsionamento] = useState({});
-  const [carregandoPlanosBoost, setCarregandoPlanosBoost] = useState(false);
   const [contratacoes, setContratacoes] = useState([]);
   const [verHistorico, setVerHistorico] = useState(null); // null | "cliente" | "prestadorBaba" | "prestadorDiarista"
   const [avaliando, setAvaliando] = useState(null); // contratação sendo avaliada
@@ -5905,21 +5623,13 @@ export default function App() {
     return () => { cancelado = true; };
   }, [auth.status]);
 
-  // Catálogo de planos de impulsionamento (preços/duração vêm do servidor,
-  // não são mais fixos no front) e as compras já ativas do profissional.
+  // Compras de impulsionamento já ativas (a compra em si está pausada por
+  // enquanto — só lemos o que já existe pra manter o destaque de quem já
+  // tinha um plano ativo).
   useEffect(() => {
     if (auth.status !== "authenticated") return;
     let cancelado = false;
-    setCarregandoPlanosBoost(true);
     (async () => {
-      try {
-        const planos = await getBoostPlans();
-        if (!cancelado) setPlanosImpulsionamento(adaptarPlanosBoost(planos));
-      } catch {
-        // silencioso — a tela de impulsionamento mostra a lista vazia
-      } finally {
-        if (!cancelado) setCarregandoPlanosBoost(false);
-      }
       try {
         const rows = await getMyBoosts();
         if (!cancelado) setBoosts(reduzirBoostsAtivos(rows));
@@ -5998,15 +5708,6 @@ export default function App() {
 
   const atualizarFotoPerfilMae = (fotoUrl) => {
     setMeuPerfilMae((p) => ({ ...(p || {}), fotoUrl }));
-  };
-
-  const ativarImpulsionamento = async () => {
-    try {
-      const rows = await getMyBoosts();
-      setBoosts(reduzirBoostsAtivos(rows));
-    } catch (e) {
-      adicionarNotificacao(e.message || "Pagamento confirmado, mas não foi possível atualizar o status agora.");
-    }
   };
 
   const FORMA_PAGAMENTO_API = { "Pix": "pix", "Cartão de crédito": "credito" };
@@ -6514,10 +6215,6 @@ export default function App() {
                   avaliacoesExtras={avaliacoesExtras}
                   onVerAgenda={() => setVerHistorico("prestadorDiarista")}
                   pendentesCount={pendentesDiarista}
-                  boosts={boosts}
-                  planos={planosImpulsionamento}
-                  carregandoPlanos={carregandoPlanosBoost}
-                  onAtivar={ativarImpulsionamento}
                 />
               )}
             </div>
@@ -6610,29 +6307,6 @@ export default function App() {
                   <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 10, textAlign: "center" }}>
                     Toque no seu cartão para ver e editar seu perfil público.
                   </p>
-
-                  <button onClick={() => { setAbaPerfilInicial("Impulsionar"); setSelecionada(meuPerfilBaba); }} style={{
-                    display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
-                    background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_DEEP} 100%)`, border: "none",
-                    borderRadius: 16, padding: "14px 15px", marginTop: 18, cursor: "pointer",
-                    boxShadow: "0 4px 14px rgba(156,95,53,0.25)",
-                  }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: "50%", background: "rgba(255,255,255,0.35)",
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                    }}>
-                      <Rocket size={17} color="#4A2A12" />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13.5, fontWeight: 700, color: "#4A2A12", fontFamily: "Manrope, sans-serif", margin: 0 }}>
-                        Impulsionar meu perfil
-                      </p>
-                      <p style={{ fontSize: 11, color: "#4A2A12", fontFamily: "Manrope, sans-serif", margin: "2px 0 0" }}>
-                        Apareça mais para as famílias e receba mais chamadas
-                      </p>
-                    </div>
-                    <ChevronLeft size={16} color="#4A2A12" style={{ transform: "rotate(180deg)" }} />
-                  </button>
                 </div>
               )}
             </div>
@@ -6700,7 +6374,7 @@ export default function App() {
         {tela === "app" && !verHistorico && !verBloqueados && selecionada && (
           <BabaDetail
             baba={selecionada}
-            onBack={() => { setSelecionada(null); setAbaPerfilInicial("Sobre"); }}
+            onBack={() => setSelecionada(null)}
             editable={modo === "baba"}
             onAtualizarFoto={modo === "baba" ? atualizarFotoPerfil : undefined}
             onSalvarPerfil={modo === "baba" ? atualizarPerfilBaba : undefined}
@@ -6713,11 +6387,6 @@ export default function App() {
             meuContato={meuPerfilMae}
             onConfigurarContato={() => { setSelecionada(null); setVerPerfilMae(true); }}
             onAvisoSilencioso={notificarContatosConfianca}
-            boosts={boosts}
-            planos={planosImpulsionamento}
-            carregandoPlanos={carregandoPlanosBoost}
-            onAtivar={ativarImpulsionamento}
-            tabInicial={modo === "baba" ? abaPerfilInicial : "Sobre"}
           />
         )}
       </div>

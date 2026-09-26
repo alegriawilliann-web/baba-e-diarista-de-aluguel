@@ -37,6 +37,7 @@ function enderecoParaApi(respostas) {
     complement: respostas.complemento || undefined,
     neighborhood: respostas.bairro || undefined,
     city: respostas.cidade || "São Paulo",
+    region: respostas.estado || undefined,
     countryCode: "BR",
   };
 }
