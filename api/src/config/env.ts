@@ -24,6 +24,9 @@ export const env = {
   MP_PUBLIC_KEY: process.env.MP_PUBLIC_KEY ?? "",
   MP_WEBHOOK_SECRET: process.env.MP_WEBHOOK_SECRET ?? "",
 
+  RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
+  EMAIL_FROM: process.env.EMAIL_FROM ?? "Baba de Aluguel <onboarding@resend.dev>",
+
   DEFAULT_COUNTRY_CODE: process.env.DEFAULT_COUNTRY_CODE ?? "BR",
   DEFAULT_CURRENCY: process.env.DEFAULT_CURRENCY ?? "BRL",
 

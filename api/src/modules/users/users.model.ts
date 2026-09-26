@@ -28,6 +28,22 @@ export const userRoles = pgTable(
   (t) => [unique().on(t.userId, t.role), index("user_roles_user_id_idx").on(t.userId)]
 );
 
+export const authTokenPurposeEnum = pgEnum("auth_token_purpose", ["email_verification", "password_reset"]);
+
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    purpose: authTokenPurposeEnum("purpose").notNull(),
+    tokenHash: varchar("token_hash", { length: 255 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("auth_tokens_user_id_idx").on(t.userId), index("auth_tokens_token_hash_idx").on(t.tokenHash)]
+);
+
 export const refreshTokens = pgTable(
   "refresh_tokens",
   {

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Star, Phone, MessageCircle, ShieldCheck, MapPin, Search,
-  ChevronLeft, Clock, Wallet, Calendar, X, Quote, ArrowLeftRight,
+  ChevronLeft, Clock, Wallet, Calendar, X, Quote,
   SlidersHorizontal, ChevronDown, RotateCcw, Check, Heart,
   CheckCircle2, XCircle, Home, Car, Camera, RefreshCw, CreditCard,
   QrCode, FileText, Clock3, User, Mail, HelpCircle, Edit3,
@@ -9,7 +9,20 @@ import {
   Send, CalendarCheck, CalendarClock, History, ClipboardList, MoreVertical, Flag, Ban, Siren, PhoneCall, MapPinned,
   Radio, Vibrate
 } from "lucide-react";
-import { criarPagamentoPix, criarPagamentoCartao, consultarPagamento, buscarChavePublica } from "./pagamentos.js";
+import { App as CapacitorApp } from "@capacitor/app";
+import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
+import { forgotPassword, resetPassword } from "./api/auth.js";
+import { useAuth } from "./hooks/useAuth.js";
+import { grantClientRole } from "./api/users.js";
+import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile } from "./api/professionals.js";
+import {
+  createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
+  checkinBooking, checkoutBooking, completeBooking,
+} from "./api/bookings.js";
+import { createReview } from "./api/reviews.js";
+import { blockProfessional, unblockProfessional, listMyBlocks, reportProfessional } from "./api/trustSafety.js";
+import { getBoostPlans, purchaseBoost, getMyBoosts } from "./api/boosts.js";
+import { respostasParaCreateProfessionalInput, respostasParaAgenda } from "./mappers.js";
 
 // ---- paleta ----
 const INK = "#16403C";        // verde-petróleo profundo — como o texto da logo
@@ -658,6 +671,8 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
   const [horario, setHorario] = useState(null);
   const [formaPagamento, setFormaPagamento] = useState("Pix");
   const [confirmado, setConfirmado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
 
   const proximosDias = useMemo(() => {
     const nomesDia = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -668,6 +683,7 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
       d.setDate(hoje.getDate() + i);
       dias.push({
         label: `${nomesDia[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
+        iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
       });
     }
     return dias;
@@ -676,9 +692,19 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
   const horarios = ["08:00", "10:00", "13:00", "15:00", "18:00"];
   const valorTexto = prestador.valorCombinar ? "A combinar" : `R$ ${prestador.precoHora}`;
 
-  const confirmar = () => {
-    onConfirmar({ data: diaEscolhido, horario, formaPagamento, valor: valorTexto, servico: tipoServico });
-    setConfirmado(true);
+  const confirmar = async () => {
+    setErro("");
+    setEnviando(true);
+    try {
+      await onConfirmar({
+        data: diaEscolhido.label, dataISO: diaEscolhido.iso, horario, formaPagamento, valor: valorTexto, servico: tipoServico,
+      });
+      setConfirmado(true);
+    } catch (e) {
+      setErro(e.message || "Não foi possível enviar o pedido agora. Tente novamente.");
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -705,7 +731,7 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
               <CalendarCheck size={26} color={FOREST} />
             </div>
             <p style={{ fontSize: 13.5, color: INK, lineHeight: 1.6, marginBottom: 18 }}>
-              {prestador.name.split(" ")[0]} foi avisada e vai confirmar a presença no dia {diaEscolhido} às {horario}.
+              {prestador.name.split(" ")[0]} foi avisada e vai confirmar a presença no dia {diaEscolhido?.label} às {horario}.
               Você pode acompanhar em <b>Minhas contratações</b>.
             </p>
             <button className="shine-cta" onClick={onClose} style={{ ...btnPrimary, background: corDestaque, width: "100%" }}>
@@ -717,11 +743,11 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
             <p style={{ fontSize: 11.5, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Escolha o dia</p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
               {proximosDias.map((d) => (
-                <button key={d.label} onClick={() => setDiaEscolhido(d.label)} style={{
+                <button key={d.label} onClick={() => setDiaEscolhido(d)} style={{
                   fontSize: 11.5, padding: "8px 11px", borderRadius: 10, cursor: "pointer",
-                  border: `1.5px solid ${diaEscolhido === d.label ? corDestaque : LINE}`,
-                  background: diaEscolhido === d.label ? corDestaque : CARD,
-                  color: diaEscolhido === d.label ? "#FFFFFF" : INK_SOFT, fontFamily: "Manrope, sans-serif",
+                  border: `1.5px solid ${diaEscolhido?.label === d.label ? corDestaque : LINE}`,
+                  background: diaEscolhido?.label === d.label ? corDestaque : CARD,
+                  color: diaEscolhido?.label === d.label ? "#FFFFFF" : INK_SOFT, fontFamily: "Manrope, sans-serif",
                 }}>
                   {d.label}
                 </button>
@@ -754,7 +780,7 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
             <div style={{ background: PAPER, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 5 }}>
                 <span style={{ color: INK_SOFT }}>Dia e horário</span>
-                <span style={{ color: INK, fontWeight: 700 }}>{diaEscolhido} às {horario}</span>
+                <span style={{ color: INK, fontWeight: 700 }}>{diaEscolhido?.label} às {horario}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
                 <span style={{ color: INK_SOFT }}>Valor</span>
@@ -766,8 +792,11 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
             <p style={{ fontSize: 10.5, color: "#8B6A52", margin: "10px 0 18px", lineHeight: 1.5 }}>
               O valor só é cobrado depois que {prestador.name.split(" ")[0]} confirmar o agendamento.
             </p>
-            <button className="shine-cta" onClick={confirmar} style={{ ...btnPrimary, background: corDestaque, width: "100%" }}>
-              Confirmar agendamento
+            {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginBottom: 10 }}>{erro}</p>}
+            <button className="shine-cta" onClick={confirmar} disabled={enviando} style={{
+              ...btnPrimary, background: corDestaque, width: "100%", opacity: enviando ? 0.6 : 1, cursor: enviando ? "default" : "pointer",
+            }}>
+              {enviando ? "Enviando..." : "Confirmar agendamento"}
             </button>
           </>
         )}
@@ -882,8 +911,9 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
 function BabaDetail({
   baba, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAgendar, avaliacoesExtras = [],
   onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso,
+  boosts, planos, carregandoPlanos, onAtivar, tabInicial = "Sobre",
 }) {
-  const [tab, setTab] = useState("Sobre");
+  const [tab, setTab] = useState(tabInicial);
   const [showCall, setShowCall] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showAgendar, setShowAgendar] = useState(false);
@@ -894,6 +924,7 @@ function BabaDetail({
   const [seguidores, setSeguidores] = useState(baba.seguidores || 0);
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
+  const [planoAberto, setPlanoAberto] = useState(null);
 
   const extras = avaliacoesExtras.filter((a) => a.prestadorId === baba.id);
   const ratingCount = baba.ratingCount + extras.length;
@@ -902,9 +933,11 @@ function BabaDetail({
   extras.forEach((a) => { breakdown[a.estrelas] = (breakdown[a.estrelas] || 0) + 1; });
   const depoimentos = [
     ...extras.filter((a) => a.comentario).map((a) => ({ author: a.autor || "Cliente", relacao: "avaliação recente", texto: a.comentario })),
-    ...baba.depoimentos,
+    ...(baba.depoimentos || []),
   ];
-  const tabs = ["Sobre", "Depoimentos", "Avaliações", "Valores & agenda"];
+  const tabs = editable
+    ? ["Sobre", "Depoimentos", "Avaliações", "Valores & agenda", "Impulsionar"]
+    : ["Sobre", "Depoimentos", "Avaliações", "Valores & agenda"];
   const editando = edit !== null;
 
   const iniciarEdicao = () => {
@@ -1325,8 +1358,36 @@ function BabaDetail({
               )}
             </div>
           )}
+
+          {tab === "Impulsionar" && editable && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <Sparkles size={16} color={GOLD_DEEP} />
+                <span style={{ fontFamily: "Fraunces, serif", fontSize: 15, color: INK, fontWeight: 600 }}>Divulgue seu trabalho</span>
+              </div>
+              <p style={{ fontSize: 12, color: INK_SOFT, fontFamily: "Manrope, sans-serif", lineHeight: 1.6, marginBottom: 16 }}>
+                Aumente suas chances de ser encontrada pelas famílias com essas opções de divulgação dentro do aplicativo.
+              </p>
+              {carregandoPlanos && (
+                <p style={{ fontSize: 12, color: INK_SOFT, fontFamily: "Manrope, sans-serif" }}>Carregando planos...</p>
+              )}
+              {Object.entries(planos || {}).map(([key, plano]) => (
+                <CardImpulsionamento key={key} planoKey={key} plano={plano} boost={boosts?.[key]} onImpulsionar={setPlanoAberto} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {planoAberto && planos?.[planoAberto] && (
+        <PlanoModal
+          planoKey={planoAberto}
+          plano={planos[planoAberto]}
+          serviceType="baba"
+          onClose={() => setPlanoAberto(null)}
+          onConfirmar={async () => { await onAtivar(); }}
+        />
+      )}
 
       {!editable && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, display: "flex", flexDirection: "column", gap: 8, background: `linear-gradient(180deg, transparent, ${PAPER} 30%)` }}>
@@ -1615,6 +1676,76 @@ function PopupPatrocinado({ baba, onSelect, onClose }) {
   );
 }
 
+// ---- adaptação do DTO real (GET /professionals) pro formato que os cartões/detalhes já esperam ----
+
+const LOCAL_TRABALHO_LABEL = { minha_casa: "Na minha casa", casa_familia: "Na casa da família", ambos: "Ambos" };
+const TRANSPORTE_LABEL = { carro: "Tenho carro", moto: "Tenho moto", buscada: "Preciso ser buscada" };
+
+function iniciaisDoNome(nome) {
+  const partes = (nome || "").trim().split(" ").filter(Boolean);
+  return ((partes[0]?.[0] || "") + (partes[1]?.[0] || partes[0]?.[1] || "")).toUpperCase() || "?";
+}
+
+function corPorId(id, pool) {
+  const hash = String(id).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return pool[hash % pool.length];
+}
+
+function centavosParaValor(cents) {
+  return cents != null ? `R$ ${(cents / 100).toLocaleString("pt-BR")}` : "A combinar";
+}
+
+function adaptarProfissionalBaba(dto) {
+  const details = dto.details || {};
+  return {
+    ...dto,
+    initials: iniciaisDoNome(dto.name),
+    color: corPorId(dto.id, [FOREST, WINE, GOLD_DEEP]),
+    tags: dto.tags || [],
+    depoimentos: [],
+    breakdown: dto.breakdown || {},
+    experienciaBebe: !!details.experienciaBebe,
+    experienciaRecemNascido: !!details.experienciaRecemNascido,
+    sabeCozinhar: !!details.sabeCozinhar,
+    localTrabalho: LOCAL_TRABALHO_LABEL[details.localTrabalho] || "Ambos",
+    transporte: TRANSPORTE_LABEL[dto.transporte] || dto.transporte,
+    pacotes: (details.pacotes || []).map((p) => ({ label: p.label, valor: centavosParaValor(p.valorCents) })),
+    agenda: dto.agenda || {},
+  };
+}
+
+function adaptarProfissionalDiarista(dto) {
+  const details = dto.details || {};
+  return {
+    ...dto,
+    initials: iniciaisDoNome(dto.name),
+    color: corPorId(dto.id, [D_CORAL, D_CORAL_DEEP, D_CORAL_LIGHT]),
+    tags: dto.tags || [],
+    depoimentos: [],
+    trabalhos: [],
+    breakdown: dto.breakdown || {},
+    fazFaxina: !!details.fazFaxina,
+    fazComida: !!details.fazComida,
+    trabalhaComEquipe: !!details.trabalhaComEquipe,
+    transporte: TRANSPORTE_LABEL[dto.transporte] || dto.transporte,
+    servicos: (details.servicos || []).map((s) => ({ label: s.label, valor: centavosParaValor(s.valorCents) })),
+    agenda: dto.agenda || {},
+  };
+}
+
+function BotaoCarregarMais({ onClick, carregando, corDestaque = GOLD_DEEP }) {
+  return (
+    <button onClick={onClick} disabled={carregando} style={{
+      width: "100%", padding: "11px 14px", borderRadius: 12, marginTop: 4,
+      border: `1.5px solid ${corDestaque}`, background: "transparent", color: corDestaque,
+      fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12.5,
+      cursor: carregando ? "default" : "pointer", opacity: carregando ? 0.6 : 1,
+    }}>
+      {carregando ? "Carregando..." : "Carregar mais"}
+    </button>
+  );
+}
+
 function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
   const [search, setSearch] = useState("");
   const [bairro, setBairro] = useState("Todos");
@@ -1622,23 +1753,80 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
   const [preco, setPreco] = useState([15, 45]);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const [popupAberto, setPopupAberto] = useState(!!boosts?.popup?.ativo);
-  const bairros = ["Todos", ...new Set(babas.map((b) => b.bairro))];
+  const [buscaDebounced, setBuscaDebounced] = useState("");
+  const [resultados, setResultados] = useState([]);
+  const [bairrosVistos, setBairrosVistos] = useState([]);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+  const bairros = ["Todos", ...bairrosVistos];
   const filtrosAtivos = ratingMin > 0 || preco[0] > 15 || preco[1] < 45;
 
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaDebounced(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    let cancelado = false;
+    setCarregando(true);
+    setErro("");
+    searchProfessionals({
+      serviceType: "baba",
+      q: buscaDebounced || undefined,
+      bairro,
+      minRating: ratingMin || undefined,
+      priceMin: preco[0] > 15 ? preco[0] : undefined,
+      priceMax: preco[1] < 45 ? preco[1] : undefined,
+      page: 1,
+    })
+      .then((res) => {
+        if (cancelado) return;
+        const adaptados = res.data.map(adaptarProfissionalBaba);
+        setResultados(adaptados);
+        setBairrosVistos((atuais) => [...new Set([...atuais, ...adaptados.map((b) => b.bairro)])]);
+        setPagina(1);
+        setTotalPaginas(res.meta.totalPages);
+      })
+      .catch(() => { if (!cancelado) setErro("Não foi possível carregar as babás agora. Verifique sua internet e tente novamente."); })
+      .finally(() => { if (!cancelado) setCarregando(false); });
+    return () => { cancelado = true; };
+  }, [buscaDebounced, bairro, ratingMin, preco]);
+
+  const carregarMais = async () => {
+    setCarregando(true);
+    setErro("");
+    try {
+      const proximaPagina = pagina + 1;
+      const res = await searchProfessionals({
+        serviceType: "baba",
+        q: buscaDebounced || undefined,
+        bairro,
+        minRating: ratingMin || undefined,
+        priceMin: preco[0] > 15 ? preco[0] : undefined,
+        priceMax: preco[1] < 45 ? preco[1] : undefined,
+        page: proximaPagina,
+      });
+      const adaptados = res.data.map(adaptarProfissionalBaba);
+      setResultados((atuais) => [...atuais, ...adaptados]);
+      setBairrosVistos((atuais) => [...new Set([...atuais, ...adaptados.map((b) => b.bairro)])]);
+      setPagina(proximaPagina);
+      setTotalPaginas(res.meta.totalPages);
+    } catch {
+      setErro("Não foi possível carregar mais resultados. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const filtradas = useMemo(() => {
-    const resultado = babas.filter((b) => {
-      if (bloqueados.includes(b.id)) return false;
-      const matchNome = b.name.toLowerCase().includes(search.toLowerCase());
-      const matchBairro = bairro === "Todos" || b.bairro === bairro;
-      const matchRating = b.rating >= ratingMin;
-      const matchPreco = b.valorCombinar || (b.precoHora >= preco[0] && b.precoHora <= preco[1]);
-      return matchNome && matchBairro && matchRating && matchPreco;
-    });
+    const resultado = resultados.filter((b) => !bloqueados.includes(b.id));
     if (boosts?.destaque?.ativo && perfilImpulsionado) {
       return [{ ...perfilImpulsionado, destaque: true }, ...resultado.filter((b) => b.id !== perfilImpulsionado.id)];
     }
     return resultado;
-  }, [search, bairro, ratingMin, preco, boosts, perfilImpulsionado, bloqueados]);
+  }, [resultados, boosts, perfilImpulsionado, bloqueados]);
 
   return (
     <div style={{ display: "flex", height: "100%", position: "relative" }}>
@@ -1668,16 +1856,25 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
           ))}
         </div>
 
+        {erro && (
+          <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginBottom: 10 }}>{erro}</p>
+        )}
+
         <p style={{ fontSize: 11.5, color: "#8B6A52", marginBottom: 10 }}>
-          {filtradas.length} {filtradas.length === 1 ? "babá encontrada" : "babás encontradas"}
+          {carregando && resultados.length === 0
+            ? "Buscando babás..."
+            : `${filtradas.length} ${filtradas.length === 1 ? "babá encontrada" : "babás encontradas"}`}
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtradas.map((b) => <BabaCard key={b.id} baba={b} destaque={b.destaque} onClick={() => onSelect(b)} />)}
-          {filtradas.length === 0 && (
+          {!carregando && filtradas.length === 0 && (
             <p style={{ textAlign: "center", color: "#8B6A52", fontSize: 12.5, marginTop: 20 }}>
               Nenhuma babá encontrada com esses filtros.
             </p>
+          )}
+          {pagina < totalPaginas && (
+            <BotaoCarregarMais onClick={carregarMais} carregando={carregando} />
           )}
         </div>
       </div>
@@ -1742,19 +1939,74 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
   const [ratingMin, setRatingMin] = useState(0);
   const [preco, setPreco] = useState([50, 300]);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
-  const bairros = ["Todos", ...new Set(diaristas.map((d) => d.bairro))];
+  const [buscaDebounced, setBuscaDebounced] = useState("");
+  const [resultados, setResultados] = useState([]);
+  const [bairrosVistos, setBairrosVistos] = useState([]);
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+  const bairros = ["Todos", ...bairrosVistos];
   const filtrosAtivos = ratingMin > 0 || preco[0] > 50 || preco[1] < 300;
 
-  const filtradas = useMemo(() => {
-    return diaristas.filter((d) => {
-      if (bloqueados.includes(d.id)) return false;
-      const matchNome = d.name.toLowerCase().includes(search.toLowerCase());
-      const matchBairro = bairro === "Todos" || d.bairro === bairro;
-      const matchRating = d.rating >= ratingMin;
-      const matchPreco = d.valorCombinar || (d.precoHora >= preco[0] && d.precoHora <= preco[1]);
-      return matchNome && matchBairro && matchRating && matchPreco;
-    });
-  }, [search, bairro, ratingMin, preco, bloqueados]);
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaDebounced(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    let cancelado = false;
+    setCarregando(true);
+    setErro("");
+    searchProfessionals({
+      serviceType: "diarista",
+      q: buscaDebounced || undefined,
+      bairro,
+      minRating: ratingMin || undefined,
+      priceMin: preco[0] > 50 ? preco[0] : undefined,
+      priceMax: preco[1] < 300 ? preco[1] : undefined,
+      page: 1,
+    })
+      .then((res) => {
+        if (cancelado) return;
+        const adaptadas = res.data.map(adaptarProfissionalDiarista);
+        setResultados(adaptadas);
+        setBairrosVistos((atuais) => [...new Set([...atuais, ...adaptadas.map((d) => d.bairro)])]);
+        setPagina(1);
+        setTotalPaginas(res.meta.totalPages);
+      })
+      .catch(() => { if (!cancelado) setErro("Não foi possível carregar as diaristas agora. Verifique sua internet e tente novamente."); })
+      .finally(() => { if (!cancelado) setCarregando(false); });
+    return () => { cancelado = true; };
+  }, [buscaDebounced, bairro, ratingMin, preco]);
+
+  const carregarMais = async () => {
+    setCarregando(true);
+    setErro("");
+    try {
+      const proximaPagina = pagina + 1;
+      const res = await searchProfessionals({
+        serviceType: "diarista",
+        q: buscaDebounced || undefined,
+        bairro,
+        minRating: ratingMin || undefined,
+        priceMin: preco[0] > 50 ? preco[0] : undefined,
+        priceMax: preco[1] < 300 ? preco[1] : undefined,
+        page: proximaPagina,
+      });
+      const adaptadas = res.data.map(adaptarProfissionalDiarista);
+      setResultados((atuais) => [...atuais, ...adaptadas]);
+      setBairrosVistos((atuais) => [...new Set([...atuais, ...adaptadas.map((d) => d.bairro)])]);
+      setPagina(proximaPagina);
+      setTotalPaginas(res.meta.totalPages);
+    } catch {
+      setErro("Não foi possível carregar mais resultados. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const filtradas = useMemo(() => resultados.filter((d) => !bloqueados.includes(d.id)), [resultados, bloqueados]);
 
   return (
     <div style={{ display: "flex", height: "100%", position: "relative" }}>
@@ -1780,16 +2032,25 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
           ))}
         </div>
 
+        {erro && (
+          <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginBottom: 10 }}>{erro}</p>
+        )}
+
         <p style={{ fontSize: 11.5, color: "#8B6A52", marginBottom: 10 }}>
-          {filtradas.length} {filtradas.length === 1 ? "diarista encontrada" : "diaristas encontradas"}
+          {carregando && resultados.length === 0
+            ? "Buscando diaristas..."
+            : `${filtradas.length} ${filtradas.length === 1 ? "diarista encontrada" : "diaristas encontradas"}`}
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtradas.map((d) => <DiaristaCard key={d.id} diarista={d} onClick={() => onSelect(d)} />)}
-          {filtradas.length === 0 && (
+          {!carregando && filtradas.length === 0 && (
             <p style={{ textAlign: "center", color: "#8B6A52", fontSize: 12.5, marginTop: 20 }}>
               Nenhuma diarista encontrada com esses filtros.
             </p>
+          )}
+          {pagina < totalPaginas && (
+            <BotaoCarregarMais onClick={carregarMais} carregando={carregando} corDestaque={D_CORAL_DEEP} />
           )}
         </div>
       </div>
@@ -1808,8 +2069,9 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
 function DiaristaDetail({
   diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onAgendar, avaliacoesExtras = [],
   onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso,
+  boosts, planos, carregandoPlanos, onAtivar, tabInicial = "Sobre",
 }) {
-  const [tab, setTab] = useState("Sobre");
+  const [tab, setTab] = useState(tabInicial);
   const [showCall, setShowCall] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showAgendar, setShowAgendar] = useState(false);
@@ -1821,6 +2083,7 @@ function DiaristaDetail({
   const [seguidores, setSeguidores] = useState(diarista.seguidores || 0);
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
+  const [planoAberto, setPlanoAberto] = useState(null);
 
   const extras = avaliacoesExtras.filter((a) => a.prestadorId === diarista.id);
   const ratingCount = diarista.ratingCount + extras.length;
@@ -1829,9 +2092,11 @@ function DiaristaDetail({
   extras.forEach((a) => { breakdown[a.estrelas] = (breakdown[a.estrelas] || 0) + 1; });
   const depoimentos = [
     ...extras.filter((a) => a.comentario).map((a) => ({ author: a.autor || "Cliente", relacao: "avaliação recente", texto: a.comentario })),
-    ...diarista.depoimentos,
+    ...(diarista.depoimentos || []),
   ];
-  const tabs = ["Sobre", "Trabalhos", "Depoimentos", "Avaliações", "Valores & agenda"];
+  const tabs = editable
+    ? ["Sobre", "Trabalhos", "Depoimentos", "Avaliações", "Valores & agenda", "Impulsionar"]
+    : ["Sobre", "Trabalhos", "Depoimentos", "Avaliações", "Valores & agenda"];
   const editando = edit !== null;
 
   const iniciarEdicao = () => {
@@ -2323,8 +2588,36 @@ function DiaristaDetail({
               )}
             </div>
           )}
+
+          {tab === "Impulsionar" && editable && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <Sparkles size={16} color={D_CORAL_DEEP} />
+                <span style={{ fontFamily: "Fraunces, serif", fontSize: 15, color: "#3A2420", fontWeight: 600 }}>Divulgue seu trabalho</span>
+              </div>
+              <p style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif", lineHeight: 1.6, marginBottom: 16 }}>
+                Aumente suas chances de ser encontrada pelos clientes com essas opções de divulgação dentro do aplicativo.
+              </p>
+              {carregandoPlanos && (
+                <p style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Carregando planos...</p>
+              )}
+              {Object.entries(planos || {}).map(([key, plano]) => (
+                <CardImpulsionamento key={key} planoKey={key} plano={plano} boost={boosts?.[key]} onImpulsionar={setPlanoAberto} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {planoAberto && planos?.[planoAberto] && (
+        <PlanoModal
+          planoKey={planoAberto}
+          plano={planos[planoAberto]}
+          serviceType="diarista"
+          onClose={() => setPlanoAberto(null)}
+          onConfirmar={async () => { await onAtivar(); }}
+        />
+      )}
 
       {!editable && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, display: "flex", flexDirection: "column", gap: 8, background: "linear-gradient(180deg, transparent, #FFF6F1 30%)" }}>
@@ -2584,31 +2877,34 @@ function HistoricoItem({
           {c.checkin && `Chegou às ${c.checkin}`}{c.checkin && c.checkout ? " · " : ""}{c.checkout && `Saiu às ${c.checkout}`}
         </p>
       )}
-      {c.status === "agendado" && (
+      {!ehPrestador && c.status === "agendado" && !c.checkout && (
+        <p style={{ fontSize: 10.5, color: "#8A6A16", display: "flex", alignItems: "center", gap: 4, margin: "4px 0 0" }}>
+          <Clock3 size={11} /> Aguardando o profissional finalizar o atendimento para poder concluir.
+        </p>
+      )}
+      {!ehPrestador && c.status === "agendado" && (
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button onClick={() => (ehPrestador ? onConcluir(c.id) : onIniciarCheckin(c))} style={{
-            flex: 1, fontSize: 11, fontWeight: 700, padding: "7px 0", borderRadius: 9, cursor: "pointer",
-            border: `1px solid ${FOREST}`, background: "none", color: FOREST,
-          }}>
-            Marcar como concluído
-          </button>
-          {!ehPrestador && (
-            <button onClick={() => onCancelar(c.id)} style={{
+          {c.checkout && (
+            <button onClick={() => onIniciarCheckin(c)} style={{
               flex: 1, fontSize: 11, fontWeight: 700, padding: "7px 0", borderRadius: 9, cursor: "pointer",
-              border: `1px solid ${ERROR}`, background: "none", color: ERROR,
+              border: `1px solid ${FOREST}`, background: "none", color: FOREST,
             }}>
-              Cancelar
+              Marcar como concluído
             </button>
           )}
-          {!ehPrestador && (
-            <button onClick={() => onEmergencia(c)} title="Emergência" style={{
-              width: 34, flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 9, cursor: "pointer",
-              border: `1px solid ${ERROR}`, background: "none", color: ERROR, display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <Siren size={14} />
-            </button>
-          )}
+          <button onClick={() => onCancelar(c.id)} style={{
+            flex: 1, fontSize: 11, fontWeight: 700, padding: "7px 0", borderRadius: 9, cursor: "pointer",
+            border: `1px solid ${ERROR}`, background: "none", color: ERROR,
+          }}>
+            Cancelar
+          </button>
+          <button onClick={() => onEmergencia(c)} title="Emergência" style={{
+            width: 34, flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 9, cursor: "pointer",
+            border: `1px solid ${ERROR}`, background: "none", color: ERROR, display: "flex",
+            alignItems: "center", justifyContent: "center",
+          }}>
+            <Siren size={14} />
+          </button>
         </div>
       )}
       {c.status === "agendado" && meuContato?.contatosConfianca?.length > 0 && (
@@ -3091,7 +3387,7 @@ function BloqueadosScreen({ bloqueados, onVoltar, onDesbloquear, corDestaque = G
             borderRadius: 14, padding: "12px 14px", marginBottom: 10,
           }}>
             <span style={{ fontSize: 13, color: INK, flex: 1 }}>{p.nome}</span>
-            <button onClick={() => onDesbloquear(p.tipo, p.id)} style={{
+            <button onClick={() => onDesbloquear(p.tipo, p.id, p.blockId)} style={{
               fontSize: 11, fontWeight: 700, padding: "6px 12px", borderRadius: 9, cursor: "pointer",
               border: `1px solid ${corDestaque}`, background: "none", color: corDestaque,
             }}>
@@ -3105,7 +3401,7 @@ function BloqueadosScreen({ bloqueados, onVoltar, onDesbloquear, corDestaque = G
 }
 
 function PerfilMae({
-  perfil, onVoltar, onSalvar, onAtualizarFoto, onVerContratacoes, onVerBloqueados, totalBloqueados = 0,
+  perfil, onVoltar, onSalvar, onAtualizarFoto, onVerContratacoes, onVerBloqueados, totalBloqueados = 0, onSair,
   corDestaque = GOLD, corHeader = INK, corTexto = PAPER, rotulo = "Pai ou mãe na Babá de Aluguel", appNome = "baba",
 }) {
   const [edit, setEdit] = useState(null);
@@ -3287,6 +3583,16 @@ function PerfilMae({
               Perfis bloqueados{totalBloqueados > 0 ? ` (${totalBloqueados})` : ""}
             </span>
             <ChevronLeft size={14} color="#8B6A52" style={{ transform: "rotate(180deg)" }} />
+          </button>
+        )}
+
+        {!editando && onSair && (
+          <button onClick={onSair} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 20,
+            background: "none", border: "none", padding: "10px 14px", cursor: "pointer",
+          }}>
+            <XCircle size={14} color="#B23B3B" />
+            <span style={{ fontSize: 12.5, color: "#B23B3B", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Sair da conta</span>
           </button>
         )}
 
@@ -3544,6 +3850,109 @@ function RoleToggleDiarista({ tipo, setTipo }) {
   );
 }
 
+function RecuperarSenhaModal({ emailInicial, corDestaque, onClose }) {
+  const [etapa, setEtapa] = useState("email"); // email | codigo | sucesso
+  const [email, setEmail] = useState(emailInicial || "");
+  const [codigo, setCodigo] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
+
+  const enviarCodigo = async () => {
+    if (!email.includes("@")) { setErro("Digite um e-mail válido."); return; }
+    setErro("");
+    setCarregando(true);
+    try {
+      await forgotPassword(email.trim());
+      setEtapa("codigo");
+    } catch (e) {
+      setErro(e.message || "Não foi possível enviar o código agora. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const redefinir = async () => {
+    if (codigo.trim().length !== 6) { setErro("Digite o código de 6 dígitos enviado por e-mail."); return; }
+    if (novaSenha.length < 8) { setErro("A nova senha precisa ter pelo menos 8 caracteres."); return; }
+    if (novaSenha !== confirmarSenha) { setErro("As senhas não coincidem."); return; }
+    setErro("");
+    setCarregando(true);
+    try {
+      await resetPassword({ email: email.trim(), code: codigo.trim(), newPassword: novaSenha });
+      setEtapa("sucesso");
+    } catch (e) {
+      setErro(e.message || "Código inválido ou expirado.");
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 40 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: CARD, width: "100%", borderRadius: "22px 22px 0 0", padding: "26px 22px 30px", fontFamily: "Manrope, sans-serif",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 16, color: INK }}>Recuperar senha</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
+            <X size={18} color={INK} />
+          </button>
+        </div>
+
+        {etapa === "email" && (
+          <>
+            <p style={{ fontSize: 12, color: "#8B6A52", marginBottom: 14, lineHeight: 1.5 }}>
+              Informe seu e-mail. Vamos enviar um código de 6 dígitos para redefinir sua senha.
+            </p>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seuemail@exemplo.com" style={inputStyle} />
+            {erro && <p style={{ fontSize: 11.5, color: ERROR, marginTop: 8 }}>{erro}</p>}
+            <button onClick={enviarCodigo} disabled={carregando} style={{ ...btnPrimary, width: "100%", marginTop: 14, background: corDestaque, opacity: carregando ? 0.6 : 1 }}>
+              {carregando ? "Enviando..." : "Enviar código"}
+            </button>
+          </>
+        )}
+
+        {etapa === "codigo" && (
+          <>
+            <p style={{ fontSize: 12, color: "#8B6A52", marginBottom: 14, lineHeight: 1.5 }}>
+              Digite o código de 6 dígitos enviado para <strong>{email}</strong> e escolha sua nova senha.
+            </p>
+            <input
+              value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000" inputMode="numeric"
+              style={{ ...inputStyle, textAlign: "center", letterSpacing: 6, fontSize: 18 }}
+            />
+            <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} placeholder="Nova senha (mín. 8 caracteres)" style={{ ...inputStyle, marginTop: 10 }} />
+            <input type="password" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} placeholder="Confirme a nova senha" style={{ ...inputStyle, marginTop: 10 }} />
+            {erro && <p style={{ fontSize: 11.5, color: ERROR, marginTop: 8 }}>{erro}</p>}
+            <button onClick={redefinir} disabled={carregando} style={{ ...btnPrimary, width: "100%", marginTop: 14, background: corDestaque, opacity: carregando ? 0.6 : 1 }}>
+              {carregando ? "Redefinindo..." : "Redefinir senha"}
+            </button>
+            <button onClick={enviarCodigo} disabled={carregando} style={{ background: "none", border: "none", color: "#8B6A52", fontSize: 11.5, marginTop: 10, cursor: "pointer", width: "100%" }}>
+              Reenviar código
+            </button>
+          </>
+        )}
+
+        {etapa === "sucesso" && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <CheckCircle2 size={18} color={FOREST} />
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: INK }}>Senha redefinida!</span>
+            </div>
+            <p style={{ fontSize: 12, color: "#8B6A52", marginBottom: 14, lineHeight: 1.5 }}>
+              Sua senha foi alterada. Faça login novamente com a nova senha.
+            </p>
+            <button onClick={onClose} style={{ ...btnPrimary, width: "100%", background: corDestaque }}>Voltar para o login</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -3552,8 +3961,9 @@ function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) 
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [tentativas, setTentativas] = useState(0);
   const [bloqueadoAte, setBloqueadoAte] = useState(0);
-  const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
+  const [mostrarRecuperar, setMostrarRecuperar] = useState(false);
   const [agora, setAgora] = useState(Date.now());
+  const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
     if (!bloqueadoAte) return;
@@ -3564,8 +3974,8 @@ function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) 
   const bloqueado = bloqueadoAte > agora;
   const segundosRestantes = bloqueado ? Math.ceil((bloqueadoAte - agora) / 1000) : 0;
 
-  const entrar = () => {
-    if (bloqueado) return;
+  const entrar = async () => {
+    if (bloqueado || carregando) return;
     if (!email.trim() || !senha.trim() || !email.includes("@")) {
       const proximaTentativa = tentativas + 1;
       if (proximaTentativa >= 5) {
@@ -3579,8 +3989,23 @@ function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) 
       return;
     }
     setErro("");
-    setTentativas(0);
-    onEntrar(tipo);
+    setCarregando(true);
+    try {
+      await onEntrar(tipo, email.trim(), senha);
+      setTentativas(0);
+    } catch (e) {
+      const proximaTentativa = tentativas + 1;
+      if (proximaTentativa >= 5) {
+        setBloqueadoAte(Date.now() + 30000);
+        setTentativas(0);
+        setErro("Muitas tentativas seguidas. Por segurança, aguarde 30 segundos para tentar de novo.");
+      } else {
+        setTentativas(proximaTentativa);
+        setErro(e.message || "E-mail ou senha incorretos.");
+      }
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
@@ -3660,29 +4085,23 @@ function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) 
           </p>
         )}
 
-        <button className="shine-cta" onClick={entrar} disabled={bloqueado} style={{
+        <button className="shine-cta" onClick={entrar} disabled={bloqueado || carregando} style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           background: `linear-gradient(120deg, ${D_CORAL_LIGHT} 0%, ${D_CORAL} 55%, ${D_CORAL_DEEP} 100%)`,
           color: "#FFFFFF", border: "none", borderRadius: 12,
           padding: "13px 16px", fontFamily: "Manrope, sans-serif", fontWeight: 700,
-          fontSize: 14, cursor: bloqueado ? "default" : "pointer", boxShadow: "0 4px 14px rgba(201,68,48,0.35)",
-          width: "100%", marginTop: 6, opacity: bloqueado ? 0.55 : 1,
+          fontSize: 14, cursor: bloqueado || carregando ? "default" : "pointer", boxShadow: "0 4px 14px rgba(201,68,48,0.35)",
+          width: "100%", marginTop: 6, opacity: bloqueado || carregando ? 0.55 : 1,
         }}>
-          {bloqueado ? <Lock size={15} /> : null} Entrar como {tipo === "diarista" ? "diarista" : "cliente"}
+          {bloqueado ? <Lock size={15} /> : null} {carregando ? "Entrando..." : `Entrar como ${tipo === "diarista" ? "diarista" : "cliente"}`}
         </button>
 
-        {recuperacaoEnviada ? (
-          <p style={{ fontSize: 11, color: "#8B6A52", textAlign: "center", marginTop: 2, lineHeight: 1.5 }}>
-            Se esse e-mail tiver uma conta, enviamos um link para redefinir a senha.
-          </p>
-        ) : (
-          <button onClick={() => email.includes("@") && setRecuperacaoEnviada(true)} style={{
-            background: "none", border: "none", color: "#8B6A52", fontFamily: "Manrope, sans-serif",
-            fontSize: 12, cursor: "pointer", marginTop: 2,
-          }}>
-            Esqueci minha senha
-          </button>
-        )}
+        <button onClick={() => setMostrarRecuperar(true)} style={{
+          background: "none", border: "none", color: "#8B6A52", fontFamily: "Manrope, sans-serif",
+          fontSize: 12, cursor: "pointer", marginTop: 2,
+        }}>
+          Esqueci minha senha
+        </button>
       </div>
 
       <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 24, textAlign: "center" }}>
@@ -3705,6 +4124,9 @@ function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) 
       </div>
 
       {showSac && <SACModal onClose={() => setShowSac(false)} corDestaque={D_CORAL_DEEP} email="sac@diaristadealuguel.com.br" servico="Diarista de Aluguel" />}
+      {mostrarRecuperar && (
+        <RecuperarSenhaModal emailInicial={email} corDestaque={D_CORAL_DEEP} onClose={() => setMostrarRecuperar(false)} />
+      )}
     </div>
   );
 }
@@ -3717,8 +4139,9 @@ function LoginScreen({ tipo, setTipo, onLogin, onCadastro, onVoltar }) {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [tentativas, setTentativas] = useState(0);
   const [bloqueadoAte, setBloqueadoAte] = useState(0);
-  const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
+  const [mostrarRecuperar, setMostrarRecuperar] = useState(false);
   const [agora, setAgora] = useState(Date.now());
+  const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
     if (!bloqueadoAte) return;
@@ -3729,8 +4152,8 @@ function LoginScreen({ tipo, setTipo, onLogin, onCadastro, onVoltar }) {
   const bloqueado = bloqueadoAte > agora;
   const segundosRestantes = bloqueado ? Math.ceil((bloqueadoAte - agora) / 1000) : 0;
 
-  const entrar = () => {
-    if (bloqueado) return;
+  const entrar = async () => {
+    if (bloqueado || carregando) return;
     if (!email.trim() || !senha.trim() || !email.includes("@")) {
       const proximaTentativa = tentativas + 1;
       if (proximaTentativa >= 5) {
@@ -3744,8 +4167,23 @@ function LoginScreen({ tipo, setTipo, onLogin, onCadastro, onVoltar }) {
       return;
     }
     setErro("");
-    setTentativas(0);
-    onLogin(tipo);
+    setCarregando(true);
+    try {
+      await onLogin(tipo, email.trim(), senha);
+      setTentativas(0);
+    } catch (e) {
+      const proximaTentativa = tentativas + 1;
+      if (proximaTentativa >= 5) {
+        setBloqueadoAte(Date.now() + 30000);
+        setTentativas(0);
+        setErro("Muitas tentativas seguidas. Por segurança, aguarde 30 segundos para tentar de novo.");
+      } else {
+        setTentativas(proximaTentativa);
+        setErro(e.message || "E-mail ou senha incorretos.");
+      }
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
@@ -3826,24 +4264,18 @@ function LoginScreen({ tipo, setTipo, onLogin, onCadastro, onVoltar }) {
           </p>
         )}
 
-        <button className="shine-cta" onClick={entrar} disabled={bloqueado} style={{
-          ...btnPrimary, width: "100%", marginTop: 6, opacity: bloqueado ? 0.55 : 1, cursor: bloqueado ? "default" : "pointer",
+        <button className="shine-cta" onClick={entrar} disabled={bloqueado || carregando} style={{
+          ...btnPrimary, width: "100%", marginTop: 6, opacity: bloqueado || carregando ? 0.55 : 1, cursor: bloqueado || carregando ? "default" : "pointer",
         }}>
-          {bloqueado ? <Lock size={15} /> : null} Entrar como {tipo === "mae" ? "pai/mãe" : "babá"}
+          {bloqueado ? <Lock size={15} /> : null} {carregando ? "Entrando..." : `Entrar como ${tipo === "mae" ? "pai/mãe" : "babá"}`}
         </button>
 
-        {recuperacaoEnviada ? (
-          <p style={{ fontSize: 11, color: INK_SOFT, textAlign: "center", marginTop: 2, lineHeight: 1.5 }}>
-            Se esse e-mail tiver uma conta, enviamos um link para redefinir a senha.
-          </p>
-        ) : (
-          <button onClick={() => email.includes("@") && setRecuperacaoEnviada(true)} style={{
-            background: "none", border: "none", color: INK_SOFT, fontFamily: "Manrope, sans-serif",
-            fontSize: 12, cursor: "pointer", marginTop: 2,
-          }}>
-            Esqueci minha senha
-          </button>
-        )}
+        <button onClick={() => setMostrarRecuperar(true)} style={{
+          background: "none", border: "none", color: INK_SOFT, fontFamily: "Manrope, sans-serif",
+          fontSize: 12, cursor: "pointer", marginTop: 2,
+        }}>
+          Esqueci minha senha
+        </button>
       </div>
 
       <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 24, textAlign: "center" }}>
@@ -3866,6 +4298,9 @@ function LoginScreen({ tipo, setTipo, onLogin, onCadastro, onVoltar }) {
       </div>
 
       {showSac && <SACModal onClose={() => setShowSac(false)} />}
+      {mostrarRecuperar && (
+        <RecuperarSenhaModal emailInicial={email} corDestaque={GOLD_DEEP} onClose={() => setMostrarRecuperar(false)} />
+      )}
     </div>
   );
 }
@@ -4233,50 +4668,87 @@ function CartaoStep({ respostas, setCampo }) {
 
 // ---- impulsionamento (divulgação paga do perfil da babá) ----
 
-const planosImpulsionamento = {
-  destaque: {
-    titulo: "Destaque na busca",
-    descricao: "Seu perfil aparece fixado no topo da lista de busca das mães, com um selo de destaque dourado.",
-    icone: Rocket,
-    opcoes: [
-      { dias: 7, preco: 19.9 },
-      { dias: 15, preco: 34.9 },
-      { dias: 30, preco: 59.9 },
-    ],
-  },
-  banner: {
-    titulo: "Banner na tela inicial",
-    descricao: "Um banner com sua foto e nome aparece no topo da busca, antes da lista de babás.",
-    icone: Image,
-    opcoes: [
-      { dias: 7, preco: 29.9 },
-      { dias: 15, preco: 49.9 },
-      { dias: 30, preco: 79.9 },
-    ],
-  },
-  popup: {
-    titulo: "Pop-up de recomendação",
-    descricao: "Uma janela com seu perfil aparece para as mães assim que elas abrem a busca por babás.",
-    icone: Bell,
-    opcoes: [
-      { dias: 7, preco: 39.9 },
-      { dias: 15, preco: 69.9 },
-      { dias: 30, preco: 99.9 },
-    ],
-  },
-};
+const BOOST_ICONS = { "trending-up": TrendingUp, "image": Image, "sparkles": Sparkles };
+
+/** Converte o catálogo real (GET /boosts/plans, preços em centavos) pro
+ * formato que PlanoModal/CardImpulsionamento já sabem renderizar. */
+function adaptarPlanosBoost(planosDto) {
+  const mapa = {};
+  (planosDto || []).forEach((p) => {
+    mapa[p.key] = {
+      titulo: p.titulo,
+      descricao: p.descricao,
+      icone: BOOST_ICONS[p.iconeKey] || Sparkles,
+      opcoes: (p.opcoes || []).map((o) => ({ dias: o.dias, preco: o.precoCents / 100 })),
+    };
+  });
+  return mapa;
+}
+
+/** Converte as compras reais (GET /boosts/mine) no formato local
+ * { [planKey]: { ativo, dias } } que MaeView/BabaCard já leem. */
+function reduzirBoostsAtivos(rows) {
+  const agora = new Date();
+  const mapa = {};
+  (rows || []).forEach((r) => {
+    const ativo = r.status === "ativo" && r.expiresAt && new Date(r.expiresAt) > agora;
+    if (ativo && (!mapa[r.planKey] || new Date(r.expiresAt) > new Date(mapa[r.planKey].expiresAt))) {
+      mapa[r.planKey] = { ativo: true, dias: r.duracaoDias, expiresAt: r.expiresAt };
+    }
+  });
+  return mapa;
+}
 
 function formatarPreco(v) {
   return v.toFixed(2).replace(".", ",");
 }
 
-function PlanoModal({ planoKey, plano, onClose, onConfirmar }) {
+function PlanoModal({ planoKey, plano, serviceType, onClose, onConfirmar }) {
   const [duracao, setDuracao] = useState(plano.opcoes[1]);
-  const [pagamento, setPagamento] = useState("Pix");
-  const [confirmado, setConfirmado] = useState(false);
+  const [etapa, setEtapa] = useState("escolha"); // escolha | pagando | confirmado
+  const [pix, setPix] = useState(null);
+  const [erro, setErro] = useState("");
+  const [gerando, setGerando] = useState(false);
   const Icone = plano.icone;
 
-  if (confirmado) {
+  useEffect(() => {
+    if (etapa !== "pagando" || !pix || pix.status === "aprovado") return;
+    const intervalo = setInterval(async () => {
+      try {
+        const status = await getPaymentStatus(pix.id);
+        if (status.status === "aprovado") {
+          clearInterval(intervalo);
+          await onConfirmar();
+          setEtapa("confirmado");
+        }
+      } catch {
+        // tenta de novo no próximo intervalo
+      }
+    }, 3000);
+    return () => clearInterval(intervalo);
+  }, [etapa, pix, onConfirmar]);
+
+  const copiarCodigoPix = () => {
+    if (!pix?.qrCodeCopiaECola) return;
+    navigator.clipboard?.writeText(pix.qrCodeCopiaECola).catch(() => {});
+  };
+
+  const iniciarPagamento = async () => {
+    setErro("");
+    setGerando(true);
+    setEtapa("pagando");
+    try {
+      const resultado = await purchaseBoost({ planKey: planoKey, durationDays: duracao.dias, serviceType });
+      setPix(resultado.payment);
+    } catch (e) {
+      setErro(e.message || "Não foi possível gerar o Pix agora. Tente novamente.");
+      setEtapa("escolha");
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  if (etapa === "confirmado") {
     return (
       <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
         <div onClick={(e) => e.stopPropagation()} style={{
@@ -4317,27 +4789,61 @@ function PlanoModal({ planoKey, plano, onClose, onConfirmar }) {
         </div>
         <p style={{ fontSize: 11.5, color: INK_SOFT, lineHeight: 1.5, marginBottom: 16 }}>{plano.descricao}</p>
 
-        <p style={{ fontSize: 11, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Escolha a duração</p>
-        <div style={{ display: "flex", gap: 7, marginBottom: 16 }}>
-          {plano.opcoes.map((opt) => (
-            <button key={opt.dias} onClick={() => setDuracao(opt)} style={{
-              flex: 1, padding: "10px 4px", borderRadius: 12, cursor: "pointer", textAlign: "center",
-              border: `1.5px solid ${duracao.dias === opt.dias ? GOLD_DEEP : LINE}`,
-              background: duracao.dias === opt.dias ? GOLD : CARD,
-              color: duracao.dias === opt.dias ? "#4A2A12" : INK_SOFT,
+        {etapa === "escolha" && (
+          <>
+            <p style={{ fontSize: 11, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Escolha a duração</p>
+            <div style={{ display: "flex", gap: 7, marginBottom: 16 }}>
+              {plano.opcoes.map((opt) => (
+                <button key={opt.dias} onClick={() => setDuracao(opt)} style={{
+                  flex: 1, padding: "10px 4px", borderRadius: 12, cursor: "pointer", textAlign: "center",
+                  border: `1.5px solid ${duracao.dias === opt.dias ? GOLD_DEEP : LINE}`,
+                  background: duracao.dias === opt.dias ? GOLD : CARD,
+                  color: duracao.dias === opt.dias ? "#4A2A12" : INK_SOFT,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{opt.dias} dias</div>
+                  <div style={{ fontSize: 10.5 }}>R$ {formatarPreco(opt.preco)}</div>
+                </button>
+              ))}
+            </div>
+
+            <p style={{ fontSize: 10.5, color: "#8B6A52", marginBottom: 16 }}>Pagamento via Pix.</p>
+
+            {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginBottom: 10 }}>{erro}</p>}
+            <button className="shine-cta" onClick={iniciarPagamento} disabled={gerando} style={{
+              ...btnPrimary, width: "100%", marginTop: 2, opacity: gerando ? 0.6 : 1, cursor: gerando ? "default" : "pointer",
             }}>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>{opt.dias} dias</div>
-              <div style={{ fontSize: 10.5 }}>R$ {formatarPreco(opt.preco)}</div>
+              {gerando ? "Gerando Pix..." : `Pagar com Pix — R$ ${formatarPreco(duracao.preco)}`}
             </button>
-          ))}
-        </div>
+          </>
+        )}
 
-        <p style={{ fontSize: 11, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Forma de pagamento</p>
-        <ChoicePills options={["Pix", "Cartão"]} value={pagamento} onChange={setPagamento} />
-
-        <button className="shine-cta" onClick={() => { onConfirmar(planoKey, duracao); setConfirmado(true); }} style={{ ...btnPrimary, width: "100%", marginTop: 18 }}>
-          Confirmar pagamento — R$ {formatarPreco(duracao.preco)}
-        </button>
+        {etapa === "pagando" && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            {!pix && <p style={{ fontSize: 13, color: INK_SOFT, fontFamily: "Manrope, sans-serif" }}>Gerando seu Pix...</p>}
+            {pix?.qrCodeBase64 && (
+              <>
+                <img
+                  src={`data:image/png;base64,${pix.qrCodeBase64}`}
+                  alt="QR Code Pix"
+                  style={{ width: 200, height: 200, borderRadius: 12, border: `1px solid ${LINE}`, marginBottom: 16 }}
+                />
+                <p style={{ fontSize: 11.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", textAlign: "center", marginBottom: 10 }}>
+                  Abra o app do seu banco e escaneie o QR code, ou copie o código:
+                </p>
+                <button onClick={copiarCodigoPix} style={{ ...btnSecondary, width: "100%", marginBottom: 6 }}>
+                  <FileText size={15} /> Copiar código Pix
+                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+                  <Clock3 size={14} color={GOLD_DEEP} />
+                  <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", margin: 0 }}>
+                    Aguardando confirmação do pagamento...
+                  </p>
+                </div>
+              </>
+            )}
+            {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginTop: 10 }}>{erro}</p>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -4390,49 +4896,6 @@ function CardImpulsionamento({ planoKey, plano, boost, onImpulsionar }) {
   );
 }
 
-function TelaImpulsionamento({ boosts, onAtivar, onVoltar }) {
-  const [planoAberto, setPlanoAberto] = useState(null);
-
-  return (
-    <div style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px", background: INK }}>
-        <button onClick={onVoltar} style={{ background: "none", border: "none", cursor: "pointer" }}>
-          <ChevronLeft size={20} color={PAPER} />
-        </button>
-        <span style={{ color: PAPER, fontFamily: "Manrope, sans-serif", fontSize: 13.5 }}>Impulsionar meu perfil</span>
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 18px 30px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <Sparkles size={16} color={GOLD_DEEP} />
-          <p style={{ fontFamily: "Fraunces, serif", fontSize: 17, color: INK, fontWeight: 600 }}>
-            Divulgue seu trabalho
-          </p>
-        </div>
-        <p style={{ fontSize: 12, color: INK_SOFT, fontFamily: "Manrope, sans-serif", lineHeight: 1.6, marginBottom: 20 }}>
-          Aumente suas chances de ser encontrada pelas famílias com essas opções de divulgação dentro do aplicativo.
-        </p>
-
-        {Object.entries(planosImpulsionamento).map(([key, plano]) => (
-          <CardImpulsionamento
-            key={key} planoKey={key} plano={plano} boost={boosts?.[key]}
-            onImpulsionar={setPlanoAberto}
-          />
-        ))}
-      </div>
-
-      {planoAberto && (
-        <PlanoModal
-          planoKey={planoAberto}
-          plano={planosImpulsionamento[planoAberto]}
-          onClose={() => setPlanoAberto(null)}
-          onConfirmar={onAtivar}
-        />
-      )}
-    </div>
-  );
-}
-
 function CadastroMae({
   onConcluir, onVoltar, titulo = "Cadastro de pai ou mãe",
   corFundo = PAPER, corTexto = INK, corBotao, labelBairro = "Seu bairro",
@@ -4442,13 +4905,27 @@ function CadastroMae({
   const [senha, setSenha] = useState("");
   const [bairro, setBairro] = useState("");
   const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
-  const concluir = () => {
+  const concluir = async () => {
+    if (carregando) return;
     if (!nome.trim() || !email.trim() || !senha.trim() || !bairro.trim()) {
       setErro("Preencha todos os campos para continuar.");
       return;
     }
-    onConcluir({ nome, email, bairro });
+    if (senha.length < 8) {
+      setErro("A senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
+    setErro("");
+    setCarregando(true);
+    try {
+      await onConcluir({ nome: nome.trim(), email: email.trim(), senha, bairro: bairro.trim() });
+    } catch (e) {
+      setErro(e.message || "Não foi possível concluir o cadastro. Tente novamente.");
+    } finally {
+      setCarregando(false);
+    }
   };
 
   return (
@@ -4462,10 +4939,12 @@ function CadastroMae({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <input style={inputStyle} placeholder="Nome completo" value={nome} onChange={(e) => setNome(e.target.value)} />
         <input style={inputStyle} type="email" placeholder="seuemail@exemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input style={inputStyle} type="password" placeholder="Crie uma senha" value={senha} onChange={(e) => setSenha(e.target.value)} />
+        <input style={inputStyle} type="password" placeholder="Crie uma senha (mín. 8 caracteres)" value={senha} onChange={(e) => setSenha(e.target.value)} />
         <input style={inputStyle} placeholder={labelBairro} value={bairro} onChange={(e) => setBairro(e.target.value)} />
         {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", margin: 0 }}>{erro}</p>}
-        <button className="shine-cta" onClick={concluir} style={{ ...btnPrimary, width: "100%", marginTop: 6, ...(corBotao || {}) }}>Concluir cadastro</button>
+        <button className="shine-cta" onClick={concluir} disabled={carregando} style={{ ...btnPrimary, width: "100%", marginTop: 6, opacity: carregando ? 0.6 : 1, cursor: carregando ? "default" : "pointer", ...(corBotao || {}) }}>
+          {carregando ? "Cadastrando..." : "Concluir cadastro"}
+        </button>
       </div>
     </div>
   );
@@ -4478,7 +4957,7 @@ const perguntasBaba = [
   { key: "confirmarSenha", pergunta: "Confirme sua senha", tipo: "texto", inputType: "password", placeholder: "Digite a senha novamente" },
   { key: "fotoPerfil", pergunta: "Agora vamos tirar sua foto de perfil", tipo: "foto", opcional: true,
     ajuda: "A foto só pode ser tirada pela câmera, na hora — nunca enviada da galeria. Se preferir, você pode fazer isso depois, direto no seu perfil." },
-  { key: "idade", pergunta: "Quantos anos você tem?", tipo: "numero", placeholder: "Ex: 29" },
+  { key: "idade", pergunta: "Quantos anos você tem?", tipo: "numero", placeholder: "Ex: 29", min: 16, max: 100 },
   { key: "endereco", pergunta: "Qual é o seu endereço?", tipo: "endereco",
     ajuda: "Usamos o Google Maps para confirmar direitinho a localização do seu endereço." },
   { key: "experienciaBebe", pergunta: "Você tem experiência com bebês?", tipo: "escolha", opcoes: ["Sim", "Não"] },
@@ -4506,12 +4985,10 @@ const perguntasBaba = [
     condicao: (r) => r.modoValor === "Definir agora" },
   { key: "disponibilidadeSemana", pergunta: "Em quais dias da semana você costuma ter disponibilidade?", tipo: "chips", opcoes: diasSemana },
   { key: "formaPagamento", pergunta: "Como você prefere pagar a mensalidade do aplicativo?", tipo: "escolha",
-    opcoes: ["Pix", "Cartão de crédito", "Cartão de débito", "Boleto"],
-    ajuda: "A mensalidade da plataforma é de R$ 29,90. Pix e cartão liberam seu perfil na hora. Boleto libera em até 48h após a compensação." },
+    opcoes: ["Pix", "Cartão de crédito", "Cartão de débito"],
+    ajuda: "A mensalidade da plataforma é de R$ 29,90. Pix e cartão liberam seu perfil na hora." },
   { key: "dadosCartao", pergunta: "Dados do cartão", tipo: "cartao",
     condicao: (r) => r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito" },
-  { key: "documentoBoleto", pergunta: "Informe seu CPF para gerar o boleto", tipo: "texto", placeholder: "000.000.000-00",
-    condicao: (r) => r.formaPagamento === "Boleto" },
   { key: "aceitouTermos", pergunta: "Só falta aceitar os termos", tipo: "termos" },
 ];
 
@@ -4522,7 +4999,7 @@ const perguntasDiarista = [
   { key: "confirmarSenha", pergunta: "Confirme sua senha", tipo: "texto", inputType: "password", placeholder: "Digite a senha novamente" },
   { key: "fotoPerfil", pergunta: "Agora vamos tirar sua foto de perfil", tipo: "foto", opcional: true,
     ajuda: "A foto só pode ser tirada pela câmera, na hora — nunca enviada da galeria. Se preferir, você pode fazer isso depois, direto no seu perfil." },
-  { key: "idade", pergunta: "Quantos anos você tem?", tipo: "numero", placeholder: "Ex: 35" },
+  { key: "idade", pergunta: "Quantos anos você tem?", tipo: "numero", placeholder: "Ex: 35", min: 16, max: 100 },
   { key: "endereco", pergunta: "Qual é o seu endereço?", tipo: "endereco",
     ajuda: "Usamos o Google Maps para confirmar direitinho a localização do seu endereço." },
   { key: "fazFaxina", pergunta: "Você faz faxina completa (limpeza pesada)?", tipo: "escolha", opcoes: ["Sim", "Não"] },
@@ -4560,12 +5037,10 @@ const perguntasDiarista = [
     condicao: (r) => r.modoValor === "Definir agora" },
   { key: "disponibilidadeSemana", pergunta: "Em quais dias da semana você costuma ter disponibilidade?", tipo: "chips", opcoes: diasSemana },
   { key: "formaPagamento", pergunta: "Como você prefere pagar a mensalidade do aplicativo?", tipo: "escolha",
-    opcoes: ["Pix", "Cartão de crédito", "Cartão de débito", "Boleto"],
-    ajuda: "A mensalidade da plataforma é de R$ 29,90. Pix e cartão liberam seu perfil na hora. Boleto libera em até 48h após a compensação." },
+    opcoes: ["Pix", "Cartão de crédito", "Cartão de débito"],
+    ajuda: "A mensalidade da plataforma é de R$ 29,90. Pix e cartão liberam seu perfil na hora." },
   { key: "dadosCartao", pergunta: "Dados do cartão", tipo: "cartao",
     condicao: (r) => r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito" },
-  { key: "documentoBoleto", pergunta: "Informe seu CPF para gerar o boleto", tipo: "texto", placeholder: "000.000.000-00",
-    condicao: (r) => r.formaPagamento === "Boleto" },
   { key: "aceitouTermos", pergunta: "Só falta aceitar os termos", tipo: "termos" },
 ];
 
@@ -4574,6 +5049,7 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
   const [respostas, setRespostas] = useState({ disponibilidadePeriodo: [], disponibilidadeSemana: [] });
   const [erro, setErro] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
   const visiveis = perguntas.filter((p) => !p.condicao || p.condicao(respostas));
   const perguntaAtual = visiveis[passo];
@@ -4591,7 +5067,7 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
 
   const validar = () => {
     if (perguntaAtual.key === "senha") {
-      return (respostas.senha || "").length >= 6;
+      return (respostas.senha || "").length >= 8;
     }
     if (perguntaAtual.key === "confirmarSenha") {
       return !!respostas.confirmarSenha && respostas.confirmarSenha === respostas.senha;
@@ -4608,23 +5084,36 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
     const valor = respostas[perguntaAtual.key];
     if (perguntaAtual.tipo === "chips") return Array.isArray(valor) && valor.length > 0;
     if (valor === undefined || valor === null) return false;
+    if (perguntaAtual.tipo === "numero" && perguntaAtual.min !== undefined && Number(valor) < perguntaAtual.min) return false;
     return String(valor).trim().length > 0;
   };
 
   const mensagemErro = () => {
-    if (perguntaAtual.key === "senha") return "Sua senha precisa ter pelo menos 6 caracteres.";
+    if (perguntaAtual.key === "senha") return "Sua senha precisa ter pelo menos 8 caracteres.";
     if (perguntaAtual.key === "confirmarSenha") return "As senhas não são iguais. Confira e tente de novo.";
     if (perguntaAtual.tipo === "termos") return "Você precisa aceitar os Termos de Uso e a Política de Privacidade para continuar.";
+    if (perguntaAtual.tipo === "numero" && perguntaAtual.min !== undefined && Number(respostas[perguntaAtual.key]) < perguntaAtual.min) {
+      return `O valor mínimo é ${perguntaAtual.min}.`;
+    }
     return "Responda essa pergunta para continuar.";
   };
 
-  const avancar = () => {
+  const avancar = async () => {
+    if (enviando) return;
     if (!validar()) {
       setErro(mensagemErro());
       return;
     }
     if (ultimaPergunta) {
-      onConcluir(respostas);
+      setErro("");
+      setEnviando(true);
+      try {
+        await onConcluir(respostas);
+      } catch (e) {
+        setErro(e.message || "Não foi possível concluir o cadastro. Tente novamente.");
+      } finally {
+        setEnviando(false);
+      }
     } else {
       setPasso(passo + 1);
       setErro("");
@@ -4632,6 +5121,7 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
   };
 
   const voltar = () => {
+    if (enviando) return;
     setErro("");
     if (passo === 0) onVoltar();
     else setPasso(passo - 1);
@@ -4674,7 +5164,7 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
           </div>
           {perguntaAtual.key === "senha" && (
             <p style={{ fontSize: 10.5, color: "#8B6A52", marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
-              <Lock size={10} /> Mínimo de 6 caracteres. Evite datas de nascimento ou sequências óbvias.
+              <Lock size={10} /> Mínimo de 8 caracteres. Evite datas de nascimento ou sequências óbvias.
             </p>
           )}
         </div>
@@ -4739,7 +5229,9 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
           </div>
           {perguntaAtual.max !== undefined && (
             <p style={{ fontSize: 10.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 6 }}>
-              Valor máximo: R$ {perguntaAtual.max.toLocaleString("pt-BR")}
+              {perguntaAtual.prefixo
+                ? `Valor máximo: ${perguntaAtual.prefixo} ${perguntaAtual.max.toLocaleString("pt-BR")}`
+                : `Máximo: ${perguntaAtual.max.toLocaleString("pt-BR")}`}
             </p>
           )}
         </div>
@@ -4757,8 +5249,10 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
 
       <div style={{ flex: 1 }} />
 
-      <button className="shine-cta" onClick={avancar} style={{ ...btnPrimary, width: "100%", ...(corBotao || {}) }}>
-        {ultimaPergunta ? "Concluir cadastro" : "Avançar"}
+      <button className="shine-cta" onClick={avancar} disabled={enviando} style={{
+        ...btnPrimary, width: "100%", opacity: enviando ? 0.6 : 1, cursor: enviando ? "default" : "pointer", ...(corBotao || {}),
+      }}>
+        {enviando ? "Enviando..." : (ultimaPergunta ? "Concluir cadastro" : "Avançar")}
       </button>
       <p style={{ textAlign: "center", fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 10 }}>
         Pergunta {passo + 1} de {visiveis.length}
@@ -4767,176 +5261,73 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
   );
 }
 
-function montarPacotes(r) {
-  const pacotes = [{ label: "Hora avulsa", valor: `R$ ${r.valorHora}` }];
-  if (r.valorSemanal && String(r.valorSemanal).trim() !== "") {
-    pacotes.push({ label: "Semanal", valor: `R$ ${r.valorSemanal}` });
-  }
-  if (r.valorMensal && String(r.valorMensal).trim() !== "") {
-    pacotes.push({ label: "Mensal", valor: `R$ ${r.valorMensal}` });
-  }
-  return pacotes;
-}
-
-function construirPerfilBaba(r) {
-  const partes = r.nome.trim().split(" ").filter(Boolean);
-  const iniciais = ((partes[0]?.[0] || "") + (partes[1]?.[0] || partes[0]?.[1] || "")).toUpperCase();
-
-  const disponibilidadePeriodo = r.disponibilidadePeriodo || [];
-  const disponibilidadeNoite = disponibilidadePeriodo.includes("À noite");
-  const disponibilidadeFimDeSemana = disponibilidadePeriodo.includes("Finais de semana");
-  const experienciaBebe = r.experienciaBebe === "Sim";
-  const experienciaRecemNascido = r.experienciaRecemNascido === "Sim";
-  const sabeCozinhar = r.sabeCozinhar === "Sim";
-  const valorCombinar = r.modoValor === "Combinar pelo chat";
-  const localTrabalho = r.localTrabalho || "Ambos";
-  const transporte = r.transporte || "Preciso ser buscada";
-
-  const tags = ["Nova na plataforma"];
-  if (experienciaBebe) tags.push("Experiência com bebês");
-  if (experienciaRecemNascido) tags.push("Recém-nascidos");
-  if (sabeCozinhar) tags.push("Cozinha");
-  if (disponibilidadeNoite) tags.push("Disponível à noite");
-  if (disponibilidadeFimDeSemana) tags.push("Fins de semana");
-  tags.push(localTrabalho);
-  tags.push(transporte);
-
-  const frasesExperiencia = [];
-  if (experienciaBebe) frasesExperiencia.push("tenho experiência cuidando de bebês");
-  if (experienciaRecemNascido) frasesExperiencia.push("já cuidei de recém-nascidos");
-  if (sabeCozinhar) frasesExperiencia.push("sei cozinhar para a família");
-  const bio = frasesExperiencia.length > 0
-    ? `Estou começando agora na plataforma. ${frasesExperiencia.join(", ")}.`.replace(/^./, (c) => c.toUpperCase())
-    : "Estou começando agora na plataforma, mas com muita dedicação e vontade de cuidar bem das crianças.";
-
-  const agenda = {};
-  const dias = r.disponibilidadeSemana || [];
-  diasSemana.forEach((d) => {
-    agenda[d] = dias.includes(d) ? "A combinar" : "Indisponível";
-  });
-
-  const statusPagamento = r.formaPagamento === "Boleto" ? "pendente" : "processando";
-
-  return {
-    id: Date.now(),
-    name: r.nome,
-    email: r.email,
-    initials: iniciais || "BB",
-    color: FOREST,
-    fotoUrl: r.fotoPerfil || null,
-    idade: Number(r.idade),
-    bairro: r.bairro,
-    cidade: r.cidade || "São Paulo",
-    endereco: { cep: r.cep || "", rua: r.rua || "", numero: r.numero || "", complemento: r.complemento || "" },
-    precoHora: valorCombinar ? null : Number(r.valorHora),
-    valorCombinar,
-    rating: 0,
-    ratingCount: 0,
-    verificada: false,
-    bio,
-    experienciaBebe,
-    experienciaRecemNascido,
-    sabeCozinhar,
-    disponibilidadeNoite,
-    disponibilidadeFimDeSemana,
-    localTrabalho,
-    transporte,
-    tags,
-    depoimentos: [],
-    breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-    pacotes: valorCombinar ? [{ label: "Hora avulsa", valor: "A combinar" }] : montarPacotes(r),
-    agenda,
-    formaPagamento: r.formaPagamento,
-    statusPagamento,
-  };
-}
-
-function construirPerfilDiarista(r) {
-  const partes = r.nome.trim().split(" ").filter(Boolean);
-  const iniciais = ((partes[0]?.[0] || "") + (partes[1]?.[0] || partes[0]?.[1] || "")).toUpperCase();
-
-  const disponibilidadePeriodo = r.disponibilidadePeriodo || [];
-  const disponibilidadeNoite = disponibilidadePeriodo.includes("À noite");
-  const disponibilidadeFimDeSemana = disponibilidadePeriodo.includes("Finais de semana");
-  const fazFaxina = r.fazFaxina === "Sim";
-  const fazComida = !!r.valorComida;
-  const trabalhaComEquipe = r.trabalhaComMaisPessoas === "Trabalho com mais pessoas";
-  const valorCombinar = r.modoValor === "Combinar pelo chat";
-  const transporte = r.transporte || "Preciso ser buscada";
-
-  const tags = ["Nova na plataforma"];
-  if (fazFaxina) tags.push("Faxina completa");
-  if (fazComida) tags.push("Faz comida");
-  if (trabalhaComEquipe) tags.push("Trabalha em equipe");
-  if (disponibilidadeNoite) tags.push("Disponível à noite");
-  if (disponibilidadeFimDeSemana) tags.push("Fins de semana");
-  tags.push(transporte);
-
-  const frases = [];
-  if (fazFaxina) frases.push("faço faxina completa");
-  if (fazComida) frases.push("também faço comida");
-  frases.push(trabalhaComEquipe ? "trabalho em equipe" : "trabalho sozinha");
-  const bio = `Estou começando agora na plataforma. ${frases.join(", ")}.`.replace(/^./, (c) => c.toUpperCase());
-
-  const agenda = {};
-  const dias = r.disponibilidadeSemana || [];
-  diasSemana.forEach((d) => {
-    agenda[d] = dias.includes(d) ? "A combinar" : "Indisponível";
-  });
-
-  const servicos = valorCombinar
-    ? [{ label: "Faxina", valor: "A combinar" }]
-    : [
-        ...(r.valorFaxina ? [{ label: "Faxina completa (diária)", valor: `R$ ${r.valorFaxina}` }] : []),
-        ...(r.valorGeladeira ? [{ label: "Limpar geladeira", valor: `R$ ${r.valorGeladeira}` }] : []),
-        ...(r.valorLoucas ? [{ label: "Lavar louça", valor: `R$ ${r.valorLoucas}` }] : []),
-        ...(r.valorPassarRoupa ? [{ label: "Passar roupa", valor: `R$ ${r.valorPassarRoupa}` }] : []),
-        ...(r.valorComida ? [{ label: "Fazer comida", valor: `R$ ${r.valorComida}` }] : []),
-        ...(r.valorPosObraEvento ? [{ label: "Limpeza pós-obra ou pós-evento", valor: `R$ ${r.valorPosObraEvento}` }] : []),
-      ];
-
-  const statusPagamento = r.formaPagamento === "Boleto" ? "pendente" : "processando";
-
-  return {
-    id: Date.now(),
-    name: r.nome,
-    email: r.email,
-    initials: iniciais || "DA",
-    color: D_CORAL,
-    fotoUrl: r.fotoPerfil || null,
-    idade: Number(r.idade),
-    bairro: r.bairro,
-    cidade: r.cidade || "São Paulo",
-    endereco: { cep: r.cep || "", rua: r.rua || "", numero: r.numero || "", complemento: r.complemento || "" },
-    precoHora: valorCombinar ? null : (Number(r.valorFaxina) || null),
-    valorCombinar,
-    rating: 0,
-    ratingCount: 0,
-    verificada: false,
-    bio,
-    fazFaxina,
-    fazComida,
-    trabalhaComEquipe,
-    disponibilidadeNoite,
-    disponibilidadeFimDeSemana,
-    transporte,
-    tags,
-    depoimentos: [],
-    breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-    servicos,
-    trabalhos: [],
-    agenda,
-    formaPagamento: r.formaPagamento,
-    statusPagamento,
-  };
-}
-
 // ---- pagamento real (Mercado Pago) ----
 
-const MENSALIDADE_CENTAVOS = 2990;
+function detectarBandeira(numero) {
+  const limpo = (numero || "").replace(/\s/g, "");
+  if (/^4/.test(limpo)) return "visa";
+  if (/^5[1-5]/.test(limpo) || /^2(2[2-9]|[3-6]\d|7[01])/.test(limpo)) return "mastercard";
+  if (/^3[47]/.test(limpo)) return "amex";
+  if (/^(4011|4312|4389|4514|4573|6277|6362|6363|5041|5066|5067|509)/.test(limpo)) return "elo";
+  return null;
+}
 
-function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) {
-  const metodoInicial = perfil.formaPagamento === "Pix" ? "pix" : "cartao";
+function formatarNumeroCartao(v) {
+  return v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+}
+
+function formatarValidadeCartao(v) {
+  const digitos = v.replace(/\D/g, "").slice(0, 4);
+  if (digitos.length <= 2) return digitos;
+  return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
+}
+
+function IconeBandeira({ bandeira, size = 26, esmaecido = false }) {
+  const estiloBase = {
+    width: size, height: Math.round(size * 0.66), borderRadius: 4,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    opacity: esmaecido ? 0.35 : 1, flexShrink: 0,
+  };
+  if (bandeira === "visa") {
+    return (
+      <div style={{ ...estiloBase, background: "#1A1F71" }}>
+        <span style={{ color: "#FFFFFF", fontSize: size * 0.32, fontWeight: 800, fontStyle: "italic", fontFamily: "Arial, sans-serif" }}>VISA</span>
+      </div>
+    );
+  }
+  if (bandeira === "mastercard") {
+    return (
+      <div style={{ ...estiloBase, background: "#F4F4F4", border: `1px solid ${LINE}` }}>
+        <div style={{ display: "flex" }}>
+          <div style={{ width: size * 0.3, height: size * 0.3, borderRadius: "50%", background: "#EB001B" }} />
+          <div style={{ width: size * 0.3, height: size * 0.3, borderRadius: "50%", background: "#F79E1B", marginLeft: -size * 0.12 }} />
+        </div>
+      </div>
+    );
+  }
+  if (bandeira === "amex") {
+    return (
+      <div style={{ ...estiloBase, background: "#2E77BC" }}>
+        <span style={{ color: "#FFFFFF", fontSize: size * 0.24, fontWeight: 800, fontFamily: "Arial, sans-serif" }}>AMEX</span>
+      </div>
+    );
+  }
+  if (bandeira === "elo") {
+    return (
+      <div style={{ ...estiloBase, background: "#000000" }}>
+        <span style={{ color: "#FFCB05", fontSize: size * 0.28, fontWeight: 800, fontStyle: "italic", fontFamily: "Arial, sans-serif" }}>elo</span>
+      </div>
+    );
+  }
+  return (
+    <div style={{ ...estiloBase, background: CARD, border: `1px solid ${LINE}` }}>
+      <CreditCard size={size * 0.5} color="#B8A88F" />
+    </div>
+  );
+}
+
+function PagamentoReal({ perfil, serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
+  const metodoInicial = perfil.formaPagamento === "pix" ? "pix" : "cartao";
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [pix, setPix] = useState(null);
@@ -4952,13 +5343,7 @@ function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) 
     let cancelado = false;
     setCarregando(true);
     setErro("");
-    criarPagamentoPix({
-      servico,
-      valorCentavos: MENSALIDADE_CENTAVOS,
-      descricao: `Mensalidade ${servico}`,
-      email: perfil.email,
-      nome: perfil.name,
-    })
+    createMensalidadePix(serviceType)
       .then((res) => {
         if (cancelado) return;
         setPix(res);
@@ -4977,11 +5362,11 @@ function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) 
   }, []);
 
   useEffect(() => {
-    if (!pix || pix.status === "approved") return;
+    if (!pix || pix.status === "aprovado") return;
     const intervalo = setInterval(async () => {
       try {
-        const status = await consultarPagamento(pix.id);
-        if (status.status === "approved") {
+        const status = await getPaymentStatus(pix.id);
+        if (status.status === "aprovado") {
           clearInterval(intervalo);
           onSucesso("liberado");
         }
@@ -5003,7 +5388,7 @@ function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) 
     setCarregando(true);
     try {
       if (!window.MercadoPago) throw new Error("O carregador de pagamento não iniciou. Feche e abra o app de novo.");
-      const publicKey = await buscarChavePublica();
+      const publicKey = await getPublicKey();
       const mp = new window.MercadoPago(publicKey, { locale: "pt-BR" });
 
       const numeroLimpo = numero.replace(/\s/g, "");
@@ -5022,18 +5407,14 @@ function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) 
       const metodo = metodos?.results?.[0];
       if (!metodo) throw new Error("Não reconhecemos a bandeira desse cartão.");
 
-      const resultado = await criarPagamentoCartao({
-        servico,
-        valorCentavos: MENSALIDADE_CENTAVOS,
-        descricao: `Mensalidade ${servico}`,
-        email: perfil.email,
+      const resultado = await createMensalidadeCard(serviceType, {
         token: token.id,
         parcelas: Number(parcelas),
-        issuerId: metodo.issuer?.id,
+        issuerId: metodo.issuer?.id != null ? String(metodo.issuer.id) : undefined,
         paymentMethodId: metodo.id,
       });
 
-      if (resultado.status === "approved") {
+      if (resultado.status === "aprovado") {
         onSucesso("liberado");
       } else {
         setErro("O pagamento não foi aprovado. Confira os dados do cartão ou tente outro cartão.");
@@ -5051,12 +5432,12 @@ function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) 
         Pagamento da mensalidade
       </p>
       <p style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif", textAlign: "center", marginBottom: 22 }}>
-        R$ 29,90 · {perfil.formaPagamento}
+        R$ 29,90 · {PAGAMENTO_LABELS[perfil.formaPagamento] || perfil.formaPagamento}
       </p>
 
       {erro && (
         <div style={{ background: "#FBEAEA", border: "1px solid #E3B3B3", borderRadius: 12, padding: "10px 12px", marginBottom: 16 }}>
-          <p style={{ fontSize: 12, color: "#8C2E2E", fontFamily: "Manrope, sans-serif", margin: 0 }}>{erro}</p>
+          <p style={{ fontSize: 12, color: "#8C2E2E", fontFamily: "Manrope, sans-serif", margin: 0, wordBreak: "break-word" }}>{erro}</p>
         </div>
       )}
 
@@ -5091,38 +5472,90 @@ function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) 
       )}
 
       {metodoInicial === "cartao" && (
-        <form onSubmit={pagarComCartao} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <input
-            required placeholder="Número do cartão" inputMode="numeric" value={numero}
-            onChange={(e) => setNumero(e.target.value)}
-            style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
-          />
-          <input
-            required placeholder="Nome impresso no cartão" value={nomeCartao}
-            onChange={(e) => setNomeCartao(e.target.value)}
-            style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
-          />
-          <div style={{ display: "flex", gap: 10 }}>
+        <form onSubmit={pagarComCartao} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+            <span style={{ fontSize: 10.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Aceitamos</span>
+            <IconeBandeira bandeira="visa" size={24} />
+            <IconeBandeira bandeira="mastercard" size={24} />
+            <IconeBandeira bandeira="amex" size={24} />
+            <IconeBandeira bandeira="elo" size={24} />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 10.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", marginBottom: 4, display: "block" }}>
+              Número do cartão
+            </label>
+            <div style={{ position: "relative" }}>
+              <input
+                required placeholder="0000 0000 0000 0000" inputMode="numeric" value={numero}
+                onChange={(e) => setNumero(formatarNumeroCartao(e.target.value))}
+                style={{
+                  width: "100%", boxSizing: "border-box", padding: "12px 50px 12px 14px", borderRadius: 12,
+                  border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif",
+                }}
+              />
+              <div style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)" }}>
+                <IconeBandeira bandeira={detectarBandeira(numero)} esmaecido={!detectarBandeira(numero)} />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 10.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", marginBottom: 4, display: "block" }}>
+              Nome impresso no cartão
+            </label>
             <input
-              required placeholder="MM/AA" value={validade} onChange={(e) => setValidade(e.target.value)}
-              style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
-            />
-            <input
-              required placeholder="CVV" inputMode="numeric" value={cvv} onChange={(e) => setCvv(e.target.value)}
-              style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
+              required placeholder="Como está no cartão" value={nomeCartao}
+              onChange={(e) => setNomeCartao(e.target.value)}
+              style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
             />
           </div>
-          <select
-            value={parcelas} onChange={(e) => setParcelas(e.target.value)}
-            style={{ padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif", background: CARD }}
-          >
-            <option value={1}>À vista</option>
-            <option value={2}>2x sem juros</option>
-            <option value={3}>3x sem juros</option>
-          </select>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 10.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", marginBottom: 4, display: "block" }}>
+                Validade
+              </label>
+              <input
+                required placeholder="MM/AA" value={validade} onChange={(e) => setValidade(formatarValidadeCartao(e.target.value))}
+                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 10.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", marginBottom: 4, display: "block" }}>
+                CVV
+              </label>
+              <input
+                required placeholder="123" inputMode="numeric" value={cvv}
+                onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif" }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 10.5, color: INK_SOFT, fontFamily: "Manrope, sans-serif", marginBottom: 4, display: "block" }}>
+              Parcelamento
+            </label>
+            <select
+              value={parcelas} onChange={(e) => setParcelas(e.target.value)}
+              style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: "Manrope, sans-serif", background: CARD }}
+            >
+              <option value={1}>À vista</option>
+              <option value={2}>2x sem juros</option>
+              <option value={3}>3x sem juros</option>
+            </select>
+          </div>
+
           <button type="submit" disabled={carregando} className="shine-cta" style={{ ...btnPrimary, width: "100%", marginTop: 6, opacity: carregando ? 0.7 : 1 }}>
             {carregando ? "Processando..." : "Pagar R$ 29,90"}
           </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 2 }}>
+            <Lock size={11} color="#8B6A52" />
+            <span style={{ fontSize: 10, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>
+              Pagamento processado com segurança pelo Mercado Pago
+            </span>
+          </div>
         </form>
       )}
     </div>
@@ -5131,14 +5564,37 @@ function PagamentoReal({ perfil, servico, corDestaque = GOLD_DEEP, onSucesso }) 
 
 // ---- confirmação de pagamento ----
 
-const infoPagamento = {
-  "Pix": { icone: QrCode, liberacao: "O Pix foi confirmado na hora. Seu perfil já está visível para as famílias." },
-  "Cartão de crédito": { icone: CreditCard, liberacao: "O pagamento no cartão foi confirmado na hora. Seu perfil já está visível para as famílias." },
-  "Cartão de débito": { icone: CreditCard, liberacao: "O pagamento no cartão foi confirmado na hora. Seu perfil já está visível para as famílias." },
-  "Boleto": { icone: FileText, liberacao: "Boleto gerado! Assim que o pagamento for compensado (em até 48h), seu perfil será liberado automaticamente." },
+const PAGAMENTO_LABELS = {
+  pix: "Pix",
+  credito: "Cartão de crédito",
+  debito: "Cartão de débito",
+  boleto: "Boleto",
 };
 
-function ConfirmacaoEmail({ email, onConfirmar }) {
+const infoPagamento = {
+  pix: { icone: QrCode, liberacao: "O Pix foi confirmado na hora. Seu perfil já está visível para as famílias." },
+  credito: { icone: CreditCard, liberacao: "O pagamento no cartão foi confirmado na hora. Seu perfil já está visível para as famílias." },
+  debito: { icone: CreditCard, liberacao: "O pagamento no cartão foi confirmado na hora. Seu perfil já está visível para as famílias." },
+  boleto: { icone: FileText, liberacao: "Boleto gerado! Assim que o pagamento for compensado (em até 48h), seu perfil será liberado automaticamente." },
+};
+
+function ConfirmacaoEmail({ email, onReenviar }) {
+  const [reenviando, setReenviando] = useState(false);
+  const [reenviado, setReenviado] = useState(false);
+
+  const reenviar = async () => {
+    if (reenviando) return;
+    setReenviando(true);
+    try {
+      await onReenviar();
+      setReenviado(true);
+    } catch {
+      // silencioso — o botão continua disponível pra tentar de novo
+    } finally {
+      setReenviando(false);
+    }
+  };
+
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 26px", background: PAPER, alignItems: "center", justifyContent: "center" }}>
       <div style={{
@@ -5160,21 +5616,28 @@ function ConfirmacaoEmail({ email, onConfirmar }) {
       </p>
 
       <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", textAlign: "center", lineHeight: 1.6, marginBottom: 28 }}>
-        Assim que você confirmar pelo link recebido, seu acesso é liberado automaticamente aqui no aplicativo.
+        Assim que você clicar no link recebido por e-mail, esta tela avança sozinha para o seu perfil — não precisa fazer mais nada aqui.
       </p>
 
-      <button className="shine-cta" onClick={onConfirmar} style={{ ...btnPrimary, width: "100%" }}>
-        <CheckCircle2 size={16} /> Simular confirmação do e-mail
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22 }}>
+        <Clock3 size={14} color={GOLD_DEEP} />
+        <span style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Aguardando confirmação...</span>
+      </div>
+
+      <button onClick={reenviar} disabled={reenviando} style={{ ...btnSecondary, width: "100%", opacity: reenviando ? 0.6 : 1 }}>
+        {reenviando ? "Enviando..." : "Reenviar e-mail de confirmação"}
       </button>
-      <p style={{ fontSize: 10, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 10, textAlign: "center" }}>
-        (Neste protótipo, este botão representa o clique no link enviado por e-mail.)
-      </p>
+      {reenviado && (
+        <p style={{ fontSize: 11.5, color: FOREST, fontFamily: "Manrope, sans-serif", marginTop: 10, textAlign: "center" }}>
+          E-mail reenviado! Confira sua caixa de entrada (e o spam).
+        </p>
+      )}
     </div>
   );
 }
 
 function ConfirmacaoPagamento({ perfil, onContinuar }) {
-  const info = infoPagamento[perfil.formaPagamento] || infoPagamento["Pix"];
+  const info = infoPagamento[perfil.formaPagamento] || infoPagamento.pix;
   const Icone = info.icone;
   const liberado = perfil.statusPagamento === "liberado";
 
@@ -5206,7 +5669,7 @@ function ConfirmacaoPagamento({ perfil, onContinuar }) {
         borderRadius: 20, padding: "6px 14px", marginBottom: 4,
       }}>
         <Icone size={14} color={GOLD_DEEP} />
-        <span style={{ fontSize: 11.5, fontFamily: "Manrope, sans-serif", color: INK }}>{perfil.formaPagamento}</span>
+        <span style={{ fontSize: 11.5, fontFamily: "Manrope, sans-serif", color: INK }}>{PAGAMENTO_LABELS[perfil.formaPagamento] || perfil.formaPagamento}</span>
       </div>
       <p style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginBottom: 16 }}>
         Mensalidade da plataforma: <span style={{ fontWeight: 700, color: INK }}>R$ 29,90/mês</span>
@@ -5226,19 +5689,35 @@ function ConfirmacaoPagamento({ perfil, onContinuar }) {
 // ---- app ----
 
 export default function App() {
-  const [tela, setTela] = useState("hub");
-  // tela: hub | login | cadastroMae | cadastroBaba | confirmacaoPagamento | confirmacaoEmailMae | confirmacaoEmailBaba | app | impulsionamento
+  const auth = useAuth();
+  // Sessão persistida guarda qual vertical/modo estava ativo, pra reabrir o
+  // app depois de fechado direto na tela certa em vez de voltar pro hub
+  // (a validade real do token só é confirmada depois, de forma assíncrona,
+  // por isso o efeito abaixo desfaz esse chute se a sessão não existir mais).
+  const [tela, setTela] = useState(() => {
+    try {
+      const v = localStorage.getItem("lastVertical");
+      if (v === "baba") return "app";
+      if (v === "diarista") return "diaristaApp";
+    } catch {}
+    return "hub";
+  });
+  // tela: hub | login | cadastroMae | cadastroBaba | confirmacaoPagamento | confirmacaoEmailBaba | app | impulsionamento
   //     | diaristaLogin | cadastroDiarista | confirmacaoPagamentoDiarista | confirmacaoEmailDiarista
-  //     | cadastroClienteDiarista | confirmacaoEmailClienteDiarista | diaristaApp
+  //     | cadastroClienteDiarista | diaristaApp
   const [tipoLogin, setTipoLogin] = useState("mae");
-  const [modo, setModo] = useState("mae");
+  const [modo, setModo] = useState(() => {
+    try { return localStorage.getItem("lastModoBaba") || "mae"; } catch { return "mae"; }
+  });
   const [selecionada, setSelecionada] = useState(null);
+  const [abaPerfilInicial, setAbaPerfilInicial] = useState("Sobre");
   const [meuPerfilBaba, setMeuPerfilBaba] = useState(minhaBaba);
   const [meuPerfilMae, setMeuPerfilMae] = useState(null);
   const [verPerfilMae, setVerPerfilMae] = useState(false);
   const [perfilPendente, setPerfilPendente] = useState(null);
-  const [dadosMaePendente, setDadosMaePendente] = useState(null);
   const [boosts, setBoosts] = useState({});
+  const [planosImpulsionamento, setPlanosImpulsionamento] = useState({});
+  const [carregandoPlanosBoost, setCarregandoPlanosBoost] = useState(false);
   const [contratacoes, setContratacoes] = useState([]);
   const [verHistorico, setVerHistorico] = useState(null); // null | "cliente" | "prestadorBaba" | "prestadorDiarista"
   const [avaliando, setAvaliando] = useState(null); // contratação sendo avaliada
@@ -5260,19 +5739,212 @@ export default function App() {
   };
 
   const [tipoLoginDiarista, setTipoLoginDiarista] = useState("cliente");
-  const [modoDiarista, setModoDiarista] = useState("cliente");
+  const [modoDiarista, setModoDiarista] = useState(() => {
+    try { return localStorage.getItem("lastModoDiarista") || "cliente"; } catch { return "cliente"; }
+  });
   const [meuPerfilDiarista, setMeuPerfilDiarista] = useState(minhaDiarista);
   const [selecionadaDiarista, setSelecionadaDiarista] = useState(null);
   const [perfilDiaristaPendente, setPerfilDiaristaPendente] = useState(null);
   const [meuPerfilCliente, setMeuPerfilCliente] = useState({ nome: "Cliente Exemplo", email: "cliente@exemplo.com", bairro: "Tatuapé", seguidores: 6, seguindo: 15 });
   const [verPerfilCliente, setVerPerfilCliente] = useState(false);
-  const [dadosClientePendente, setDadosClientePendente] = useState(null);
-
   const [perfisBloqueados, setPerfisBloqueados] = useState([]); // [{ tipo: "baba"|"diarista", id, nome }]
   const [denuncias, setDenuncias] = useState([]);
   const [verBloqueados, setVerBloqueados] = useState(false);
 
-  const fazerLogin = (tipo) => {
+  // Histórico de telas pra permitir que o botão físico de voltar do Android
+  // navegue passo a passo pelo app (hub -> login -> app -> perfil, etc.) em
+  // vez de fechar o app direto, já que a navegação aqui não usa rotas reais
+  // (sem histórico de browser pra aproveitar).
+  const telaHistoricoRef = useRef([]);
+  const telaAnteriorRef = useRef(tela);
+  useEffect(() => {
+    if (telaAnteriorRef.current !== tela) {
+      telaHistoricoRef.current.push(telaAnteriorRef.current);
+      telaAnteriorRef.current = tela;
+    }
+  }, [tela]);
+
+  useEffect(() => {
+    let handle;
+    CapacitorApp.addListener("backButton", () => {
+      if (verNotificacoes) return setVerNotificacoes(false);
+      if (verBloqueados) return setVerBloqueados(false);
+      if (verHistorico) return setVerHistorico(null);
+      if (verPerfilMae) return setVerPerfilMae(false);
+      if (verPerfilCliente) return setVerPerfilCliente(false);
+      if (avaliando) return setAvaliando(null);
+      if (selecionada) return setSelecionada(null);
+      if (selecionadaDiarista) return setSelecionadaDiarista(null);
+
+      const historico = telaHistoricoRef.current;
+      if (historico.length > 0) {
+        const anterior = historico.pop();
+        telaAnteriorRef.current = anterior;
+        setTela(anterior);
+      } else {
+        CapacitorApp.exitApp();
+      }
+    }).then((h) => { handle = h; });
+    return () => { handle?.remove(); };
+  }, [verNotificacoes, verBloqueados, verHistorico, verPerfilMae, verPerfilCliente, avaliando, selecionada, selecionadaDiarista]);
+
+  // Se a sessão não existir mais (nunca existiu, expirou, ou foi encerrada em
+  // outro lugar), desfaz o chute otimista da tela inicial e limpa a marcação
+  // de qual vertical estava ativa.
+  useEffect(() => {
+    if (auth.status !== "anonymous") return;
+    try {
+      localStorage.removeItem("lastVertical");
+      localStorage.removeItem("lastModoBaba");
+      localStorage.removeItem("lastModoDiarista");
+    } catch {}
+    setTela((t) => (t === "app" || t === "diaristaApp" ? "hub" : t));
+  }, [auth.status]);
+
+  // Se o usuário logado já tem um perfil profissional real, busca e substitui
+  // o mock (`minhaBaba`/`minhaDiarista`) — sem isso, `meuPerfilBaba.id`/
+  // `meuPerfilDiarista.id` continuam sendo os ids fictícios do mock, e nenhuma
+  // contratação real (que usa o uuid real do profissional) seria reconhecida
+  // como "minha" nas telas de agenda de trabalhos.
+  useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    let cancelado = false;
+    (async () => {
+      if (auth.roles.includes("profissional_baba")) {
+        try {
+          const dto = await getMyProfessionalProfile("baba");
+          if (!cancelado) setMeuPerfilBaba(adaptarProfissionalBaba(dto));
+        } catch {}
+      }
+      if (auth.roles.includes("profissional_diarista")) {
+        try {
+          const dto = await getMyProfessionalProfile("diarista");
+          if (!cancelado) setMeuPerfilDiarista(adaptarProfissionalDiarista(dto));
+        } catch {}
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [auth.status]);
+
+  // Carrega as contratações reais (como cliente e como profissional) assim que
+  // a sessão é confirmada. O DTO do backend não traz nome/foto de quem está do
+  // outro lado — enriquecemos com o perfil profissional já disponível via API;
+  // do lado do profissional não existe hoje um jeito de buscar o nome do
+  // cliente (gap do backend), então usamos um rótulo genérico nesse caso.
+  useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const [comoCliente, comoProfissional] = await Promise.all([
+          listMyBookings("client").catch(() => []),
+          listMyBookings("professional").catch(() => []),
+        ]);
+        const todos = [
+          ...comoCliente.map((b) => ({ ...b, _comoCliente: true })),
+          ...comoProfissional.map((b) => ({ ...b, _comoCliente: false })),
+        ];
+        const enriquecidos = await Promise.all(todos.map(async (b) => {
+          let prof = null;
+          try { prof = await getProfessionalById(b.professionalId); } catch {}
+          const clienteNome = b._comoCliente
+            ? (b.serviceType === "baba" ? (meuPerfilMae?.nome || "Você") : (meuPerfilCliente?.nome || "Você"))
+            : "Cliente";
+          return {
+            id: b.id,
+            prestadorId: b.professionalId,
+            prestadorTipo: b.serviceType,
+            prestadorNome: prof?.name || "Profissional",
+            prestadorIniciais: prof ? iniciaisDoNome(prof.name) : "?",
+            prestadorCor: corPorId(b.professionalId, b.serviceType === "baba" ? [FOREST, WINE, GOLD_DEEP] : [D_CORAL, D_CORAL_DEEP, D_CORAL_LIGHT]),
+            prestadorFoto: prof?.fotoUrl || null,
+            clienteNome,
+            data: b.data,
+            horario: (b.horario || "").slice(0, 5),
+            servico: b.servico,
+            valor: b.valorCents ? `R$ ${(b.valorCents / 100).toLocaleString("pt-BR")}` : "A combinar",
+            status: b.status,
+            checkin: formatarHoraISO(b.checkin),
+            checkout: formatarHoraISO(b.checkout),
+            avaliado: false,
+          };
+        }));
+        if (!cancelado) setContratacoes(enriquecidos);
+      } catch {
+        // silencioso — a tela de histórico fica vazia até a próxima tentativa
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [auth.status]);
+
+  // Carrega os bloqueios reais assim que a sessão é confirmada. O DTO de
+  // `GET /blocks/mine` só traz o id do profissional bloqueado — enriquecemos
+  // com nome/foto/serviceType via GET /professionals/:id, mesmo padrão usado
+  // para contratações.
+  useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const rows = await listMyBlocks();
+        const enriquecidos = await Promise.all(rows.map(async (r) => {
+          let prof = null;
+          try { prof = await getProfessionalById(r.blockedProfessionalId); } catch {}
+          return {
+            tipo: prof?.serviceType || "baba",
+            id: r.blockedProfessionalId,
+            nome: prof?.name || "Profissional",
+            blockId: r.id,
+          };
+        }));
+        if (!cancelado) setPerfisBloqueados(enriquecidos);
+      } catch {
+        // silencioso — a tela de bloqueados fica vazia até a próxima tentativa
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [auth.status]);
+
+  // Catálogo de planos de impulsionamento (preços/duração vêm do servidor,
+  // não são mais fixos no front) e as compras já ativas do profissional.
+  useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    let cancelado = false;
+    setCarregandoPlanosBoost(true);
+    (async () => {
+      try {
+        const planos = await getBoostPlans();
+        if (!cancelado) setPlanosImpulsionamento(adaptarPlanosBoost(planos));
+      } catch {
+        // silencioso — a tela de impulsionamento mostra a lista vazia
+      } finally {
+        if (!cancelado) setCarregandoPlanosBoost(false);
+      }
+      try {
+        const rows = await getMyBoosts();
+        if (!cancelado) setBoosts(reduzirBoostsAtivos(rows));
+      } catch {
+        // silencioso — assume nenhum boost ativo até a próxima tentativa
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [auth.status]);
+
+  const fazerLogin = async (tipo, email, senha) => {
+    const usuario = await auth.login(email, senha);
+    const roleNecessaria = tipo === "mae" ? "cliente_baba" : "profissional_baba";
+    if (!(usuario?.roles || []).includes(roleNecessaria)) {
+      await auth.logout();
+      throw new Error(
+        tipo === "mae"
+          ? "Você ainda não tem cadastro como pai ou mãe na Babá de Aluguel. Cadastre-se primeiro."
+          : "Você ainda não tem cadastro como babá na Babá de Aluguel. Cadastre-se primeiro."
+      );
+    }
+    try {
+      localStorage.setItem("lastVertical", "baba");
+      localStorage.setItem("lastModoBaba", tipo);
+    } catch {}
     setModo(tipo);
     setTela("app");
   };
@@ -5281,20 +5953,22 @@ export default function App() {
     setTela(tipo === "mae" ? "cadastroMae" : "cadastroBaba");
   };
 
-  const cadastroMaeEnviado = (dados) => {
-    setDadosMaePendente(dados);
-    setTela("confirmacaoEmailMae");
-  };
-
-  const confirmarEmailMae = () => {
-    setMeuPerfilMae({ ...dadosMaePendente, seguidores: 12, seguindo: 24 });
+  const cadastroMaeEnviado = async ({ nome, email, senha, bairro }) => {
+    await auth.register({ email, password: senha, name: nome });
+    await grantClientRole({ serviceType: "baba", bairro });
+    const perfilAtualizado = await auth.refreshRoles();
+    setMeuPerfilMae({ nome: perfilAtualizado.name, email: perfilAtualizado.email, bairro, seguidores: 0, seguindo: 0 });
     setModo("mae");
     setTela("app");
   };
 
-  const finalizarCadastroBaba = (respostas) => {
-    const perfil = construirPerfilBaba(respostas);
-    setPerfilPendente(perfil);
+  const finalizarCadastroBaba = async (respostas) => {
+    await auth.register({ email: respostas.email, password: respostas.senha, name: respostas.nome });
+    const payload = respostasParaCreateProfessionalInput(respostas, "baba");
+    await createProfessionalProfile(payload);
+    await auth.refreshRoles();
+    const perfilComAgenda = await updateMyProfessionalProfile("baba", { agenda: respostasParaAgenda(respostas) });
+    setPerfilPendente(perfilComAgenda);
     setTela("confirmacaoPagamento");
   };
 
@@ -5326,90 +6000,162 @@ export default function App() {
     setMeuPerfilMae((p) => ({ ...(p || {}), fotoUrl }));
   };
 
-  const ativarImpulsionamento = (planoKey, duracao) => {
-    setBoosts((b) => ({ ...b, [planoKey]: { ativo: true, dias: duracao.dias } }));
+  const ativarImpulsionamento = async () => {
+    try {
+      const rows = await getMyBoosts();
+      setBoosts(reduzirBoostsAtivos(rows));
+    } catch (e) {
+      adicionarNotificacao(e.message || "Pagamento confirmado, mas não foi possível atualizar o status agora.");
+    }
   };
 
-  const agendarServico = (prestador, tipoPrestador, dados) => {
+  const FORMA_PAGAMENTO_API = { "Pix": "pix", "Cartão de crédito": "credito" };
+
+  const formatarHoraISO = (iso) => (iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : undefined);
+
+  const agendarServico = async (prestador, tipoPrestador, dados) => {
     const clienteNome = tipoPrestador === "baba" ? (meuPerfilMae?.nome || "Você") : (meuPerfilCliente?.nome || "Você");
-    const nova = {
-      id: Date.now(),
-      prestadorId: prestador.id,
-      prestadorTipo: tipoPrestador,
-      prestadorNome: prestador.name,
-      prestadorIniciais: prestador.initials,
-      prestadorCor: prestador.color,
-      prestadorFoto: prestador.fotoUrl,
-      clienteNome,
-      data: dados.data,
-      horario: dados.horario,
-      servico: dados.servico,
-      valor: dados.valor,
-      status: "pendente",
-      avaliado: false,
-    };
-    setContratacoes((c) => [nova, ...c]);
-    adicionarNotificacao(`Pedido enviado para ${prestador.name.split(" ")[0]}. Você será avisada assim que ela confirmar o dia ${dados.data} às ${dados.horario}.`);
-  };
-
-  const aceitarContratacao = (id) => {
-    const alvo = contratacoes.find((x) => x.id === id);
-    setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: "agendado" } : x)));
-    if (alvo) {
-      adicionarNotificacao(`Você confirmou o atendimento com ${alvo.clienteNome.split(" ")[0]} em ${alvo.data} às ${alvo.horario}.`);
-      const clienteContatos = alvo.prestadorTipo === "baba" ? meuPerfilMae?.contatosConfianca : meuPerfilCliente?.contatosConfianca;
-      notificarContatosConfianca(clienteContatos, `Atendimento com ${alvo.prestadorNome} confirmado para ${alvo.data} às ${alvo.horario}.`);
+    const amountCents = prestador.valorCombinar ? 0 : Math.round(Number(prestador.precoHora) * 100);
+    try {
+      const booking = await createBooking({
+        professionalId: prestador.id,
+        scheduledDate: dados.dataISO,
+        scheduledTime: dados.horario,
+        servico: dados.servico,
+        amountCents,
+        formaPagamento: FORMA_PAGAMENTO_API[dados.formaPagamento] || "pix",
+      });
+      const nova = {
+        ...booking,
+        prestadorId: prestador.id,
+        prestadorTipo: tipoPrestador,
+        prestadorNome: prestador.name,
+        prestadorIniciais: prestador.initials,
+        prestadorCor: prestador.color,
+        prestadorFoto: prestador.fotoUrl,
+        clienteNome,
+        data: dados.data,
+        horario: dados.horario,
+        servico: dados.servico,
+        valor: dados.valor,
+        avaliado: false,
+      };
+      setContratacoes((c) => [nova, ...c]);
+      adicionarNotificacao(`Pedido enviado para ${prestador.name.split(" ")[0]}. Você será avisada assim que ela confirmar o dia ${dados.data} às ${dados.horario}.`);
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível enviar o pedido agora. Tente novamente.");
+      throw e;
     }
   };
 
-  const registrarCheckin = (id) => {
+  const aceitarContratacao = async (id) => {
     const alvo = contratacoes.find((x) => x.id === id);
-    const agora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, checkin: agora } : x)));
-    if (alvo) {
-      const meusContatos = alvo.prestadorTipo === "baba" ? meuPerfilBaba?.contatosConfianca : meuPerfilDiarista?.contatosConfianca;
-      notificarContatosConfianca(meusContatos, `Cheguei para atender ${alvo.clienteNome} às ${agora}.`);
+    try {
+      const atualizado = await acceptBooking(id);
+      setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: atualizado.status } : x)));
+      if (alvo) {
+        adicionarNotificacao(`Você confirmou o atendimento com ${alvo.clienteNome.split(" ")[0]} em ${alvo.data} às ${alvo.horario}.`);
+        const clienteContatos = alvo.prestadorTipo === "baba" ? meuPerfilMae?.contatosConfianca : meuPerfilCliente?.contatosConfianca;
+        notificarContatosConfianca(clienteContatos, `Atendimento com ${alvo.prestadorNome} confirmado para ${alvo.data} às ${alvo.horario}.`);
+      }
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível confirmar esse atendimento agora.");
     }
   };
 
-  const registrarCheckout = (id) => {
+  const registrarCheckin = async (id) => {
     const alvo = contratacoes.find((x) => x.id === id);
-    const agora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, checkout: agora } : x)));
-    if (alvo) {
-      const meusContatos = alvo.prestadorTipo === "baba" ? meuPerfilBaba?.contatosConfianca : meuPerfilDiarista?.contatosConfianca;
-      notificarContatosConfianca(meusContatos, `Saí do atendimento com ${alvo.clienteNome} às ${agora}.`);
+    try {
+      const atualizado = await checkinBooking(id);
+      const agora = formatarHoraISO(atualizado.checkin);
+      setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, checkin: agora } : x)));
+      if (alvo) {
+        const meusContatos = alvo.prestadorTipo === "baba" ? meuPerfilBaba?.contatosConfianca : meuPerfilDiarista?.contatosConfianca;
+        notificarContatosConfianca(meusContatos, `Cheguei para atender ${alvo.clienteNome} às ${agora}.`);
+      }
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível registrar o check-in agora.");
     }
   };
 
-  const recusarContratacao = (id) => {
+  const registrarCheckout = async (id) => {
     const alvo = contratacoes.find((x) => x.id === id);
-    setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: "recusado" } : x)));
-    if (alvo) adicionarNotificacao(`Você recusou o pedido de ${alvo.clienteNome.split(" ")[0]} para ${alvo.data}.`);
+    try {
+      const atualizado = await checkoutBooking(id);
+      const agora = formatarHoraISO(atualizado.checkout);
+      setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, checkout: agora } : x)));
+      if (alvo) {
+        const meusContatos = alvo.prestadorTipo === "baba" ? meuPerfilBaba?.contatosConfianca : meuPerfilDiarista?.contatosConfianca;
+        notificarContatosConfianca(meusContatos, `Saí do atendimento com ${alvo.clienteNome} às ${agora}.`);
+      }
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível registrar o check-out agora.");
+    }
   };
 
-  const concluirContratacao = (id) => {
-    setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: "concluido" } : x)));
+  const recusarContratacao = async (id) => {
+    const alvo = contratacoes.find((x) => x.id === id);
+    try {
+      const atualizado = await rejectBooking(id);
+      setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: atualizado.status } : x)));
+      if (alvo) adicionarNotificacao(`Você recusou o pedido de ${alvo.clienteNome.split(" ")[0]} para ${alvo.data}.`);
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível recusar esse pedido agora.");
+    }
   };
 
-  const cancelarContratacao = (id) => {
-    setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: "cancelado" } : x)));
+  const concluirContratacao = async (id) => {
+    try {
+      const atualizado = await completeBooking(id);
+      setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: atualizado.status } : x)));
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível concluir esse atendimento agora.");
+    }
+  };
+
+  const cancelarContratacao = async (id) => {
+    try {
+      const atualizado = await cancelBooking(id);
+      setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: atualizado.status } : x)));
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível cancelar agora.");
+    }
   };
 
   const abrirAvaliacao = (contratacao) => setAvaliando(contratacao);
 
-  const enviarAvaliacao = ({ estrelas, comentario }) => {
+  const enviarAvaliacao = async ({ estrelas, comentario }) => {
     if (!avaliando) return;
-    setContratacoes((c) => c.map((x) => (x.id === avaliando.id ? { ...x, avaliado: true } : x)));
-    setAvaliacoesExtras((a) => [...a, {
-      prestadorId: avaliando.prestadorId, prestadorTipo: avaliando.prestadorTipo,
-      estrelas, comentario, autor: avaliando.clienteNome,
-    }]);
-    adicionarNotificacao(`Sua avaliação para ${avaliando.prestadorNome.split(" ")[0]} foi publicada.`);
-    setAvaliando(null);
+    try {
+      await createReview({ bookingId: avaliando.id, estrelas, comentario: comentario || undefined });
+      setContratacoes((c) => c.map((x) => (x.id === avaliando.id ? { ...x, avaliado: true } : x)));
+      setAvaliacoesExtras((a) => [...a, {
+        prestadorId: avaliando.prestadorId, prestadorTipo: avaliando.prestadorTipo,
+        estrelas, comentario, autor: avaliando.clienteNome,
+      }]);
+      adicionarNotificacao(`Sua avaliação para ${avaliando.prestadorNome.split(" ")[0]} foi publicada.`);
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível publicar sua avaliação agora.");
+    } finally {
+      setAvaliando(null);
+    }
   };
 
-  const fazerLoginDiarista = (tipo) => {
+  const fazerLoginDiarista = async (tipo, email, senha) => {
+    const usuario = await auth.login(email, senha);
+    const roleNecessaria = tipo === "cliente" ? "cliente_diarista" : "profissional_diarista";
+    if (!(usuario?.roles || []).includes(roleNecessaria)) {
+      await auth.logout();
+      throw new Error(
+        tipo === "cliente"
+          ? "Você ainda não tem cadastro como cliente na Diarista de Aluguel. Cadastre-se primeiro."
+          : "Você ainda não tem cadastro como diarista na Diarista de Aluguel. Cadastre-se primeiro."
+      );
+    }
+    try {
+      localStorage.setItem("lastVertical", "diarista");
+      localStorage.setItem("lastModoDiarista", tipo);
+    } catch {}
     setModoDiarista(tipo);
     setSelecionadaDiarista(null);
     setTela("diaristaApp");
@@ -5423,21 +6169,23 @@ export default function App() {
     }
   };
 
-  const cadastroClienteDiaristaEnviado = (dados) => {
-    setDadosClientePendente(dados);
-    setTela("confirmacaoEmailClienteDiarista");
-  };
-
-  const confirmarEmailClienteDiarista = () => {
-    setMeuPerfilCliente({ ...dadosClientePendente, seguidores: 12, seguindo: 24 });
+  const cadastroClienteDiaristaEnviado = async ({ nome, email, senha, bairro }) => {
+    await auth.register({ email, password: senha, name: nome });
+    await grantClientRole({ serviceType: "diarista", bairro });
+    const perfilAtualizado = await auth.refreshRoles();
+    setMeuPerfilCliente({ nome: perfilAtualizado.name, email: perfilAtualizado.email, bairro, seguidores: 0, seguindo: 0 });
     setModoDiarista("cliente");
     setSelecionadaDiarista(null);
     setTela("diaristaApp");
   };
 
-  const finalizarCadastroDiarista = (respostas) => {
-    const perfil = construirPerfilDiarista(respostas);
-    setPerfilDiaristaPendente(perfil);
+  const finalizarCadastroDiarista = async (respostas) => {
+    await auth.register({ email: respostas.email, password: respostas.senha, name: respostas.nome });
+    const payload = respostasParaCreateProfessionalInput(respostas, "diarista");
+    await createProfessionalProfile(payload);
+    await auth.refreshRoles();
+    const perfilComAgenda = await updateMyProfessionalProfile("diarista", { agenda: respostasParaAgenda(respostas) });
+    setPerfilDiaristaPendente(perfilComAgenda);
     setTela("confirmacaoPagamentoDiarista");
   };
 
@@ -5451,6 +6199,29 @@ export default function App() {
     setSelecionadaDiarista(null);
     setTela("diaristaApp");
   };
+
+  const reenviarEmailConfirmacao = () => auth.resendVerification();
+
+  // Enquanto a tela de "aguardando confirmação" está aberta, checa a cada
+  // poucos segundos se o link do e-mail já foi clicado — assim que confirma,
+  // avança sozinho pro perfil, sem precisar de nenhum toque do usuário.
+  useEffect(() => {
+    if (tela !== "confirmacaoEmailBaba" && tela !== "confirmacaoEmailDiarista") return;
+    let cancelado = false;
+    const intervalo = setInterval(async () => {
+      try {
+        const perfil = await auth.refreshMe();
+        if (cancelado || !perfil.emailVerified) return;
+        clearInterval(intervalo);
+        if (tela === "confirmacaoEmailBaba") confirmarEmailBaba();
+        else confirmarEmailDiarista();
+      } catch {
+        // tenta de novo no próximo intervalo
+      }
+    }, 4000);
+    return () => { cancelado = true; clearInterval(intervalo); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tela]);
 
   const atualizarFotoPerfilDiarista = (fotoUrl) => {
     setMeuPerfilDiarista((p) => ({ ...p, fotoUrl }));
@@ -5474,28 +6245,75 @@ export default function App() {
     setMeuPerfilCliente((p) => ({ ...(p || {}), fotoUrl }));
   };
 
-  const bloquearPerfil = (perfil, tipo) => {
-    setPerfisBloqueados((b) => (b.some((p) => p.tipo === tipo && p.id === perfil.id) ? b : [...b, { tipo, id: perfil.id, nome: perfil.name }]));
+  const MOTIVO_DENUNCIA_API = {
+    "Comportamento inadequado": "comportamento_inadequado",
+    "Cobrança indevida": "cobranca_indevida",
+    "Perfil falso": "perfil_falso",
+    "Assédio": "assedio",
+    "Outro": "outro",
+  };
+
+  const bloquearPerfil = async (perfil, tipo) => {
+    if (perfisBloqueados.some((p) => p.tipo === tipo && p.id === perfil.id)) return;
+    let blockId;
+    try {
+      const row = await blockProfessional(perfil.id);
+      blockId = row.id;
+    } catch (e) {
+      if (String(e.message || "").includes("já bloqueou")) {
+        try {
+          const rows = await listMyBlocks();
+          blockId = rows.find((r) => r.blockedProfessionalId === perfil.id)?.id;
+        } catch {}
+      } else {
+        adicionarNotificacao(e.message || "Não foi possível bloquear esse perfil agora.");
+        return;
+      }
+    }
+    setPerfisBloqueados((b) => [...b, { tipo, id: perfil.id, nome: perfil.name, blockId }]);
     if (tipo === "baba") setSelecionada(null); else setSelecionadaDiarista(null);
     adicionarNotificacao(`Você bloqueou ${perfil.name.split(" ")[0]}. O perfil não vai mais aparecer para você.`);
   };
 
-  const desbloquearPerfil = (tipo, id) => {
-    setPerfisBloqueados((b) => b.filter((p) => !(p.tipo === tipo && p.id === id)));
+  const desbloquearPerfil = async (tipo, id, blockId) => {
+    try {
+      if (blockId) await unblockProfessional(blockId);
+      setPerfisBloqueados((b) => b.filter((p) => !(p.tipo === tipo && p.id === id)));
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível desbloquear agora.");
+    }
   };
 
-  const enviarDenuncia = (perfil, tipo, motivo, detalhes) => {
-    setDenuncias((d) => [...d, {
-      id: Date.now(), tipo, perfilId: perfil.id, perfilNome: perfil.name, motivo, detalhes,
-      data: new Date().toLocaleDateString("pt-BR"),
-    }]);
-    adicionarNotificacao(`Sua denúncia sobre ${perfil.name.split(" ")[0]} foi enviada. Nossa equipe vai analisar em até 48h.`);
+  const enviarDenuncia = async (perfil, tipo, motivo, detalhes) => {
+    try {
+      await reportProfessional({ targetProfessionalId: perfil.id, motivo: MOTIVO_DENUNCIA_API[motivo] || "outro", detalhes });
+      setDenuncias((d) => [...d, {
+        id: Date.now(), tipo, perfilId: perfil.id, perfilNome: perfil.name, motivo, detalhes,
+        data: new Date().toLocaleDateString("pt-BR"),
+      }]);
+      adicionarNotificacao(`Sua denúncia sobre ${perfil.name.split(" ")[0]} foi enviada. Nossa equipe vai analisar em até 48h.`);
+    } catch (e) {
+      adicionarNotificacao(e.message || "Não foi possível enviar a denúncia agora.");
+    }
   };
 
   const idsBloqueadosBaba = perfisBloqueados.filter((p) => p.tipo === "baba").map((p) => p.id);
   const idsBloqueadosDiarista = perfisBloqueados.filter((p) => p.tipo === "diarista").map((p) => p.id);
   const pendentesBaba = contratacoes.filter((c) => c.prestadorTipo === "baba" && c.prestadorId === meuPerfilBaba.id && c.status === "pendente").length;
   const pendentesDiarista = contratacoes.filter((c) => c.prestadorTipo === "diarista" && c.prestadorId === meuPerfilDiarista.id && c.status === "pendente").length;
+
+  if (auth.status === "hydrating") {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", background: PAPER, minHeight: "100dvh" }}>
+        <div style={{
+          width: "100%", maxWidth: 480, minHeight: "100dvh", background: PAPER,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        }}>
+          <LogoBrilho width={128} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", justifyContent: "center", background: PAPER, minHeight: "100dvh" }}>
@@ -5556,7 +6374,7 @@ export default function App() {
           perfilDiaristaPendente.statusPagamento === "processando" ? (
             <PagamentoReal
               perfil={perfilDiaristaPendente}
-              servico="Diarista de Aluguel"
+              serviceType="diarista"
               corDestaque={D_CORAL_DEEP}
               onSucesso={(status) => setPerfilDiaristaPendente((p) => ({ ...p, statusPagamento: status }))}
             />
@@ -5566,7 +6384,7 @@ export default function App() {
         )}
 
         {tela === "confirmacaoEmailDiarista" && perfilDiaristaPendente && (
-          <ConfirmacaoEmail email={perfilDiaristaPendente.email} onConfirmar={confirmarEmailDiarista} />
+          <ConfirmacaoEmail email={perfilDiaristaPendente.email} onReenviar={reenviarEmailConfirmacao} />
         )}
 
         {tela === "cadastroClienteDiarista" && (
@@ -5578,10 +6396,6 @@ export default function App() {
             corTexto="#5A2420"
             corBotao={{ background: `linear-gradient(120deg, ${D_CORAL_LIGHT} 0%, ${D_CORAL} 55%, ${D_CORAL_DEEP} 100%)`, color: "#FFFFFF", boxShadow: "0 4px 14px rgba(201,68,48,0.35)" }}
           />
-        )}
-
-        {tela === "confirmacaoEmailClienteDiarista" && dadosClientePendente && (
-          <ConfirmacaoEmail email={dadosClientePendente.email} onConfirmar={confirmarEmailClienteDiarista} />
         )}
 
         {tela === "diaristaApp" && (
@@ -5612,15 +6426,6 @@ export default function App() {
                       <User size={13} color={D_CORAL} />
                     </button>
                   )}
-                  <button onClick={() => { setModoDiarista(modoDiarista === "cliente" ? "diarista" : "cliente"); setSelecionadaDiarista(null); setVerPerfilCliente(false); }} style={{
-                    display: "flex", alignItems: "center", gap: 5, background: "rgba(226,122,109,0.22)",
-                    border: `1px solid ${D_CORAL}`, borderRadius: 20, padding: "6px 11px", cursor: "pointer",
-                  }}>
-                    <ArrowLeftRight size={12} color={D_CORAL} />
-                    <span style={{ fontSize: 10.5, color: "#FFF6F1", fontFamily: "Manrope, sans-serif" }}>
-                      {modoDiarista === "cliente" ? "Sou cliente" : "Sou diarista"}
-                    </span>
-                  </button>
                 </div>
               </div>
               <p style={{ fontSize: 11.5, color: "#E4C3BC", fontFamily: "Manrope, sans-serif", marginTop: 5 }}>
@@ -5676,6 +6481,7 @@ export default function App() {
                   onVerContratacoes={() => setVerHistorico("cliente")}
                   onVerBloqueados={() => setVerBloqueados(true)}
                   totalBloqueados={perfisBloqueados.length}
+                  onSair={async () => { await auth.logout(); setVerPerfilCliente(false); setTela("hub"); }}
                   corDestaque={D_CORAL}
                   corHeader="#5A2420"
                   corTexto="#FFF6F1"
@@ -5708,6 +6514,10 @@ export default function App() {
                   avaliacoesExtras={avaliacoesExtras}
                   onVerAgenda={() => setVerHistorico("prestadorDiarista")}
                   pendentesCount={pendentesDiarista}
+                  boosts={boosts}
+                  planos={planosImpulsionamento}
+                  carregandoPlanos={carregandoPlanosBoost}
+                  onAtivar={ativarImpulsionamento}
                 />
               )}
             </div>
@@ -5722,10 +6532,6 @@ export default function App() {
           <CadastroMae onVoltar={() => setTela("login")} onConcluir={cadastroMaeEnviado} />
         )}
 
-        {tela === "confirmacaoEmailMae" && dadosMaePendente && (
-          <ConfirmacaoEmail email={dadosMaePendente.email} onConfirmar={confirmarEmailMae} />
-        )}
-
         {tela === "cadastroBaba" && (
           <CadastroBaba onVoltar={() => setTela("login")} onConcluir={finalizarCadastroBaba} />
         )}
@@ -5734,7 +6540,7 @@ export default function App() {
           perfilPendente.statusPagamento === "processando" ? (
             <PagamentoReal
               perfil={perfilPendente}
-              servico="Babá de Aluguel"
+              serviceType="baba"
               onSucesso={(status) => setPerfilPendente((p) => ({ ...p, statusPagamento: status }))}
             />
           ) : (
@@ -5743,7 +6549,7 @@ export default function App() {
         )}
 
         {tela === "confirmacaoEmailBaba" && perfilPendente && (
-          <ConfirmacaoEmail email={perfilPendente.email} onConfirmar={confirmarEmailBaba} />
+          <ConfirmacaoEmail email={perfilPendente.email} onReenviar={reenviarEmailConfirmacao} />
         )}
 
         {tela === "app" && !selecionada && !verPerfilMae && !verBloqueados && !verHistorico && (
@@ -5774,15 +6580,6 @@ export default function App() {
                       <User size={13} color={GOLD} />
                     </button>
                   )}
-                  <button onClick={() => { setModo(modo === "mae" ? "baba" : "mae"); setVerPerfilMae(false); }} style={{
-                    display: "flex", alignItems: "center", gap: 5, background: "rgba(201,138,86,0.16)",
-                    border: `1px solid ${GOLD}`, borderRadius: 20, padding: "6px 11px", cursor: "pointer",
-                  }}>
-                    <ArrowLeftRight size={12} color={GOLD} />
-                    <span style={{ fontSize: 10.5, color: PAPER, fontFamily: "Manrope, sans-serif" }}>
-                      {modo === "mae" ? "Sou mãe" : "Sou babá"}
-                    </span>
-                  </button>
                 </div>
               </div>
               <p style={{ fontSize: 11.5, color: "#D8C3A8", fontFamily: "Manrope, sans-serif", marginTop: 5 }}>
@@ -5814,7 +6611,7 @@ export default function App() {
                     Toque no seu cartão para ver e editar seu perfil público.
                   </p>
 
-                  <button onClick={() => setTela("impulsionamento")} style={{
+                  <button onClick={() => { setAbaPerfilInicial("Impulsionar"); setSelecionada(meuPerfilBaba); }} style={{
                     display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
                     background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_DEEP} 100%)`, border: "none",
                     borderRadius: 16, padding: "14px 15px", marginTop: 18, cursor: "pointer",
@@ -5840,10 +6637,6 @@ export default function App() {
               )}
             </div>
           </>
-        )}
-
-        {tela === "impulsionamento" && (
-          <TelaImpulsionamento boosts={boosts} onAtivar={ativarImpulsionamento} onVoltar={() => setTela("app")} />
         )}
 
         {tela === "app" && verHistorico === "cliente" && (
@@ -5900,13 +6693,14 @@ export default function App() {
             onVerContratacoes={() => setVerHistorico("cliente")}
             onVerBloqueados={() => setVerBloqueados(true)}
             totalBloqueados={perfisBloqueados.length}
+            onSair={async () => { await auth.logout(); setVerPerfilMae(false); setTela("hub"); }}
           />
         )}
 
         {tela === "app" && !verHistorico && !verBloqueados && selecionada && (
           <BabaDetail
             baba={selecionada}
-            onBack={() => setSelecionada(null)}
+            onBack={() => { setSelecionada(null); setAbaPerfilInicial("Sobre"); }}
             editable={modo === "baba"}
             onAtualizarFoto={modo === "baba" ? atualizarFotoPerfil : undefined}
             onSalvarPerfil={modo === "baba" ? atualizarPerfilBaba : undefined}
@@ -5919,6 +6713,11 @@ export default function App() {
             meuContato={meuPerfilMae}
             onConfigurarContato={() => { setSelecionada(null); setVerPerfilMae(true); }}
             onAvisoSilencioso={notificarContatosConfianca}
+            boosts={boosts}
+            planos={planosImpulsionamento}
+            carregandoPlanos={carregandoPlanosBoost}
+            onAtivar={ativarImpulsionamento}
+            tabInicial={modo === "baba" ? abaPerfilInicial : "Sobre"}
           />
         )}
       </div>

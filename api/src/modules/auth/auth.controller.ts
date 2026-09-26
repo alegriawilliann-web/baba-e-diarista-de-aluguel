@@ -50,3 +50,39 @@ export async function logout(ctx: any) {
 export async function me(ctx: any) {
   return authService.getMe(ctx.user.sub);
 }
+
+const CONFIRM_PAGE_STYLE = `font-family: sans-serif; max-width: 420px; margin: 80px auto; padding: 24px; text-align: center; color: #16403C;`;
+
+export async function verifyEmail(ctx: any) {
+  const { token } = ctx.query as { token?: string };
+  try {
+    if (!token) throw new Error("missing token");
+    await authService.verifyEmailToken(token);
+    ctx.set.headers["content-type"] = "text/html; charset=utf-8";
+    return `<div style="${CONFIRM_PAGE_STYLE}"><h2>E-mail confirmado!</h2><p>Pode voltar para o aplicativo — seu acesso já está liberado.</p></div>`;
+  } catch {
+    ctx.set.status = 400;
+    ctx.set.headers["content-type"] = "text/html; charset=utf-8";
+    return `<div style="${CONFIRM_PAGE_STYLE}"><h2>Link inválido ou expirado</h2><p>Volte ao aplicativo e peça para reenviar o e-mail de confirmação.</p></div>`;
+  }
+}
+
+export async function resendVerification(ctx: any) {
+  const me = await authService.getMe(ctx.user.sub);
+  if (!me.emailVerified) {
+    await authService.sendVerificationEmail(me.id, me.email);
+  }
+  return { ok: true };
+}
+
+export async function forgotPassword(ctx: any) {
+  const { email } = ctx.body as { email: string };
+  await authService.requestPasswordReset(email);
+  return { ok: true };
+}
+
+export async function resetPassword(ctx: any) {
+  const { email, code, newPassword } = ctx.body as { email: string; code: string; newPassword: string };
+  await authService.resetPassword(email, code, newPassword);
+  return { ok: true };
+}
