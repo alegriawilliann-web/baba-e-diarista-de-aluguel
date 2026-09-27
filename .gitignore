@@ -13,6 +13,11 @@ dist-ssr
 *.local
 .env
 
+# Chave de assinatura de release do Android — NUNCA commitar. Perder isso
+# significa nunca mais poder atualizar o app publicado na Play Store.
+android/upload-keystore.jks
+android/keystore.properties
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
