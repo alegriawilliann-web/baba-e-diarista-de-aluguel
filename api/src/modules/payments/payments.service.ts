@@ -5,7 +5,7 @@ import { professionalProfiles } from "../professionals/professionals.model";
 import { users } from "../users/users.model";
 import { mercadoPagoProvider } from "./providers/mercadopago";
 import { COUNTRY_DEFAULTS, DEFAULT_COUNTRY_CODE, MENSALIDADE_CENTS } from "../../config/constants";
-import { addDays } from "../../shared/utils/dates";
+import { addDays, addMonths } from "../../shared/utils/dates";
 import { env } from "../../config/env";
 import { NotFoundError, ForbiddenError, ValidationError } from "../../shared/errors";
 import type { PaymentProviderAdapter, StatusResult } from "./payments.types";
@@ -41,9 +41,11 @@ function mapProviderStatus(status: string): PaymentStatus {
 
 async function applyApprovedSideEffects(payment: typeof payments.$inferSelect) {
   if (payment.purpose === "mensalidade" && payment.referenceId) {
+    // Vencimento no mesmo dia do mês seguinte à data do pagamento — não os
+    // últimos "30 dias" corridos, que derivam pra frente mês a mês.
     await db
       .update(professionalProfiles)
-      .set({ statusPagamento: "liberado", subscriptionExpiresAt: addDays(new Date(), 30) })
+      .set({ statusPagamento: "liberado", subscriptionExpiresAt: addMonths(new Date(), 1) })
       .where(eq(professionalProfiles.id, payment.referenceId));
   }
 

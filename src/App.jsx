@@ -4624,9 +4624,36 @@ function CadastroMae({
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [cep, setCep] = useState("");
   const [bairro, setBairro] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [statusBuscaCep, setStatusBuscaCep] = useState(null); // null | "ok" | "naoEncontrado" | "invalido"
+
+  const buscarCep = async () => {
+    const limpo = cep.replace(/\D/g, "");
+    if (limpo.length !== 8) {
+      setStatusBuscaCep("invalido");
+      return;
+    }
+    setBuscandoCep(true);
+    setStatusBuscaCep(null);
+    try {
+      const resposta = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+      const dados = await resposta.json();
+      if (!resposta.ok || dados.erro) {
+        setStatusBuscaCep("naoEncontrado");
+      } else {
+        setBairro(dados.bairro || dados.localidade || "");
+        setStatusBuscaCep("ok");
+      }
+    } catch {
+      setStatusBuscaCep("naoEncontrado");
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
 
   const concluir = async () => {
     if (carregando) return;
@@ -4661,6 +4688,28 @@ function CadastroMae({
         <input style={inputStyle} placeholder="Nome completo" value={nome} onChange={(e) => setNome(e.target.value)} />
         <input style={inputStyle} type="email" placeholder="seuemail@exemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input style={inputStyle} type="password" placeholder="Crie uma senha (mín. 8 caracteres)" value={senha} onChange={(e) => setSenha(e.target.value)} />
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            style={{ ...inputStyle, flex: 1 }} placeholder="CEP" inputMode="numeric"
+            value={cep} onChange={(e) => setCep(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && buscarCep()}
+          />
+          <button type="button" onClick={buscarCep} disabled={buscandoCep} style={{
+            display: "flex", alignItems: "center", gap: 6, background: corTexto, color: corFundo,
+            border: "none", borderRadius: 12, padding: "0 16px", cursor: "pointer",
+            fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12.5, whiteSpace: "nowrap",
+          }}>
+            <MapPin size={14} /> {buscandoCep ? "Buscando…" : "Buscar"}
+          </button>
+        </div>
+        {statusBuscaCep && (
+          <p style={{ fontSize: 10.5, color: statusBuscaCep === "ok" ? FOREST : ERROR, margin: "-6px 0 0" }}>
+            {statusBuscaCep === "ok" && "Bairro localizado automaticamente pelo CEP."}
+            {statusBuscaCep === "naoEncontrado" && "CEP não encontrado — preencha o bairro manualmente abaixo."}
+            {statusBuscaCep === "invalido" && "Digite um CEP com 8 números."}
+          </p>
+        )}
         <input style={inputStyle} placeholder={labelBairro} value={bairro} onChange={(e) => setBairro(e.target.value)} />
         {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", margin: 0 }}>{erro}</p>}
         <button className="shine-cta" onClick={concluir} disabled={carregando} style={{ ...btnPrimary, width: "100%", marginTop: 6, opacity: carregando ? 0.6 : 1, cursor: carregando ? "default" : "pointer", ...(corBotao || {}) }}>
@@ -5043,6 +5092,54 @@ function IconeBandeira({ bandeira, size = 26, esmaecido = false }) {
   return (
     <div style={{ ...estiloBase, background: CARD, border: `1px solid ${LINE}` }}>
       <CreditCard size={size * 0.5} color="#B8A88F" />
+    </div>
+  );
+}
+
+function AvisoMensalidadeVencida({ dias, corDestaque = GOLD_DEEP, onPagar }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, background: "#FBEAEA", border: "1px solid #E3B3B3",
+      borderRadius: 12, padding: "12px 14px", marginBottom: 14,
+    }}>
+      <Clock3 size={16} color="#8C2E2E" style={{ flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: 12.5, fontWeight: 700, color: "#8C2E2E", margin: 0, fontFamily: "Manrope, sans-serif" }}>
+          Mensalidade vencida
+        </p>
+        <p style={{ fontSize: 11.5, color: "#8C2E2E", margin: "2px 0 0", lineHeight: 1.4, fontFamily: "Manrope, sans-serif" }}>
+          {dias === 0
+            ? "Último dia para pagar antes do bloqueio do seu perfil."
+            : `Você tem ${dias} ${dias === 1 ? "dia" : "dias"} para pagar antes que seu perfil seja bloqueado.`}
+        </p>
+      </div>
+      <button onClick={onPagar} style={{
+        background: corDestaque, color: "#FFFFFF", border: "none", borderRadius: 10, padding: "8px 12px",
+        fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "Manrope, sans-serif",
+      }}>
+        Pagar agora
+      </button>
+    </div>
+  );
+}
+
+function MensalidadeBloqueada({ perfil, serviceType, corDestaque = GOLD_DEEP, onPago }) {
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div style={{ padding: "16px 16px 0" }}>
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 10, background: "#FBEAEA", border: "1px solid #E3B3B3",
+          borderRadius: 12, padding: "12px 14px",
+        }}>
+          <Lock size={16} color="#8C2E2E" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span style={{ fontSize: 12.5, color: "#8C2E2E", fontFamily: "Manrope, sans-serif", lineHeight: 1.5 }}>
+            Seu perfil foi bloqueado por falta de pagamento da mensalidade. Pague agora pra voltar a aparecer nas buscas.
+          </span>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <PagamentoReal perfil={perfil} serviceType={serviceType} corDestaque={corDestaque} onSucesso={onPago} />
+      </div>
     </div>
   );
 }
@@ -5543,6 +5640,25 @@ export default function App() {
     })();
     return () => { cancelado = true; };
   }, [auth.status]);
+
+  const [mostrarPagamentoBaba, setMostrarPagamentoBaba] = useState(false);
+  const [mostrarPagamentoDiarista, setMostrarPagamentoDiarista] = useState(false);
+
+  const recarregarPerfilBaba = async () => {
+    try {
+      const dto = await getMyProfessionalProfile("baba");
+      setMeuPerfilBaba(adaptarProfissionalBaba(dto));
+    } catch {}
+    setMostrarPagamentoBaba(false);
+  };
+
+  const recarregarPerfilDiarista = async () => {
+    try {
+      const dto = await getMyProfessionalProfile("diarista");
+      setMeuPerfilDiarista(adaptarProfissionalDiarista(dto));
+    } catch {}
+    setMostrarPagamentoDiarista(false);
+  };
 
   // Carrega as contratações reais (como cliente e como profissional) assim que
   // a sessão é confirmada. O DTO do backend não traz nome/foto de quem está do
@@ -6204,18 +6320,31 @@ export default function App() {
                 />
               ) : modoDiarista === "cliente" ? (
                 <DiaristaSearchView onSelect={setSelecionadaDiarista} bloqueados={idsBloqueadosDiarista} />
+              ) : meuPerfilDiarista.statusPagamento === "vencida" ? (
+                <MensalidadeBloqueada perfil={meuPerfilDiarista} serviceType="diarista" corDestaque={D_CORAL_DEEP} onPago={recarregarPerfilDiarista} />
+              ) : mostrarPagamentoDiarista ? (
+                <PagamentoReal perfil={meuPerfilDiarista} serviceType="diarista" corDestaque={D_CORAL_DEEP} onSucesso={recarregarPerfilDiarista} />
               ) : (
-                <DiaristaDetail
-                  diarista={meuPerfilDiarista}
-                  onBack={() => setTela("hub")}
-                  editable={true}
-                  onAtualizarFoto={atualizarFotoPerfilDiarista}
-                  onAdicionarTrabalho={adicionarTrabalhoDiarista}
-                  onSalvarPerfil={atualizarPerfilDiarista}
-                  avaliacoesExtras={avaliacoesExtras}
-                  onVerAgenda={() => setVerHistorico("prestadorDiarista")}
-                  pendentesCount={pendentesDiarista}
-                />
+                <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+                  {meuPerfilDiarista.diasParaBloquear != null && (
+                    <div style={{ padding: "12px 16px 0" }}>
+                      <AvisoMensalidadeVencida dias={meuPerfilDiarista.diasParaBloquear} corDestaque={D_CORAL_DEEP} onPagar={() => setMostrarPagamentoDiarista(true)} />
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minHeight: 0 }}>
+                    <DiaristaDetail
+                      diarista={meuPerfilDiarista}
+                      onBack={() => setTela("hub")}
+                      editable={true}
+                      onAtualizarFoto={atualizarFotoPerfilDiarista}
+                      onAdicionarTrabalho={adicionarTrabalhoDiarista}
+                      onSalvarPerfil={atualizarPerfilDiarista}
+                      avaliacoesExtras={avaliacoesExtras}
+                      onVerAgenda={() => setVerHistorico("prestadorDiarista")}
+                      pendentesCount={pendentesDiarista}
+                    />
+                  </div>
+                </div>
               )}
             </div>
           </>
@@ -6291,8 +6420,15 @@ export default function App() {
                   perfilImpulsionado={boosts.destaque?.ativo || boosts.banner?.ativo || boosts.popup?.ativo ? meuPerfilBaba : null}
                   bloqueados={idsBloqueadosBaba}
                 />
+              ) : meuPerfilBaba.statusPagamento === "vencida" ? (
+                <MensalidadeBloqueada perfil={meuPerfilBaba} serviceType="baba" corDestaque={GOLD_DEEP} onPago={recarregarPerfilBaba} />
+              ) : mostrarPagamentoBaba ? (
+                <PagamentoReal perfil={meuPerfilBaba} serviceType="baba" corDestaque={GOLD_DEEP} onSucesso={recarregarPerfilBaba} />
               ) : (
                 <div style={{ padding: 16 }}>
+                  {meuPerfilBaba.diasParaBloquear != null && (
+                    <AvisoMensalidadeVencida dias={meuPerfilBaba.diasParaBloquear} corDestaque={GOLD_DEEP} onPagar={() => setMostrarPagamentoBaba(true)} />
+                  )}
                   <BabaCard baba={meuPerfilBaba} onClick={() => setSelecionada(meuPerfilBaba)} destaque={boosts.destaque?.ativo} />
                   {!meuPerfilBaba.fotoUrl && (
                     <div style={{

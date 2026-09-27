@@ -1,12 +1,15 @@
-import { eq, and, gte, lte, ilike, or, sql, count, notInArray } from "drizzle-orm";
+import { eq, and, gte, lte, ilike, or, isNull, sql, count, notInArray } from "drizzle-orm";
 import { db } from "../../config/database";
 import { professionalProfiles, portfolioPosts } from "./professionals.model";
 import { users, addresses } from "../users/users.model";
 import { userRoles } from "../users/users.model";
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from "../../shared/errors";
 import { parsePagination, buildPageMeta } from "../../shared/utils/pagination";
+import { MENSALIDADE_GRACE_DAYS } from "../../config/constants";
 import type { Role } from "../../config/constants";
 import type { CreateProfessionalInput, SearchProfessionalsQuery } from "./professionals.types";
+
+const GRACE_MS = MENSALIDADE_GRACE_DAYS * 24 * 60 * 60 * 1000;
 
 function validateDetails(input: CreateProfessionalInput) {
   const d = input.details as Record<string, unknown>;
@@ -52,10 +55,41 @@ function shapeProfile(row: {
     agenda: profile.agenda as Record<string, string>,
     formaPagamento: profile.formaPagamento,
     statusPagamento: profile.statusPagamento,
+    subscriptionExpiresAt: profile.subscriptionExpiresAt,
+    // null = mensalidade em dia; número = dias restantes até o bloqueio
+    // automático (0 é o último dia de tolerância).
+    diasParaBloquear: diasParaBloquear(profile.statusPagamento, profile.subscriptionExpiresAt),
     seguidores: profile.seguidoresCount,
     serviceType: profile.serviceType,
     details: profile.details,
   };
+}
+
+function diasParaBloquear(status: string, expiresAt: Date | null): number | null {
+  if (status !== "liberado" || !expiresAt) return null;
+  const diffMs = Date.now() - new Date(expiresAt).getTime();
+  if (diffMs <= 0) return null;
+  const diasVencidos = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  return Math.max(0, MENSALIDADE_GRACE_DAYS - diasVencidos);
+}
+
+/** Lazy check-on-read: já que não existe um job em segundo plano rodando
+ * periodicamente, o vencimento de verdade (statusPagamento -> "vencida")
+ * acontece na primeira vez que o próprio profissional abre o perfil depois
+ * do prazo de tolerância esgotado. A busca (searchProfessionals) também
+ * filtra pela data diretamente, então ninguém aparece pra outras pessoas
+ * mesmo antes dessa atualização "preguiçosa" rodar. */
+async function applyExpiryIfNeeded(profile: typeof professionalProfiles.$inferSelect) {
+  if (profile.statusPagamento !== "liberado" || !profile.subscriptionExpiresAt) return profile;
+  const overdueMs = Date.now() - new Date(profile.subscriptionExpiresAt).getTime();
+  if (overdueMs <= GRACE_MS) return profile;
+
+  const [updated] = await db
+    .update(professionalProfiles)
+    .set({ statusPagamento: "vencida", updatedAt: new Date() })
+    .where(eq(professionalProfiles.id, profile.id))
+    .returning();
+  return updated!;
 }
 
 async function fetchProfileRow(where: ReturnType<typeof eq>) {
@@ -127,9 +161,14 @@ export async function createProfessionalProfile(userId: string, input: CreatePro
 
 export async function searchProfessionals(query: SearchProfessionalsQuery, callerUserId?: string) {
   const { page, limit, offset } = parsePagination(query);
+  const graceCutoff = new Date(Date.now() - GRACE_MS);
   const conditions = [
     eq(professionalProfiles.serviceType, query.serviceType),
     eq(professionalProfiles.statusPagamento, "liberado"),
+    // Some da busca assim que o prazo de tolerância acaba, mesmo que a
+    // atualização "preguiçosa" do status (ver applyExpiryIfNeeded) ainda não
+    // tenha rodado pra esse profissional específico.
+    or(isNull(professionalProfiles.subscriptionExpiresAt), gte(professionalProfiles.subscriptionExpiresAt, graceCutoff))!,
   ];
 
   if (callerUserId) {
@@ -175,7 +214,8 @@ export async function getProfessionalById(id: string) {
 export async function getMyProfile(userId: string, serviceType: "baba" | "diarista") {
   const row = await fetchProfileRow(and(eq(professionalProfiles.userId, userId), eq(professionalProfiles.serviceType, serviceType))!);
   if (!row) throw new NotFoundError("Você ainda não tem um perfil profissional desse tipo");
-  return shapeProfile(row);
+  const profile = await applyExpiryIfNeeded(row.profile);
+  return shapeProfile({ ...row, profile });
 }
 
 async function loadOwnProfileByServiceType(userId: string, serviceType: "baba" | "diarista") {

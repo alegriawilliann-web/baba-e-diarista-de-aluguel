@@ -23,6 +23,10 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export const SUBSCRIPTION_STATUSES = ["pendente", "processando", "liberado", "vencida"] as const;
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
+// Dias de tolerância após o vencimento antes do perfil ser bloqueado
+// (statusPagamento vira "vencida", some da busca até pagar de novo).
+export const MENSALIDADE_GRACE_DAYS = 5;
+
 export const PAYMENT_PROVIDERS = ["mercadopago"] as const;
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 
