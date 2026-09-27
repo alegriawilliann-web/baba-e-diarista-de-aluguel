@@ -11,12 +11,17 @@ export function addMinutes(date: Date, minutes: number): Date {
 }
 
 /** Mesmo dia do mês seguinte (não "+30 dias" — evita o vencimento derivar pra
- * frente em meses de 31 dias, ou saltar dias em meses curtos: Date lida com
- * o "dia 31 não existe em fevereiro" caindo pro último dia do mês, que é o
- * comportamento esperado pra cobrança mensal). */
+ * frente em meses de 31 dias). Usa métodos UTC de propósito: `setMonth`
+ * sozinho não trava no último dia do mês de destino (ex: 31/jan vira 3/mar,
+ * não 28/fev) — aqui, zera o dia antes de trocar o mês e só então aplica o
+ * dia original, limitado ao tanto que o mês de destino realmente tem. */
 export function addMonths(date: Date, months: number): Date {
+  const day = date.getUTCDate();
   const result = new Date(date);
-  result.setMonth(result.getMonth() + months);
+  result.setUTCDate(1);
+  result.setUTCMonth(result.getUTCMonth() + months);
+  const daysInTargetMonth = new Date(Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0)).getUTCDate();
+  result.setUTCDate(Math.min(day, daysInTargetMonth));
   return result;
 }
 
