@@ -13,6 +13,10 @@ export async function grantClientRole(ctx: any) {
   return usersService.grantClientRole(ctx.user.sub, ctx.body as GrantClientRoleInput);
 }
 
+export async function deleteMe(ctx: any) {
+  return usersService.deleteMyAccount(ctx.user.sub);
+}
+
 export async function listTrustedContacts(ctx: any) {
   return usersService.listTrustedContacts(ctx.user.sub);
 }

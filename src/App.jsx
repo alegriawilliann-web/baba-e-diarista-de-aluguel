@@ -13,7 +13,7 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
-import { grantClientRole } from "./api/users.js";
+import { grantClientRole, deleteMyAccount } from "./api/users.js";
 import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile } from "./api/professionals.js";
 import {
   createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
@@ -3337,13 +3337,27 @@ function BloqueadosScreen({ bloqueados, onVoltar, onDesbloquear, corDestaque = G
 }
 
 function PerfilMae({
-  perfil, onVoltar, onSalvar, onAtualizarFoto, onVerContratacoes, onVerBloqueados, totalBloqueados = 0, onSair,
+  perfil, onVoltar, onSalvar, onAtualizarFoto, onVerContratacoes, onVerBloqueados, totalBloqueados = 0, onSair, onExcluirConta,
   corDestaque = GOLD, corHeader = INK, corTexto = PAPER, rotulo = "Pai ou mãe na Babá de Aluguel", appNome = "baba",
 }) {
   const [edit, setEdit] = useState(null);
   const [showFotoModal, setShowFotoModal] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [testeEnviado, setTesteEnviado] = useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState("");
+
+  const confirmarExclusao = async () => {
+    setExcluindo(true);
+    setErroExclusao("");
+    try {
+      await onExcluirConta?.();
+    } catch (e) {
+      setErroExclusao(e.message || "Não foi possível excluir sua conta agora. Tente de novo mais tarde.");
+      setExcluindo(false);
+    }
+  };
   const editando = edit !== null;
   const nome = (editando ? edit.nome : perfil?.nome) || "Sua conta";
   const partes = nome.trim().split(" ").filter(Boolean);
@@ -3530,6 +3544,40 @@ function PerfilMae({
             <XCircle size={14} color="#B23B3B" />
             <span style={{ fontSize: 12.5, color: "#B23B3B", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Sair da conta</span>
           </button>
+        )}
+
+        {!editando && onExcluirConta && !confirmandoExclusao && (
+          <button onClick={() => setConfirmandoExclusao(true)} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 4,
+            background: "none", border: "none", padding: "10px 14px", cursor: "pointer",
+          }}>
+            <span style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif", textDecoration: "underline" }}>Excluir minha conta</span>
+          </button>
+        )}
+
+        {confirmandoExclusao && (
+          <div style={{ background: "#FBEAEA", border: `1px solid #B23B3B`, borderRadius: 12, padding: "14px 16px", marginTop: 10 }}>
+            <p style={{ fontSize: 12.5, color: "#7A2424", fontFamily: "Manrope, sans-serif", margin: "0 0 10px", lineHeight: 1.5 }}>
+              Isso apaga seu nome, e-mail, telefone, foto e endereço permanentemente. Essa ação não pode ser desfeita. Tem certeza?
+            </p>
+            {erroExclusao && (
+              <p style={{ fontSize: 11.5, color: "#B23B3B", margin: "0 0 10px" }}>{erroExclusao}</p>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmandoExclusao(false)} disabled={excluindo} style={{
+                flex: 1, background: "none", border: `1px solid #7A2424`, borderRadius: 10, padding: "9px 0", cursor: "pointer",
+              }}>
+                <span style={{ fontSize: 12, color: "#7A2424", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Cancelar</span>
+              </button>
+              <button onClick={confirmarExclusao} disabled={excluindo} style={{
+                flex: 1, background: "#B23B3B", border: "none", borderRadius: 10, padding: "9px 0", cursor: excluindo ? "default" : "pointer", opacity: excluindo ? 0.7 : 1,
+              }}>
+                <span style={{ fontSize: 12, color: "#fff", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>
+                  {excluindo ? "Excluindo..." : "Sim, excluir"}
+                </span>
+              </button>
+            </div>
+          </div>
         )}
 
         {!perfil && !editando && (
@@ -5641,6 +5689,14 @@ export default function App() {
     return () => { cancelado = true; };
   }, [auth.status]);
 
+  const excluirMinhaConta = async () => {
+    await deleteMyAccount();
+    await auth.logout();
+    setVerPerfilCliente(false);
+    setVerPerfilMae(false);
+    setTela("hub");
+  };
+
   const [mostrarPagamentoBaba, setMostrarPagamentoBaba] = useState(false);
   const [mostrarPagamentoDiarista, setMostrarPagamentoDiarista] = useState(false);
 
@@ -6299,6 +6355,7 @@ export default function App() {
                   onVerBloqueados={() => setVerBloqueados(true)}
                   totalBloqueados={perfisBloqueados.length}
                   onSair={async () => { await auth.logout(); setVerPerfilCliente(false); setTela("hub"); }}
+                  onExcluirConta={excluirMinhaConta}
                   corDestaque={D_CORAL}
                   corHeader="#5A2420"
                   corTexto="#FFF6F1"
@@ -6504,6 +6561,7 @@ export default function App() {
             onVerBloqueados={() => setVerBloqueados(true)}
             totalBloqueados={perfisBloqueados.length}
             onSair={async () => { await auth.logout(); setVerPerfilMae(false); setTela("hub"); }}
+            onExcluirConta={excluirMinhaConta}
           />
         )}
 

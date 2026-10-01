@@ -6,3 +6,7 @@ export function grantClientRole({ serviceType, bairro }) {
     body: { serviceType, bairro },
   });
 }
+
+export function deleteMyAccount() {
+  return request("/users/me", { method: "DELETE" });
+}

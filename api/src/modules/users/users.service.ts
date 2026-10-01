@@ -1,6 +1,11 @@
 import { eq, and, count } from "drizzle-orm";
 import { db } from "../../config/database";
-import { users, userRoles, clientProfiles, trustedContacts, roleEnum } from "./users.model";
+import { users, userRoles, clientProfiles, trustedContacts, addresses, authTokens, refreshTokens, roleEnum } from "./users.model";
+import { professionalProfiles, portfolioPosts, follows } from "../professionals/professionals.model";
+import { blocks } from "../trust-safety/trust-safety.model";
+import { notifications } from "../notifications/notifications.model";
+import { payments } from "../payments/payments.model";
+import { hashPassword } from "../../shared/utils/hash";
 import { NotFoundError, ForbiddenError } from "../../shared/errors";
 import { parsePagination, buildPageMeta, type PaginationQuery } from "../../shared/utils/pagination";
 import type { Role } from "../../config/constants";
@@ -74,6 +79,61 @@ export async function deleteTrustedContact(userId: string, contactId: string) {
   if (existing.userId !== userId) throw new ForbiddenError();
 
   await db.delete(trustedContacts).where(eq(trustedContacts.id, contactId));
+  return { ok: true };
+}
+
+/** Exclusão de conta pedida pelo próprio usuário (exigência da Play Store).
+ * Não apaga a linha de `users` nem os perfis profissionais de vez: pagamentos,
+ * reservas, avaliações e denúncias referenciam esses ids sem cascade, de
+ * propósito, porque são o histórico permanente da plataforma (obrigação
+ * fiscal, no caso dos pagamentos). Em vez disso, anonimiza tudo que é só
+ * pessoal/editável e apaga o que é puramente preferência do usuário. */
+export async function deleteMyAccount(userId: string) {
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user) throw new NotFoundError("Usuário não encontrado");
+
+  await db.transaction(async (tx) => {
+    const profiles = await tx.query.professionalProfiles.findMany({ where: eq(professionalProfiles.userId, userId) });
+    for (const profile of profiles) {
+      await tx.delete(portfolioPosts).where(eq(portfolioPosts.professionalId, profile.id));
+      await tx.delete(follows).where(eq(follows.followeeProfessionalId, profile.id));
+      await tx.delete(blocks).where(eq(blocks.blockedProfessionalId, profile.id));
+      await tx
+        .update(professionalProfiles)
+        .set({ addressId: null, bio: null, tags: [], agenda: {}, details: {}, statusPagamento: "vencida", updatedAt: new Date() })
+        .where(eq(professionalProfiles.id, profile.id));
+    }
+
+    await tx.delete(follows).where(eq(follows.followerUserId, userId));
+    await tx.delete(blocks).where(eq(blocks.blockerUserId, userId));
+    await tx.delete(trustedContacts).where(eq(trustedContacts.userId, userId));
+    await tx.delete(clientProfiles).where(eq(clientProfiles.userId, userId));
+    await tx.delete(notifications).where(eq(notifications.userId, userId));
+    await tx.delete(userRoles).where(eq(userRoles.userId, userId));
+    await tx.delete(authTokens).where(eq(authTokens.userId, userId));
+    await tx.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+    await tx.delete(addresses).where(eq(addresses.userId, userId));
+
+    // Mantém o registro contábil (valor, data, status, finalidade), só tira
+    // o que identifica a pessoa — mesmo princípio de retenção da seção 06/07
+    // da política de privacidade.
+    await tx.update(payments).set({ payerEmail: null, payerName: null }).where(eq(payments.userId, userId));
+
+    const senhaInvalidada = await hashPassword(crypto.randomUUID());
+    await tx
+      .update(users)
+      .set({
+        name: "Usuário excluído",
+        email: `deleted-${userId}@removed.babadealuguel.com`,
+        phone: null,
+        photoUrl: null,
+        passwordHash: senhaInvalidada,
+        emailVerifiedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  });
+
   return { ok: true };
 }
 
