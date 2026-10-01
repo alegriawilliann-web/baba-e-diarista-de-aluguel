@@ -38,12 +38,33 @@ export function useAuth() {
     });
 
     (async () => {
-      const stored = await Preferences.get({ key: KEYS.refreshToken });
-      if (!stored.value) {
+      const [storedToken, storedUser] = await Promise.all([
+        Preferences.get({ key: KEYS.refreshToken }),
+        Preferences.get({ key: KEYS.user }),
+      ]);
+      if (!storedToken.value) {
         if (!cancelado) setStatus("anonymous");
         return;
       }
-      setTokens({ refreshToken: stored.value });
+      setTokens({ refreshToken: storedToken.value });
+
+      // Mostra o app na hora com a sessão em cache (otimista) em vez de travar
+      // numa tela de carregamento esperando a API responder — o plano grátis
+      // do Render "dorme" e pode levar dezenas de segundos pra acordar, o que
+      // fazia o app parecer extremamente lento pra abrir. A confirmação real
+      // com o servidor roda depois, em segundo plano, sem bloquear a tela.
+      let jaMostrouOtimista = false;
+      if (storedUser.value) {
+        try {
+          const cache = JSON.parse(storedUser.value);
+          if (!cancelado) {
+            setUser(cache);
+            setStatus("authenticated");
+            jaMostrouOtimista = true;
+          }
+        } catch {}
+      }
+
       try {
         const renovado = await authApi.refresh();
         const perfil = await authApi.me();
@@ -52,7 +73,16 @@ export function useAuth() {
           setUser(perfil);
           setStatus("authenticated");
         }
-      } catch {
+      } catch (erro) {
+        // `TypeError` aqui é o fetch falhando antes de qualquer resposta do
+        // servidor (sem internet, API ainda "acordando" do cold start do
+        // plano grátis do Render, etc.) — não é prova de que a sessão
+        // expirou. Só desloga de verdade quando o servidor respondeu e disse
+        // que o refresh token é inválido; uma falha de rede passageira não
+        // deve derrubar quem já estava vendo o app com a sessão em cache.
+        const falhaDeRede = erro instanceof TypeError;
+        if (falhaDeRede && jaMostrouOtimista) return;
+
         await clearPersisted();
         if (!cancelado) setStatus("anonymous");
       }
