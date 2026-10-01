@@ -1,4 +1,6 @@
 import { Elysia } from "elysia";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { corsPlugin } from "./shared/plugins/cors.plugin";
 import { swaggerPlugin } from "./shared/plugins/swagger.plugin";
 import { globalRateLimit } from "./shared/plugins/rate-limit.plugin";
@@ -16,6 +18,12 @@ import { trustSafetyRoutes } from "./modules/trust-safety/trust-safety.routes";
 import { messagesRoutes } from "./modules/messages/messages.routes";
 import { verificationsRoutes } from "./modules/verifications/verifications.routes";
 
+// Lida uma vez, no boot, e servida como texto estático — é a mesma página
+// referenciada tanto no campo "Política de Privacidade" quanto no campo de
+// "link para exclusão de dados" do Play Console (seção 07 da página cobre
+// o pedido de exclusão de conta).
+const privacyPolicyHtml = readFileSync(join(import.meta.dir, "../public/privacy-policy.html"), "utf-8");
+
 export const app = new Elysia()
   .use(errorMiddleware)
   .use(loggerMiddleware)
@@ -30,6 +38,7 @@ export const app = new Elysia()
   .use(swaggerPlugin)
   .get("/health", () => ({ ok: true, service: "baba-de-aluguel-api" }))
   .get("/", () => ({ ok: true, docs: "/docs" }))
+  .get("/privacy-policy", () => new Response(privacyPolicyHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   .group("/api", (api) =>
     api
       .use(authRoutes)
