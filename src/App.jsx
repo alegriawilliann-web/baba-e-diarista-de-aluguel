@@ -51,6 +51,13 @@ const LOGO_DIARISTA_B64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAE
 // ---- dados das babás ----
 const diasSemana = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
+// JSONB do Postgres não preserva a ordem de inserção das chaves — sem isso,
+// Object.entries(agenda) devolve os dias em qualquer ordem depois de ir e
+// voltar do banco. Sempre ordena pela semana (Seg..Dom) na exibição.
+function agendaOrdenada(agenda) {
+  return diasSemana.map((dia) => [dia, agenda?.[dia] ?? "Indisponível"]);
+}
+
 const babas = [
   {
     id: 1,
@@ -1306,7 +1313,7 @@ function BabaDetail({
               </div>
               {editando ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {Object.entries(edit.agenda).map(([dia, horario]) => (
+                  {agendaOrdenada(edit.agenda).map(([dia, horario]) => (
                     <button key={dia} onClick={() => alternarDia(dia)} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5,
                       padding: "8px 10px", borderRadius: 10, cursor: "pointer", width: "100%",
@@ -1323,7 +1330,7 @@ function BabaDetail({
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {Object.entries(baba.agenda).map(([dia, horario]) => (
+                  {agendaOrdenada(baba.agenda).map(([dia, horario]) => (
                     <div key={dia} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 3px" }}>
                       <span style={{ color: "#3A2F26", width: 40 }}>{dia}</span>
                       <span style={{ color: horario === "Indisponível" ? "#B8A48C" : INK, display: "flex", alignItems: "center", gap: 4 }}>
@@ -2504,7 +2511,7 @@ function DiaristaDetail({
               </div>
               {editando ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {Object.entries(edit.agenda).map(([dia, horario]) => (
+                  {agendaOrdenada(edit.agenda).map(([dia, horario]) => (
                     <button key={dia} onClick={() => alternarDia(dia)} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5,
                       padding: "8px 10px", borderRadius: 10, cursor: "pointer", width: "100%",
@@ -2521,7 +2528,7 @@ function DiaristaDetail({
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  {Object.entries(diarista.agenda).map(([dia, horario]) => (
+                  {agendaOrdenada(diarista.agenda).map(([dia, horario]) => (
                     <div key={dia} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "7px 3px" }}>
                       <span style={{ color: "#3A2420", width: 40 }}>{dia}</span>
                       <span style={{ color: horario === "Indisponível" ? "#C7A9A2" : "#5A2420", display: "flex", alignItems: "center", gap: 4 }}>
