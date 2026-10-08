@@ -36,7 +36,6 @@ function shapeProfile(row: {
   return {
     id: profile.id,
     name: user?.name ?? "",
-    email: user?.email ?? "",
     fotoUrl: user?.photoUrl ?? null,
     idade: profile.idade,
     bairro: address?.neighborhood ?? null,

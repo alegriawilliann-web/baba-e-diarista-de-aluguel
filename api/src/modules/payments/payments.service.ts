@@ -193,8 +193,14 @@ export async function handleMercadoPagoWebhook(query: Record<string, string>, bo
 
   await db.insert(paymentEvents).values({ paymentId: payment.id, eventType: type, payload: { ...body, resolvedStatus: fresh.status } });
 
+  // O Mercado Pago pode reenviar o mesmo evento (ou alguém pode chamar esse
+  // webhook público de novo manualmente com um payment.id já aprovado) —
+  // sem essa checagem, cada chamada repetida empurraria o vencimento da
+  // mensalidade/impulsionamento mais pra frente, de graça. Só aplica os
+  // efeitos na transição real de status, nunca em re-confirmações.
+  const jaEstavaAprovado = payment.status === "aprovado";
   const [updated] = await db.update(payments).set({ status, updatedAt: new Date() }).where(eq(payments.id, payment.id)).returning();
-  if (status === "aprovado") await applyApprovedSideEffects(updated!);
+  if (status === "aprovado" && !jaEstavaAprovado) await applyApprovedSideEffects(updated!);
 }
 
 export async function getPublicKey() {
