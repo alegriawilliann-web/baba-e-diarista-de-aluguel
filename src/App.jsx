@@ -326,6 +326,93 @@ function LogoBrilho({ width, style, src = LOGO_B64, alt = "Babá de Aluguel" }) 
   );
 }
 
+// "Já vi esse tutorial?" — guardado no aparelho (sobrevive fechar/abrir o
+// app), não no servidor, porque é só uma dica de uso, não dado de conta.
+function usePrimeiraVez(chave) {
+  const [mostrar, setMostrar] = useState(() => {
+    try { return localStorage.getItem(`tour_${chave}`) !== "1"; } catch { return false; }
+  });
+  const concluir = () => {
+    try { localStorage.setItem(`tour_${chave}`, "1"); } catch {}
+    setMostrar(false);
+  };
+  return [mostrar, concluir];
+}
+
+// Tutorial de primeiro uso: escurece a tela, recorta um círculo de destaque
+// em volta do botão de verdade (via o atributo data-tour="chave" no elemento
+// real) e mostra um balão explicando o que ele faz. Pensado pra gente mais
+// idosa usando o app pela primeira vez — por isso textos curtos, um passo
+// de cada vez, e sempre dá pra pular.
+function TourOverlay({ passos, onFinalizar, corDestaque = GOLD_DEEP }) {
+  const [passo, setPasso] = useState(0);
+  const [rect, setRect] = useState(null);
+
+  useEffect(() => {
+    const medir = () => {
+      const alvo = passos[passo]?.alvo;
+      const el = alvo ? document.querySelector(`[data-tour="${alvo}"]`) : null;
+      setRect(el ? el.getBoundingClientRect() : null);
+    };
+    medir();
+    const t = setTimeout(medir, 80); // dá tempo do layout assentar na troca de passo
+    window.addEventListener("resize", medir);
+    return () => { clearTimeout(t); window.removeEventListener("resize", medir); };
+  }, [passo, passos]);
+
+  if (!passos || passos.length === 0) return null;
+  const atual = passos[passo];
+  const ultimoPasso = passo === passos.length - 1;
+  const raio = rect ? Math.max(rect.width, rect.height) / 2 + 12 : 0;
+  const cx = rect ? rect.left + rect.width / 2 : 0;
+  const cy = rect ? rect.top + rect.height / 2 : 0;
+  const espacoAbaixo = typeof window !== "undefined" ? window.innerHeight - (rect?.bottom ?? 0) : 999;
+  const balaoEmbaixo = !rect || espacoAbaixo > 220;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 999 }}>
+      <svg width="100%" height="100%" style={{ position: "absolute", inset: 0 }}>
+        <defs>
+          <mask id={`tour-mask-${passo}`}>
+            <rect width="100%" height="100%" fill="white" />
+            {rect && <circle cx={cx} cy={cy} r={raio} fill="black" />}
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(10,20,18,0.8)" mask={`url(#tour-mask-${passo})`} />
+        {rect && <circle cx={cx} cy={cy} r={raio} fill="none" stroke={corDestaque} strokeWidth={3} />}
+      </svg>
+
+      <div style={{
+        position: "absolute", left: 16, right: 16,
+        top: rect && balaoEmbaixo ? rect.bottom + 16 : undefined,
+        bottom: rect && !balaoEmbaixo ? window.innerHeight - rect.top + 16 : (rect ? undefined : 40),
+        background: "#FFFDF8", borderRadius: 16, padding: "16px 18px",
+        boxShadow: "0 8px 26px rgba(0,0,0,0.35)", fontFamily: "Manrope, sans-serif",
+      }}>
+        <p style={{ fontSize: 10.5, fontWeight: 700, color: corDestaque, margin: "0 0 5px", textTransform: "uppercase", letterSpacing: 0.4 }}>
+          Passo {passo + 1} de {passos.length}
+        </p>
+        <p style={{ fontSize: 15, fontWeight: 700, color: "#16403C", margin: "0 0 6px" }}>{atual.titulo}</p>
+        <p style={{ fontSize: 13.5, color: "#3A2F26", lineHeight: 1.55, margin: "0 0 16px" }}>{atual.texto}</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <button onClick={onFinalizar} style={{ background: "none", border: "none", color: "#8B6A52", fontSize: 13, cursor: "pointer", fontFamily: "Manrope, sans-serif", padding: "6px 0" }}>
+            Pular
+          </button>
+          <button
+            onClick={() => (ultimoPasso ? onFinalizar() : setPasso(passo + 1))}
+            style={{
+              background: corDestaque, color: "#fff", border: "none", borderRadius: 24, padding: "11px 24px",
+              fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "Manrope, sans-serif",
+            }}
+          >
+            {ultimoPasso ? "Entendi!" : "Próximo"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Avatar({ initials, color, size = 44, fotoUrl }) {
   if (fotoUrl) {
     return (
@@ -1945,10 +2032,19 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
     return resultado;
   }, [resultados, boosts, perfilImpulsionado, bloqueados]);
 
+  const [tourAtivo, finalizarTour] = usePrimeiraVez("mae_cliente");
+  const tourPassos = [
+    { alvo: "busca-nome", titulo: "Busca por nome", texto: "Se você já sabe o nome da babá que procura, digite aqui." },
+    { alvo: "filtro-bairro", titulo: "Filtrar por bairro", texto: "Toque num bairro pra ver só as babás mais perto de você." },
+    { alvo: "notificacoes-header", titulo: "Notificações", texto: "Aqui aparecem avisos sobre suas contratações e mensagens." },
+    { alvo: "meu-perfil-header", titulo: "Seu perfil", texto: "Toque aqui pra ver seus dados, seus contatos de confiança, ou sair da conta." },
+  ];
+
   return (
     <div style={{ display: "flex", height: "100%", position: "relative" }}>
+      {tourAtivo && <TourOverlay passos={tourPassos} onFinalizar={finalizarTour} corDestaque={GOLD_DEEP} />}
       <div style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "16px 14px 20px 16px", fontFamily: "Manrope, sans-serif" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: "10px 13px", marginBottom: 12 }}>
+        <div data-tour="busca-nome" style={{ display: "flex", alignItems: "center", gap: 8, background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: "10px 13px", marginBottom: 12 }}>
           <Search size={15} color="#8B6A52" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome"
@@ -1960,7 +2056,7 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
           <BannerPatrocinado baba={perfilImpulsionado} onSelect={onSelect} />
         )}
 
-        <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
+        <div data-tour="filtro-bairro" style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
           {bairros.map((b) => (
             <button key={b} onClick={() => setBairro(b)} style={{
               whiteSpace: "nowrap", fontSize: 11.5, padding: "6px 13px", borderRadius: 20,
@@ -2128,10 +2224,19 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
 
   const filtradas = useMemo(() => resultados.filter((d) => !bloqueados.includes(d.id)), [resultados, bloqueados]);
 
+  const [tourAtivo, finalizarTour] = usePrimeiraVez("diarista_cliente");
+  const tourPassos = [
+    { alvo: "busca-nome", titulo: "Busca por nome", texto: "Se você já sabe o nome da diarista que procura, digite aqui." },
+    { alvo: "filtro-bairro", titulo: "Filtrar por bairro", texto: "Toque num bairro pra ver só as diaristas mais perto de você." },
+    { alvo: "notificacoes-header", titulo: "Notificações", texto: "Aqui aparecem avisos sobre suas contratações e mensagens." },
+    { alvo: "meu-perfil-header", titulo: "Seu perfil", texto: "Toque aqui pra ver seus dados, seus contatos de confiança, ou sair da conta." },
+  ];
+
   return (
     <div style={{ display: "flex", height: "100%", position: "relative" }}>
+      {tourAtivo && <TourOverlay passos={tourPassos} onFinalizar={finalizarTour} corDestaque={D_CORAL_DEEP} />}
       <div style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "16px 14px 20px 16px", fontFamily: "Manrope, sans-serif" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#FFFFFF", border: "1px solid #F3D9D5", borderRadius: 12, padding: "10px 13px", marginBottom: 12 }}>
+        <div data-tour="busca-nome" style={{ display: "flex", alignItems: "center", gap: 8, background: "#FFFFFF", border: "1px solid #F3D9D5", borderRadius: 12, padding: "10px 13px", marginBottom: 12 }}>
           <Search size={15} color="#8B6A52" />
           <input
             value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome"
@@ -2139,7 +2244,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
           />
         </div>
 
-        <div style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
+        <div data-tour="filtro-bairro" style={{ display: "flex", gap: 6, marginBottom: 14, overflowX: "auto" }}>
           {bairros.map((b) => (
             <button key={b} onClick={() => setBairro(b)} style={{
               whiteSpace: "nowrap", fontSize: 11.5, padding: "6px 13px", borderRadius: 20,
@@ -2312,7 +2417,7 @@ function DiaristaDetail({
           <Share2 size={12} color={D_CORAL} />
         </button>
         {editable && !editando && (
-          <button onClick={iniciarEdicao} style={{
+          <button data-tour="editar-perfil-header" onClick={iniciarEdicao} style={{
             display: "flex", alignItems: "center", gap: 5, background: "rgba(226,122,109,0.22)",
             border: `1px solid ${D_CORAL}`, borderRadius: 20, padding: "6px 11px", cursor: "pointer",
           }}>
@@ -2469,7 +2574,9 @@ function DiaristaDetail({
           <CertidaoNegativaBox serviceType="diarista" certidaoNegativaUrl={diarista.certidaoNegativaUrl} corDestaque={D_CORAL_DEEP} />
         )}
 
-        <Tabs tabs={tabs} active={tab} onChange={setTab} />
+        <div data-tour="abas-perfil">
+          <Tabs tabs={tabs} active={tab} onChange={setTab} />
+        </div>
 
         <div style={{ marginTop: 18, fontFamily: "Manrope, sans-serif" }}>
           {tab === "Sobre" && (
@@ -5904,6 +6011,8 @@ function ConfirmacaoPagamento({ perfil, onContinuar }) {
 
 export default function App() {
   const auth = useAuth();
+  const [tourBabaAtivo, finalizarTourBaba] = usePrimeiraVez("baba_profissional");
+  const [tourDiaristaAtivo, finalizarTourDiarista] = usePrimeiraVez("diarista_profissional");
   // Sessão persistida guarda qual vertical/modo estava ativo, pra reabrir o
   // app depois de fechado direto na tela certa em vez de voltar pro hub
   // (a validade real do token só é confirmada depois, de forma assíncrona,
@@ -6636,6 +6745,17 @@ export default function App() {
 
         {tela === "diaristaApp" && (
           <>
+            {modoDiarista === "diarista" && tourDiaristaAtivo && meuPerfilDiarista.statusPagamento !== "vencida" && !mostrarPagamentoDiarista && (
+              <TourOverlay
+                passos={[
+                  { alvo: "notificacoes-header", titulo: "Notificações", texto: "Aqui aparecem avisos sobre pagamento, contratações e mensagens." },
+                  { alvo: "editar-perfil-header", titulo: "Editar perfil", texto: "Toque aqui pra mudar sua foto, nome, bairro e contatos de confiança." },
+                  { alvo: "abas-perfil", titulo: "Mais opções", texto: "Toque nas abas pra ver avaliações e definir seus valores e horários de trabalho." },
+                ]}
+                onFinalizar={finalizarTourDiarista}
+                corDestaque={D_CORAL_DEEP}
+              />
+            )}
             <div style={{ background: "#5A2420", padding: "16px 18px 16px", borderBottom: `1px solid ${D_CORAL_DEEP}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -6645,7 +6765,7 @@ export default function App() {
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button onClick={() => setVerNotificacoes(true)} style={{
+                  <button data-tour="notificacoes-header" onClick={() => setVerNotificacoes(true)} style={{
                     position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
                     borderRadius: "50%", background: "rgba(226,122,109,0.22)", border: `1px solid ${D_CORAL}`, cursor: "pointer",
                   }} title="Notificações">
@@ -6655,7 +6775,7 @@ export default function App() {
                     )}
                   </button>
                   {modoDiarista === "cliente" && (
-                    <button onClick={() => setVerPerfilCliente(true)} style={{
+                    <button data-tour="meu-perfil-header" onClick={() => setVerPerfilCliente(true)} style={{
                       display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
                       borderRadius: "50%", background: "rgba(226,122,109,0.22)", border: `1px solid ${D_CORAL}`, cursor: "pointer",
                     }} title="Meu perfil">
@@ -6800,6 +6920,16 @@ export default function App() {
 
         {tela === "app" && !selecionada && !verPerfilMae && !verBloqueados && !verHistorico && (
           <>
+            {modo === "baba" && tourBabaAtivo && meuPerfilBaba.statusPagamento !== "vencida" && !mostrarPagamentoBaba && (
+              <TourOverlay
+                passos={[
+                  { alvo: "notificacoes-header", titulo: "Notificações", texto: "Aqui aparecem avisos sobre pagamento, contratações e mensagens." },
+                  { alvo: "meu-cartao-perfil", titulo: "Seu perfil", texto: "Toque no seu cartão pra ver e editar seu perfil completo: foto, preços, horários e muito mais." },
+                ]}
+                onFinalizar={finalizarTourBaba}
+                corDestaque={GOLD_DEEP}
+              />
+            )}
             <div style={{ background: INK, padding: "16px 18px 16px", borderBottom: `1px solid ${GOLD_DEEP}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -6809,7 +6939,7 @@ export default function App() {
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button onClick={() => setVerNotificacoes(true)} style={{
+                  <button data-tour="notificacoes-header" onClick={() => setVerNotificacoes(true)} style={{
                     position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
                     borderRadius: "50%", background: "rgba(201,138,86,0.16)", border: `1px solid ${GOLD}`, cursor: "pointer",
                   }} title="Notificações">
@@ -6819,7 +6949,7 @@ export default function App() {
                     )}
                   </button>
                   {modo === "mae" && (
-                    <button onClick={() => setVerPerfilMae(true)} style={{
+                    <button data-tour="meu-perfil-header" onClick={() => setVerPerfilMae(true)} style={{
                       display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
                       borderRadius: "50%", background: "rgba(201,138,86,0.16)", border: `1px solid ${GOLD}`, cursor: "pointer",
                     }} title="Meu perfil">
@@ -6849,7 +6979,9 @@ export default function App() {
                   {meuPerfilBaba.diasParaBloquear != null && (
                     <AvisoMensalidadeVencida dias={meuPerfilBaba.diasParaBloquear} corDestaque={GOLD_DEEP} onPagar={() => setMostrarPagamentoBaba(true)} />
                   )}
-                  <BabaCard baba={meuPerfilBaba} onClick={() => setSelecionada(meuPerfilBaba)} destaque={boosts.destaque?.ativo} />
+                  <div data-tour="meu-cartao-perfil">
+                    <BabaCard baba={meuPerfilBaba} onClick={() => setSelecionada(meuPerfilBaba)} destaque={boosts.destaque?.ativo} />
+                  </div>
                   {!meuPerfilBaba.fotoUrl && (
                     <div style={{
                       display: "flex", alignItems: "center", gap: 6, marginTop: 10, justifyContent: "center",
