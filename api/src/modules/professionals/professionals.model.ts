@@ -6,6 +6,10 @@ export const serviceTypeEnum = pgEnum("service_type", [...SERVICE_TYPES]);
 export const transporteEnum = pgEnum("transporte", [...TRANSPORTE_OPTIONS]);
 export const paymentMethodEnum = pgEnum("payment_method", [...PAYMENT_METHODS]);
 export const subscriptionStatusEnum = pgEnum("subscription_status", [...SUBSCRIPTION_STATUSES]);
+// Mesmos valores de verification_status (verifications.model.ts), mas um
+// enum Postgres próprio pra não criar import circular (verifications.model
+// já importa professionalProfiles daqui).
+export const teamMemberStatusEnum = pgEnum("team_member_status", ["pending", "approved", "rejected"]);
 
 export const professionalProfiles = pgTable(
   "professional_profiles",
@@ -60,6 +64,28 @@ export const portfolioPosts = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("portfolio_posts_professional_id_idx").on(t.professionalId)]
+);
+
+// Pessoas que trabalham junto com uma diarista (ou babá) em equipe —
+// declaradas pela própria profissional, mas só contam como verificadas
+// (exibem o selo CN) depois que um admin aprova, igual ao fluxo da própria
+// profissional em verifications.model.ts. Fica numa tabela própria (não
+// dentro de `details` JSONB) justamente pra poder ter status de revisão
+// por pessoa.
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    professionalId: uuid("professional_id").notNull().references(() => professionalProfiles.id, { onDelete: "cascade" }),
+    nome: varchar("nome", { length: 150 }).notNull(),
+    cpf: varchar("cpf", { length: 14 }).notNull(),
+    certidaoNegativaUrl: text("certidao_negativa_url"),
+    status: teamMemberStatusEnum("status").notNull().default("pending"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewerId: uuid("reviewer_id").references(() => users.id),
+  },
+  (t) => [index("team_members_professional_id_idx").on(t.professionalId, t.status)]
 );
 
 // Colocado aqui (não em users.model.ts) para não criar import circular:

@@ -1,7 +1,7 @@
 import { eq, and, count } from "drizzle-orm";
 import { db } from "../../config/database";
 import { users, userRoles, clientProfiles, trustedContacts, addresses, authTokens, refreshTokens, roleEnum } from "./users.model";
-import { professionalProfiles, portfolioPosts, follows } from "../professionals/professionals.model";
+import { professionalProfiles, portfolioPosts, follows, teamMembers } from "../professionals/professionals.model";
 import { blocks } from "../trust-safety/trust-safety.model";
 import { notifications } from "../notifications/notifications.model";
 import { payments } from "../payments/payments.model";
@@ -97,6 +97,7 @@ export async function deleteMyAccount(userId: string) {
     for (const profile of profiles) {
       await tx.delete(portfolioPosts).where(eq(portfolioPosts.professionalId, profile.id));
       await tx.delete(follows).where(eq(follows.followeeProfessionalId, profile.id));
+      await tx.delete(teamMembers).where(eq(teamMembers.professionalId, profile.id));
       await tx.delete(blocks).where(eq(blocks.blockedProfessionalId, profile.id));
       await tx
         .update(professionalProfiles)

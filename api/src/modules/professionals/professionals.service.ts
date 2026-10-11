@@ -1,6 +1,6 @@
-import { eq, and, gte, lte, ilike, or, isNull, sql, count, notInArray } from "drizzle-orm";
+import { eq, and, gte, lte, ilike, or, isNull, sql, count, notInArray, inArray } from "drizzle-orm";
 import { db } from "../../config/database";
-import { professionalProfiles, portfolioPosts } from "./professionals.model";
+import { professionalProfiles, portfolioPosts, teamMembers } from "./professionals.model";
 import { users, addresses } from "../users/users.model";
 import { userRoles } from "../users/users.model";
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from "../../shared/errors";
@@ -27,11 +27,32 @@ function validateDetails(input: CreateProfessionalInput) {
   }
 }
 
-function shapeProfile(row: {
-  profile: typeof professionalProfiles.$inferSelect;
-  user: { name: string; email: string; photoUrl: string | null } | null;
-  address: { neighborhood: string | null; city: string | null } | null;
-}) {
+// Só os campos seguros pra expor publicamente — nunca o CPF (é dado
+// pessoal sensível, só o admin precisa dele pra conferir a certidão).
+async function fetchApprovedEquipe(professionalIds: string[]) {
+  if (professionalIds.length === 0) return new Map<string, { id: string; nome: string; certidaoNegativaUrl: string | null }[]>();
+  const rows = await db
+    .select({ id: teamMembers.id, professionalId: teamMembers.professionalId, nome: teamMembers.nome, certidaoNegativaUrl: teamMembers.certidaoNegativaUrl })
+    .from(teamMembers)
+    .where(and(inArray(teamMembers.professionalId, professionalIds), eq(teamMembers.status, "approved")));
+
+  const map = new Map<string, { id: string; nome: string; certidaoNegativaUrl: string | null }[]>();
+  for (const r of rows) {
+    const lista = map.get(r.professionalId) ?? [];
+    lista.push({ id: r.id, nome: r.nome, certidaoNegativaUrl: r.certidaoNegativaUrl });
+    map.set(r.professionalId, lista);
+  }
+  return map;
+}
+
+function shapeProfile(
+  row: {
+    profile: typeof professionalProfiles.$inferSelect;
+    user: { name: string; email: string; photoUrl: string | null } | null;
+    address: { neighborhood: string | null; city: string | null } | null;
+  },
+  equipe: { id: string; nome: string; certidaoNegativaUrl: string | null }[] = []
+) {
   const { profile, user, address } = row;
   return {
     id: profile.id,
@@ -46,6 +67,7 @@ function shapeProfile(row: {
     ratingCount: profile.ratingCount,
     verificada: profile.verificada,
     certidaoNegativaUrl: profile.certidaoNegativaUrl,
+    equipe,
     bio: profile.bio,
     disponibilidadeNoite: profile.disponibilidadeNoite,
     disponibilidadeFimDeSemana: profile.disponibilidadeFds,
@@ -202,20 +224,23 @@ export async function searchProfessionals(query: SearchProfessionalsQuery, calle
     db.select({ total: count() }).from(professionalProfiles).leftJoin(addresses, eq(professionalProfiles.addressId, addresses.id)).leftJoin(users, eq(professionalProfiles.userId, users.id)).where(where),
   ]);
 
-  return { data: rows.map(shapeProfile), meta: buildPageMeta(total, page, limit) };
+  const equipeMap = await fetchApprovedEquipe(rows.map((r) => r.profile.id));
+  return { data: rows.map((r) => shapeProfile(r, equipeMap.get(r.profile.id) ?? [])), meta: buildPageMeta(total, page, limit) };
 }
 
 export async function getProfessionalById(id: string) {
   const row = await fetchProfileRow(eq(professionalProfiles.id, id));
   if (!row) throw new NotFoundError("Profissional não encontrado");
-  return shapeProfile(row);
+  const equipeMap = await fetchApprovedEquipe([row.profile.id]);
+  return shapeProfile(row, equipeMap.get(row.profile.id) ?? []);
 }
 
 export async function getMyProfile(userId: string, serviceType: "baba" | "diarista") {
   const row = await fetchProfileRow(and(eq(professionalProfiles.userId, userId), eq(professionalProfiles.serviceType, serviceType))!);
   if (!row) throw new NotFoundError("Você ainda não tem um perfil profissional desse tipo");
   const profile = await applyExpiryIfNeeded(row.profile);
-  return shapeProfile({ ...row, profile });
+  const equipeMap = await fetchApprovedEquipe([profile.id]);
+  return shapeProfile({ ...row, profile }, equipeMap.get(profile.id) ?? []);
 }
 
 async function loadOwnProfileByServiceType(userId: string, serviceType: "baba" | "diarista") {
@@ -233,7 +258,8 @@ export async function updateMyProfile(userId: string, serviceType: "baba" | "dia
     .set({ ...input, updatedAt: new Date() } as never)
     .where(eq(professionalProfiles.id, profile.id));
   const row = await fetchProfileRow(eq(professionalProfiles.id, profile.id));
-  return shapeProfile(row!);
+  const equipeMap = await fetchApprovedEquipe([profile.id]);
+  return shapeProfile(row!, equipeMap.get(profile.id) ?? []);
 }
 
 export async function addPortfolioPost(userId: string, input: { cor?: string; legenda?: string; url?: string; marcado?: boolean }) {

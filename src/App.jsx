@@ -23,6 +23,7 @@ import { createReview } from "./api/reviews.js";
 import { blockProfessional, unblockProfessional, listMyBlocks, reportProfessional } from "./api/trustSafety.js";
 import { getMyBoosts } from "./api/boosts.js";
 import { submitVerification, listMyVerifications, listVerificationQueue, reviewVerification } from "./api/verifications.js";
+import { submitTeamMember, listMyTeamMembers, listTeamMemberQueue, reviewTeamMember } from "./api/teamMembers.js";
 import { respostasParaCreateProfessionalInput, respostasParaAgenda } from "./mappers.js";
 
 // ---- paleta ----
@@ -441,6 +442,43 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+// Lista pública dos integrantes da equipe já aprovados por um admin — nunca
+// mostra os não aprovados (eles nem chegam no DTO público, ver
+// professionals.service.ts/fetchApprovedEquipe) nem o CPF (fica só com o
+// admin, pra conferir a identidade sem expor dado sensível).
+function EquipeList({ equipe, corDestaque = D_CORAL_DEEP }) {
+  if (!equipe || equipe.length === 0) return null;
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 7 }}>
+        <Users size={13} color={corDestaque} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: INK }}>Trabalha em equipe com</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {equipe.map((m) => (
+          <div key={m.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 10, padding: "8px 11px" }}>
+            <span style={{ fontSize: 12.5, color: INK, fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>{m.nome}</span>
+            <div style={{ marginTop: 3 }}>
+              {m.certidaoNegativaUrl ? (
+                <a href={m.certidaoNegativaUrl} target="_blank" rel="noopener noreferrer" style={{
+                  display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "#2563EB", textDecoration: "none",
+                }}>
+                  <span style={{ background: "#2563EB", color: "#fff", borderRadius: 4, padding: "1px 5px", fontWeight: 800, fontSize: 9.5, fontFamily: "Manrope, sans-serif" }}>
+                    CN
+                  </span>
+                  Certidão verificada
+                </a>
+              ) : (
+                <span style={{ fontSize: 10.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Certidão ainda não enviada</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2448,6 +2486,7 @@ function DiaristaDetail({
                 <InfoRow icon={<Home size={15} color={D_CORAL_DEEP} />} label="Cidade" valor={diarista.cidade || "São Paulo"} />
                 <InfoRow icon={<Car size={15} color={D_CORAL_DEEP} />} label="Transporte" valor={diarista.transporte} />
               </div>
+              <EquipeList equipe={diarista.equipe} corDestaque={D_CORAL_DEEP} />
             </div>
           )}
 
@@ -3892,6 +3931,7 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
 const DOCUMENT_TYPE_LABEL = { rg: "RG", cnh: "CNH", cpf: "CPF", selfie: "Selfie", certidao_negativa: "Certidão Negativa" };
 
 function AdminVerificacoesScreen({ onVoltar }) {
+  const [fonte, setFonte] = useState("verificacoes"); // "verificacoes" | "equipe"
   const [status, setStatus] = useState("pending");
   const [lista, setLista] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -3902,18 +3942,20 @@ function AdminVerificacoesScreen({ onVoltar }) {
     let cancelado = false;
     setCarregando(true);
     setErro("");
-    listVerificationQueue(status)
+    const buscar = fonte === "verificacoes" ? listVerificationQueue(status) : listTeamMemberQueue(status);
+    buscar
       .then((res) => { if (!cancelado) setLista(res || []); })
       .catch((e) => { if (!cancelado) setErro(e.message || "Não foi possível carregar a fila."); })
       .finally(() => { if (!cancelado) setCarregando(false); });
     return () => { cancelado = true; };
-  }, [status]);
+  }, [fonte, status]);
 
   const revisar = async (id, novoStatus) => {
     setProcessando(id);
     setErro("");
     try {
-      await reviewVerification(id, { status: novoStatus });
+      if (fonte === "verificacoes") await reviewVerification(id, { status: novoStatus });
+      else await reviewTeamMember(id, novoStatus);
       setLista((atual) => atual.filter((v) => v.id !== id));
     } catch (e) {
       setErro(e.message || "Não foi possível processar agora.");
@@ -3929,6 +3971,18 @@ function AdminVerificacoesScreen({ onVoltar }) {
           <ChevronLeft size={20} color={PAPER} />
         </button>
         <span style={{ color: PAPER, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, flex: 1 }}>Verificações</span>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, padding: "12px 16px 0" }}>
+        {[["verificacoes", "Profissionais"], ["equipe", "Equipe"]].map(([key, label]) => (
+          <button key={key} onClick={() => setFonte(key)} style={{
+            flex: 1, padding: "8px 0", borderRadius: 10, border: `1.5px solid ${fonte === key ? INK : LINE}`,
+            background: fonte === key ? INK : "transparent", color: fonte === key ? "#fff" : INK_SOFT,
+            fontSize: 12, fontWeight: 700, fontFamily: "Manrope, sans-serif", cursor: "pointer",
+          }}>
+            {label}
+          </button>
+        ))}
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "12px 16px" }}>
@@ -3948,24 +4002,35 @@ function AdminVerificacoesScreen({ onVoltar }) {
         {carregando ? (
           <p style={{ textAlign: "center", color: "#8B6A52", fontSize: 12.5, marginTop: 20 }}>Carregando...</p>
         ) : lista.length === 0 ? (
-          <p style={{ textAlign: "center", color: "#8B6A52", fontSize: 12.5, marginTop: 20 }}>Nenhuma verificação aqui.</p>
+          <p style={{ textAlign: "center", color: "#8B6A52", fontSize: 12.5, marginTop: 20 }}>Nada por aqui.</p>
         ) : (
           lista.map((v) => (
             <div key={v.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, marginTop: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: INK, fontFamily: "Manrope, sans-serif" }}>
-                  {v.professionalName || "Profissional"}
+                  {fonte === "verificacoes" ? (v.professionalName || "Profissional") : v.nome}
                 </span>
                 <span style={{ fontSize: 10.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>
                   {v.professionalServiceType === "baba" ? "Babá" : "Diarista"}
                 </span>
               </div>
-              <p style={{ fontSize: 11.5, color: "#8B6A52", margin: "4px 0", fontFamily: "Manrope, sans-serif" }}>
-                {DOCUMENT_TYPE_LABEL[v.documentType] || v.documentType}
-              </p>
-              <a href={v.documentRef} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, color: FOREST, wordBreak: "break-all" }}>
-                {v.documentRef}
-              </a>
+              {fonte === "equipe" && (
+                <p style={{ fontSize: 11, color: "#8B6A52", margin: "4px 0", fontFamily: "Manrope, sans-serif" }}>
+                  Equipe de {v.professionalName} · CPF {v.cpf}
+                </p>
+              )}
+              {fonte === "verificacoes" && (
+                <p style={{ fontSize: 11.5, color: "#8B6A52", margin: "4px 0", fontFamily: "Manrope, sans-serif" }}>
+                  {DOCUMENT_TYPE_LABEL[v.documentType] || v.documentType}
+                </p>
+              )}
+              {(fonte === "verificacoes" ? v.documentRef : v.certidaoNegativaUrl) ? (
+                <a href={fonte === "verificacoes" ? v.documentRef : v.certidaoNegativaUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, color: FOREST, wordBreak: "break-all" }}>
+                  {fonte === "verificacoes" ? v.documentRef : v.certidaoNegativaUrl}
+                </a>
+              ) : (
+                fonte === "equipe" && <p style={{ fontSize: 11, color: "#8B6A52", margin: 0 }}>Sem link de certidão enviado</p>
+              )}
               {status === "pending" && (
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                   <button onClick={() => revisar(v.id, "rejected")} disabled={processando === v.id} style={{
@@ -6345,6 +6410,16 @@ export default function App() {
     await createProfessionalProfile(payload);
     await auth.refreshRoles();
     const perfilComAgenda = await updateMyProfessionalProfile("diarista", { agenda: respostasParaAgenda(respostas) });
+    // Cada pessoa da equipe precisa de uma linha própria (pra ter status de
+    // aprovação individual), então só dá pra enviar depois que o perfil
+    // profissional já existe — igual a agenda.
+    if (payload.details?.equipe?.length) {
+      for (const membro of payload.details.equipe) {
+        try {
+          await submitTeamMember({ serviceType: "diarista", ...membro });
+        } catch {}
+      }
+    }
     setPerfilDiaristaPendente(perfilComAgenda);
     setTela("confirmacaoPagamentoDiarista");
   };

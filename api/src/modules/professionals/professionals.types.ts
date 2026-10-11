@@ -83,6 +83,7 @@ export interface ProfessionalProfileDTO {
   ratingCount: number;
   verificada: boolean;
   certidaoNegativaUrl: string | null;
+  equipe: { id: string; nome: string; certidaoNegativaUrl: string | null }[];
   bio: string | null;
   disponibilidadeNoite: boolean;
   disponibilidadeFimDeSemana: boolean;
