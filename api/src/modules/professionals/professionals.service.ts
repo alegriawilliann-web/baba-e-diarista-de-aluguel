@@ -45,6 +45,7 @@ function shapeProfile(row: {
     rating: Number(profile.rating),
     ratingCount: profile.ratingCount,
     verificada: profile.verificada,
+    certidaoNegativaUrl: profile.certidaoNegativaUrl,
     bio: profile.bio,
     disponibilidadeNoite: profile.disponibilidadeNoite,
     disponibilidadeFimDeSemana: profile.disponibilidadeFds,

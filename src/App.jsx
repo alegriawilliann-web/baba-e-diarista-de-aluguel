@@ -7,7 +7,7 @@ import {
   QrCode, FileText, Clock3, User, Mail, HelpCircle, Edit3,
   Rocket, Image, Bell, Sparkles, Share2, Users, UserPlus, Tag, Eye, EyeOff, ShieldAlert, Lock,
   Send, CalendarCheck, CalendarClock, History, ClipboardList, MoreVertical, Flag, Ban, Siren, PhoneCall, MapPinned,
-  Radio, Vibrate
+  Radio, Vibrate, ExternalLink, ShieldQuestion
 } from "lucide-react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
@@ -22,6 +22,7 @@ import {
 import { createReview } from "./api/reviews.js";
 import { blockProfessional, unblockProfessional, listMyBlocks, reportProfessional } from "./api/trustSafety.js";
 import { getMyBoosts } from "./api/boosts.js";
+import { submitVerification, listMyVerifications, listVerificationQueue, reviewVerification } from "./api/verifications.js";
 import { respostasParaCreateProfessionalInput, respostasParaAgenda } from "./mappers.js";
 
 // ---- paleta ----
@@ -345,6 +346,101 @@ function Avatar({ initials, color, size = 44, fotoUrl }) {
       flexShrink: 0, border: "2px solid " + CARD, boxShadow: "0 2px 6px rgba(22,64,60,0.18)",
     }}>
       {initials}
+    </div>
+  );
+}
+
+// Selo azul "NC" (Certidão Negativa de Antecedentes Criminais) — só existe
+// quando um admin aprova o link oficial de validação enviado pela
+// profissional (ver módulo verifications). Clicável: abre o link oficial
+// do governo direto, pra quem vai contratar conferir por conta própria.
+function NcBadge({ url, size = 22 }) {
+  if (!url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      title="Certidão Negativa de Antecedentes Criminais verificada — toque para ver o comprovante oficial"
+      style={{
+        position: "absolute", bottom: -2, left: -2, width: size, height: size, borderRadius: "50%",
+        background: "#2563EB", border: "2px solid " + CARD, display: "flex", alignItems: "center",
+        justifyContent: "center", textDecoration: "none", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", zIndex: 1,
+      }}
+    >
+      <span style={{ color: "#fff", fontSize: size * 0.4, fontWeight: 800, fontFamily: "Manrope, sans-serif", letterSpacing: "-0.02em" }}>NC</span>
+    </a>
+  );
+}
+
+// Caixa de envio/status da Certidão Negativa, mostrada só no próprio perfil
+// (editable). O profissional cola o link oficial de validação (gov.br ou
+// Tribunal de Justiça); um admin confere e aprova pela fila de verificação
+// — só depois disso o selo NC azul aparece pros clientes.
+function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = GOLD_DEEP }) {
+  const [status, setStatus] = useState(null); // null = carregando | "none" | "pending" | "rejected" | "aprovada"
+  const [link, setLink] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  useEffect(() => {
+    if (certidaoNegativaUrl) { setStatus("aprovada"); return; }
+    let cancelado = false;
+    listMyVerifications(serviceType)
+      .then((lista) => {
+        if (cancelado) return;
+        const ultima = (lista || [])
+          .filter((v) => v.documentType === "certidao_negativa")
+          .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
+        setStatus(ultima ? ultima.status : "none");
+      })
+      .catch(() => { if (!cancelado) setStatus("none"); });
+    return () => { cancelado = true; };
+  }, [serviceType, certidaoNegativaUrl]);
+
+  const enviar = async () => {
+    if (!link.trim()) return;
+    setEnviando(true);
+    setErro("");
+    try {
+      await submitVerification({ serviceType, documentType: "certidao_negativa", documentRef: link.trim() });
+      setStatus("pending");
+    } catch (e) {
+      setErro(e.message || "Não foi possível enviar agora. Tente de novo.");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (status === null) return null;
+
+  return (
+    <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: "13px 14px", marginTop: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <ShieldQuestion size={14} color={corDestaque} />
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: INK }}>Certidão Negativa de Antecedentes Criminais</span>
+      </div>
+      {status === "aprovada" ? (
+        <p style={{ fontSize: 11.5, color: FOREST, margin: 0 }}>Verificada — o selo "NC" azul já aparece no seu perfil.</p>
+      ) : status === "pending" ? (
+        <p style={{ fontSize: 11.5, color: "#8B6A52", margin: 0 }}>Em análise. Avisamos quando for aprovado.</p>
+      ) : (
+        <>
+          <p style={{ fontSize: 11, color: "#8B6A52", margin: "0 0 8px" }}>
+            {status === "rejected" ? "Seu último envio não foi aprovado. " : ""}
+            Cole o link oficial de validação da sua certidão (gov.br ou site do Tribunal de Justiça) pra ganhar o selo azul "NC" e passar mais confiança pra quem for te contratar.
+          </p>
+          <input style={inputStyle} placeholder="https://..." value={link} onChange={(e) => setLink(e.target.value)} />
+          {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
+          <button onClick={enviar} disabled={enviando || !link.trim()} style={{
+            marginTop: 8, background: corDestaque, border: "none", borderRadius: 10, padding: "8px 14px",
+            color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: enviando ? "default" : "pointer", opacity: enviando || !link.trim() ? 0.7 : 1,
+          }}>
+            {enviando ? "Enviando..." : "Enviar pra análise"}
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -1101,6 +1197,7 @@ function BabaDetail({
         <div style={{ display: "flex", gap: 14, alignItems: editando ? "flex-start" : "center" }}>
           <div style={{ position: "relative", flexShrink: 0 }}>
             <Avatar initials={baba.initials} color={baba.color} fotoUrl={baba.fotoUrl} size={66} />
+            <NcBadge url={baba.certidaoNegativaUrl} />
             {editando && baba.fotoUrl && (
               <button onClick={() => setShowFotoModal(true)} title="Trocar foto" style={{
                 position: "absolute", bottom: -2, right: -2, width: 22, height: 22, borderRadius: "50%",
@@ -1184,6 +1281,10 @@ function BabaDetail({
             </span>
           ))}
         </div>
+
+        {editable && !editando && (
+          <CertidaoNegativaBox serviceType="baba" certidaoNegativaUrl={baba.certidaoNegativaUrl} corDestaque={GOLD_DEEP} />
+        )}
 
         <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -1444,7 +1545,10 @@ function BabaCard({ baba, onClick, destaque }) {
           <Rocket size={9} /> Destaque
         </span>
       )}
-      <Avatar initials={baba.initials} color={baba.color} fotoUrl={baba.fotoUrl} size={54} />
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <Avatar initials={baba.initials} color={baba.color} fotoUrl={baba.fotoUrl} size={54} />
+        <NcBadge url={baba.certidaoNegativaUrl} size={20} />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ fontFamily: "Fraunces, serif", fontSize: 15.5, color: INK, fontWeight: 600 }}>{baba.name}</span>
@@ -1876,7 +1980,10 @@ function DiaristaCard({ diarista, onClick }) {
       padding: 13, cursor: "pointer", fontFamily: "Manrope, sans-serif",
       boxShadow: "0 2px 10px rgba(22,64,60,0.05)",
     }}>
-      <Avatar initials={diarista.initials} color={diarista.color} fotoUrl={diarista.fotoUrl} size={54} />
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <Avatar initials={diarista.initials} color={diarista.color} fotoUrl={diarista.fotoUrl} size={54} />
+        <NcBadge url={diarista.certidaoNegativaUrl} size={20} />
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span style={{ fontFamily: "Fraunces, serif", fontSize: 15.5, color: INK, fontWeight: 600 }}>{diarista.name}</span>
@@ -2235,6 +2342,7 @@ function DiaristaDetail({
         <div style={{ display: "flex", gap: 14, alignItems: editando ? "flex-start" : "center" }}>
           <div style={{ position: "relative", flexShrink: 0 }}>
             <Avatar initials={diarista.initials} color={diarista.color} fotoUrl={diarista.fotoUrl} size={66} />
+            <NcBadge url={diarista.certidaoNegativaUrl} />
             {editando && diarista.fotoUrl && (
               <button onClick={() => setShowFotoModal(true)} title="Trocar foto" style={{
                 position: "absolute", bottom: -2, right: -2, width: 22, height: 22, borderRadius: "50%",
@@ -2318,6 +2426,10 @@ function DiaristaDetail({
             </span>
           ))}
         </div>
+
+        {editable && !editando && (
+          <CertidaoNegativaBox serviceType="diarista" certidaoNegativaUrl={diarista.certidaoNegativaUrl} corDestaque={D_CORAL_DEEP} />
+        )}
 
         <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -3777,9 +3889,110 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
   );
 }
 
+const DOCUMENT_TYPE_LABEL = { rg: "RG", cnh: "CNH", cpf: "CPF", selfie: "Selfie", certidao_negativa: "Certidão Negativa" };
+
+function AdminVerificacoesScreen({ onVoltar }) {
+  const [status, setStatus] = useState("pending");
+  const [lista, setLista] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [processando, setProcessando] = useState(null);
+  const [erro, setErro] = useState("");
+
+  useEffect(() => {
+    let cancelado = false;
+    setCarregando(true);
+    setErro("");
+    listVerificationQueue(status)
+      .then((res) => { if (!cancelado) setLista(res || []); })
+      .catch((e) => { if (!cancelado) setErro(e.message || "Não foi possível carregar a fila."); })
+      .finally(() => { if (!cancelado) setCarregando(false); });
+    return () => { cancelado = true; };
+  }, [status]);
+
+  const revisar = async (id, novoStatus) => {
+    setProcessando(id);
+    setErro("");
+    try {
+      await reviewVerification(id, { status: novoStatus });
+      setLista((atual) => atual.filter((v) => v.id !== id));
+    } catch (e) {
+      setErro(e.message || "Não foi possível processar agora.");
+    } finally {
+      setProcessando(null);
+    }
+  };
+
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", background: PAPER }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px", background: INK }}>
+        <button onClick={onVoltar} style={{ background: "none", border: "none", cursor: "pointer" }}>
+          <ChevronLeft size={20} color={PAPER} />
+        </button>
+        <span style={{ color: PAPER, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, flex: 1 }}>Verificações</span>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, padding: "12px 16px" }}>
+        {[["pending", "Pendentes"], ["approved", "Aprovadas"], ["rejected", "Rejeitadas"]].map(([key, label]) => (
+          <button key={key} onClick={() => setStatus(key)} style={{
+            padding: "6px 12px", borderRadius: 20, border: `1px solid ${status === key ? FOREST : LINE}`,
+            background: status === key ? FOREST : "transparent", color: status === key ? "#fff" : INK_SOFT,
+            fontSize: 11.5, fontFamily: "Manrope, sans-serif", cursor: "pointer",
+          }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 16px" }}>
+        {erro && <p style={{ fontSize: 12, color: ERROR, textAlign: "center", marginTop: 10 }}>{erro}</p>}
+        {carregando ? (
+          <p style={{ textAlign: "center", color: "#8B6A52", fontSize: 12.5, marginTop: 20 }}>Carregando...</p>
+        ) : lista.length === 0 ? (
+          <p style={{ textAlign: "center", color: "#8B6A52", fontSize: 12.5, marginTop: 20 }}>Nenhuma verificação aqui.</p>
+        ) : (
+          lista.map((v) => (
+            <div key={v.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, marginTop: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: INK, fontFamily: "Manrope, sans-serif" }}>
+                  {v.professionalName || "Profissional"}
+                </span>
+                <span style={{ fontSize: 10.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>
+                  {v.professionalServiceType === "baba" ? "Babá" : "Diarista"}
+                </span>
+              </div>
+              <p style={{ fontSize: 11.5, color: "#8B6A52", margin: "4px 0", fontFamily: "Manrope, sans-serif" }}>
+                {DOCUMENT_TYPE_LABEL[v.documentType] || v.documentType}
+              </p>
+              <a href={v.documentRef} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, color: FOREST, wordBreak: "break-all" }}>
+                {v.documentRef}
+              </a>
+              {status === "pending" && (
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => revisar(v.id, "rejected")} disabled={processando === v.id} style={{
+                    flex: 1, background: "none", border: `1px solid ${ERROR}`, color: ERROR, borderRadius: 10, padding: "8px 0",
+                    fontSize: 11.5, fontWeight: 700, cursor: processando === v.id ? "default" : "pointer", opacity: processando === v.id ? 0.6 : 1,
+                  }}>
+                    Rejeitar
+                  </button>
+                  <button onClick={() => revisar(v.id, "approved")} disabled={processando === v.id} style={{
+                    flex: 1, background: FOREST, border: "none", color: "#fff", borderRadius: 10, padding: "8px 0",
+                    fontSize: 11.5, fontWeight: 700, cursor: processando === v.id ? "default" : "pointer", opacity: processando === v.id ? 0.6 : 1,
+                  }}>
+                    Aprovar
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---- hub inicial: escolher entre Babá de Aluguel e Diarista de Aluguel ----
 
-function HubScreen({ onEscolherBaba, onEscolherDiarista }) {
+function HubScreen({ onEscolherBaba, onEscolherDiarista, onAdmin }) {
   return (
     <div style={{
       flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
@@ -3807,6 +4020,16 @@ function HubScreen({ onEscolherBaba, onEscolherDiarista }) {
         <LogoBrilho width={140} src={LOGO_DIARISTA_B64} alt="Diarista de Aluguel" />
         <span style={{ fontSize: 12, color: D_CORAL_DEEP, fontWeight: 700, fontFamily: "Manrope, sans-serif" }}>Entrar</span>
       </button>
+
+      {onAdmin && (
+        <button onClick={onAdmin} style={{
+          background: "none", border: "none", cursor: "pointer", marginTop: 4,
+          display: "flex", alignItems: "center", gap: 5,
+        }}>
+          <ShieldQuestion size={12} color="#8B6A52" />
+          <span style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Verificações pendentes</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -6226,7 +6449,12 @@ export default function App() {
           <HubScreen
             onEscolherBaba={() => setTela("login")}
             onEscolherDiarista={() => setTela("diaristaLogin")}
+            onAdmin={auth.roles.includes("admin") ? () => setTela("adminVerificacoes") : undefined}
           />
+        )}
+
+        {tela === "adminVerificacoes" && (
+          <AdminVerificacoesScreen onVoltar={() => setTela("hub")} />
         )}
 
         {tela === "diaristaLogin" && (

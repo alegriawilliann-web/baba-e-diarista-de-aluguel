@@ -1,0 +1,1 @@
+ALTER TABLE "professional_profiles" ADD COLUMN "certidao_negativa_url" text;

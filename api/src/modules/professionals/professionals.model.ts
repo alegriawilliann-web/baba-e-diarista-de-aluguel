@@ -28,6 +28,11 @@ export const professionalProfiles = pgTable(
     ratingBreakdown: jsonb("rating_breakdown").notNull().default({ "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 }),
     seguidoresCount: integer("seguidores_count").notNull().default(0),
     verificada: boolean("verificada").notNull().default(false),
+    // Link oficial de validação da Certidão Negativa de Antecedentes
+    // Criminais (ex: gov.br/validação, código de autenticação do TJ) —
+    // preenchido quando um admin aprova uma verificação do tipo
+    // "certidao_negativa". Null = selo NC ainda não liberado.
+    certidaoNegativaUrl: text("certidao_negativa_url"),
     formaPagamento: paymentMethodEnum("forma_pagamento").notNull(),
     statusPagamento: subscriptionStatusEnum("status_pagamento").notNull().default("pendente"),
     subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),

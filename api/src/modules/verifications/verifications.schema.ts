@@ -2,7 +2,7 @@ import { t } from "elysia";
 
 export const submitVerificationBody = t.Object({
   serviceType: t.Union([t.Literal("baba"), t.Literal("diarista")]),
-  documentType: t.Union([t.Literal("rg"), t.Literal("cnh"), t.Literal("cpf"), t.Literal("selfie")]),
+  documentType: t.Union([t.Literal("rg"), t.Literal("cnh"), t.Literal("cpf"), t.Literal("selfie"), t.Literal("certidao_negativa")]),
   documentRef: t.String(),
 });
 
