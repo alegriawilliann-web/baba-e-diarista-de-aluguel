@@ -3843,7 +3843,6 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
     padding: "11px 10px", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12.5,
     cursor: "pointer", textDecoration: "none",
   };
-  const btnContatoSecundario = { ...btnContato, background: "transparent", color: corDestaque, border: `1.5px solid ${corDestaque}` };
 
   return (
     <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
@@ -3876,10 +3875,7 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-          <a href={`tel:${telefoneNumero}`} style={btnContato}>
-            <PhoneCall size={15} /> Ligar
-          </a>
-          <a href={`https://wa.me/${telefoneNumero.replace("+", "")}?text=${mensagemWhats}`} target="_blank" rel="noreferrer" style={btnContatoSecundario}>
+          <a href={`https://wa.me/${telefoneNumero.replace("+", "")}?text=${mensagemWhats}`} target="_blank" rel="noreferrer" style={btnContato}>
             <MessageCircle size={15} /> WhatsApp
           </a>
         </div>
