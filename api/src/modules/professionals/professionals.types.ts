@@ -13,11 +13,20 @@ export interface BabaDetails {
   pacotes: Pacote[];
 }
 
+export interface EquipeMembro {
+  nome: string;
+  cpf: string;
+  certidaoNegativaUrl: string | null;
+}
+
 export interface DiaristaDetails {
   fazFaxina: boolean;
   fazComida: boolean;
   trabalhaComEquipe: boolean;
   servicos: Pacote[];
+  // Declarado pela própria diarista quando trabalha em equipe — não passa
+  // pela fila de verificação de admin (diferente do selo CN da diarista).
+  equipe?: EquipeMembro[];
 }
 
 export type ProfessionalDetails = BabaDetails | DiaristaDetails;

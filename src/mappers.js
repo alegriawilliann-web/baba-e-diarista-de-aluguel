@@ -105,11 +105,22 @@ export function respostasParaCreateProfessionalInput(respostas, serviceType) {
       ...(respostas.valorComida ? [{ label: "Fazer comida", valorCents: centavos(respostas.valorComida) }] : []),
       ...(respostas.valorPosObraEvento ? [{ label: "Limpeza pós-obra ou pós-evento", valorCents: centavos(respostas.valorPosObraEvento) }] : []),
     ];
+    const trabalhaComEquipe = respostas.trabalhaComMaisPessoas === "Trabalho com mais pessoas";
     base.details = {
       fazFaxina: respostas.fazFaxina === "Sim",
       fazComida: !!respostas.valorComida,
-      trabalhaComEquipe: respostas.trabalhaComMaisPessoas === "Trabalho com mais pessoas",
+      trabalhaComEquipe,
       servicos: valorCombinar ? [{ label: "Faxina", valorCents: null }] : servicos,
+      // Declarado pela própria diarista (não passa pela fila de verificação
+      // de admin) — nome, CPF e, se já tiver, o link da certidão de cada
+      // pessoa que também pode aparecer no serviço.
+      equipe: trabalhaComEquipe
+        ? (respostas.equipe || []).filter((m) => m.nome?.trim() && m.cpf?.trim()).map((m) => ({
+            nome: m.nome.trim(),
+            cpf: m.cpf.trim(),
+            certidaoNegativaUrl: m.certidaoNegativaUrl?.trim() || null,
+          }))
+        : [],
     };
   }
 

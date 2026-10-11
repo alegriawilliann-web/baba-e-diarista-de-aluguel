@@ -369,7 +369,7 @@ function NcBadge({ url, size = 22 }) {
         justifyContent: "center", textDecoration: "none", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", zIndex: 1,
       }}
     >
-      <span style={{ color: "#fff", fontSize: size * 0.4, fontWeight: 800, fontFamily: "Manrope, sans-serif", letterSpacing: "-0.02em" }}>NC</span>
+      <span style={{ color: "#fff", fontSize: size * 0.4, fontWeight: 800, fontFamily: "Manrope, sans-serif", letterSpacing: "-0.02em" }}>CN</span>
     </a>
   );
 }
@@ -377,7 +377,7 @@ function NcBadge({ url, size = 22 }) {
 // Caixa de envio/status da Certidão Negativa, mostrada só no próprio perfil
 // (editable). O profissional cola o link oficial de validação (gov.br ou
 // Tribunal de Justiça); um admin confere e aprova pela fila de verificação
-// — só depois disso o selo NC azul aparece pros clientes.
+// — só depois disso o selo CN azul aparece pros clientes.
 function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = GOLD_DEEP }) {
   const [status, setStatus] = useState(null); // null = carregando | "none" | "pending" | "rejected" | "aprovada"
   const [link, setLink] = useState("");
@@ -422,14 +422,14 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
         <span style={{ fontSize: 12.5, fontWeight: 700, color: INK }}>Certidão Negativa de Antecedentes Criminais</span>
       </div>
       {status === "aprovada" ? (
-        <p style={{ fontSize: 11.5, color: FOREST, margin: 0 }}>Verificada — o selo "NC" azul já aparece no seu perfil.</p>
+        <p style={{ fontSize: 11.5, color: FOREST, margin: 0 }}>Verificada — o selo "CN" azul já aparece no seu perfil.</p>
       ) : status === "pending" ? (
         <p style={{ fontSize: 11.5, color: "#8B6A52", margin: 0 }}>Em análise. Avisamos quando for aprovado.</p>
       ) : (
         <>
           <p style={{ fontSize: 11, color: "#8B6A52", margin: "0 0 8px" }}>
             {status === "rejected" ? "Seu último envio não foi aprovado. " : ""}
-            Cole o link oficial de validação da sua certidão (gov.br ou site do Tribunal de Justiça) pra ganhar o selo azul "NC" e passar mais confiança pra quem for te contratar.
+            Cole o link oficial de validação da sua certidão (gov.br ou site do Tribunal de Justiça) pra ganhar o selo azul "CN" e passar mais confiança pra quem for te contratar.
           </p>
           <input style={inputStyle} placeholder="https://..." value={link} onChange={(e) => setLink(e.target.value)} />
           {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
@@ -4820,6 +4820,52 @@ function TermosModal({ onClose, corDestaque = GOLD_DEEP, appNome = "Babá de Alu
   );
 }
 
+// Pergunta "Trabalho com mais pessoas" (diarista) abre essa lista pra
+// declarar quem mais pode aparecer no serviço — nome, CPF e, se já tiver
+// em mãos, o link da certidão negativa de cada pessoa. Isso não passa pela
+// fila de verificação (é só a própria diarista declarando, não um selo
+// aprovado por admin como o CN dela).
+function EquipeStep({ membros, setMembros, corDestaque = D_CORAL_DEEP }) {
+  const lista = membros.length > 0 ? membros : [{ nome: "", cpf: "", certidaoNegativaUrl: "" }];
+
+  const atualizar = (i, campo, valor) => {
+    const novos = [...lista];
+    novos[i] = { ...novos[i], [campo]: valor };
+    setMembros(novos);
+  };
+  const adicionar = () => setMembros([...lista, { nome: "", cpf: "", certidaoNegativaUrl: "" }]);
+  const remover = (i) => setMembros(lista.filter((_, idx) => idx !== i));
+
+  return (
+    <div>
+      <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginBottom: 12 }}>
+        Informe quem mais trabalha com você, pra dar mais segurança às famílias que forem te contratar.
+      </p>
+      {lista.map((m, i) => (
+        <div key={i} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: INK, fontFamily: "Manrope, sans-serif" }}>Pessoa {i + 1}</span>
+            {lista.length > 1 && (
+              <button onClick={() => remover(i)} style={{ background: "none", border: "none", cursor: "pointer", color: ERROR, fontSize: 11, fontFamily: "Manrope, sans-serif" }}>
+                Remover
+              </button>
+            )}
+          </div>
+          <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="Nome completo" value={m.nome} onChange={(e) => atualizar(i, "nome", e.target.value)} />
+          <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="CPF" value={m.cpf} onChange={(e) => atualizar(i, "cpf", e.target.value)} />
+          <input style={inputStyle} placeholder="Link da certidão negativa (opcional, pode enviar depois)" value={m.certidaoNegativaUrl} onChange={(e) => atualizar(i, "certidaoNegativaUrl", e.target.value)} />
+        </div>
+      ))}
+      <button onClick={adicionar} style={{
+        width: "100%", background: "none", border: `1.5px dashed ${corDestaque}`, borderRadius: 12, padding: "10px 0",
+        color: corDestaque, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12, cursor: "pointer",
+      }}>
+        + Adicionar outra pessoa
+      </button>
+    </div>
+  );
+}
+
 function TermosStep({ aceito, setAceito, corDestaque = GOLD_DEEP, appNome = "Babá de Aluguel" }) {
   const [showTermos, setShowTermos] = useState(false);
   return (
@@ -5053,6 +5099,8 @@ const perguntasDiarista = [
   { key: "fazFaxina", pergunta: "Você faz faxina completa (limpeza pesada)?", tipo: "escolha", opcoes: ["Sim", "Não"] },
   { key: "trabalhaComMaisPessoas", pergunta: "Você trabalha sozinha ou com mais pessoas?", tipo: "escolha",
     opcoes: ["Trabalho sozinha", "Trabalho com mais pessoas"] },
+  { key: "equipe", pergunta: "Quem mais trabalha com você?", tipo: "equipe",
+    condicao: (r) => r.trabalhaComMaisPessoas === "Trabalho com mais pessoas" },
   { key: "transporte", pergunta: "Como você costuma se locomover para o trabalho?", tipo: "escolha",
     opcoes: ["Tenho carro", "Tenho moto", "Preciso ser buscada"] },
   { key: "disponibilidadePeriodo", pergunta: "Você tem disponibilidade para à noite e finais de semana?", tipo: "chips",
@@ -5129,6 +5177,10 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
     if (perguntaAtual.tipo === "endereco") {
       return !!(respostas.cep && respostas.rua && respostas.numero && respostas.bairro && respostas.cidade);
     }
+    if (perguntaAtual.tipo === "equipe") {
+      const membros = respostas.equipe || [];
+      return membros.length > 0 && membros.every((m) => m.nome?.trim() && m.cpf?.trim());
+    }
     const valor = respostas[perguntaAtual.key];
     if (perguntaAtual.tipo === "chips") return Array.isArray(valor) && valor.length > 0;
     if (valor === undefined || valor === null) return false;
@@ -5140,6 +5192,7 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
     if (perguntaAtual.key === "senha") return "Sua senha precisa ter pelo menos 8 caracteres.";
     if (perguntaAtual.key === "confirmarSenha") return "As senhas não são iguais. Confira e tente de novo.";
     if (perguntaAtual.tipo === "termos") return "Você precisa aceitar os Termos de Uso e a Política de Privacidade para continuar.";
+    if (perguntaAtual.tipo === "equipe") return "Preencha nome completo e CPF de cada pessoa, ou remova quem não for preencher.";
     if (perguntaAtual.tipo === "numero" && perguntaAtual.min !== undefined && Number(respostas[perguntaAtual.key]) < perguntaAtual.min) {
       return `O valor mínimo é ${perguntaAtual.min}.`;
     }
@@ -5239,6 +5292,10 @@ function CadastroBaba({ onConcluir, onVoltar, perguntas = perguntasBaba, corBota
 
       {perguntaAtual.tipo === "endereco" && (
         <EnderecoStep respostas={respostas} setCampo={setCampo} corDestaque={corAcento || GOLD_DEEP} />
+      )}
+
+      {perguntaAtual.tipo === "equipe" && (
+        <EquipeStep membros={respostas.equipe || []} setMembros={(v) => setCampo("equipe", v)} corDestaque={corAcento || D_CORAL_DEEP} />
       )}
 
       {perguntaAtual.tipo === "termos" && (
