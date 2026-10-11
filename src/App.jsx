@@ -1149,6 +1149,7 @@ function BabaDetail({
   const [showDenunciar, setShowDenunciar] = useState(false);
   const [seguindo, setSeguindo] = useState(false);
   const [seguidores, setSeguidores] = useState(baba.seguidores || 0);
+  const [tourClienteAtivo, finalizarTourCliente] = usePrimeiraVez("baba_perfil_cliente");
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
 
@@ -1216,6 +1217,17 @@ function BabaDetail({
 
   return (
     <div style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column" }}>
+      {!editable && tourClienteAtivo && (
+        <TourOverlay
+          passos={[
+            { alvo: "agendar-btn", titulo: "Agendar", texto: `Toque aqui pra marcar um horário com ${baba.name.split(" ")[0]}.` },
+            { alvo: "chamar-btn", titulo: "Fale com ela", texto: "Toque aqui pra conversar pelo chat do app. Lá dentro também tem um botão vermelho de emergência, caso precise de ajuda rápida." },
+            { alvo: "abas-perfil", titulo: "Mais informações", texto: "Toque nas abas pra ver depoimentos de outras famílias e os valores cobrados." },
+          ]}
+          onFinalizar={finalizarTourCliente}
+          corDestaque={GOLD_DEEP}
+        />
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px", background: INK }}>
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer" }}>
           <ChevronLeft size={20} color={PAPER} />
@@ -1411,7 +1423,9 @@ function BabaDetail({
           <CertidaoNegativaBox serviceType="baba" certidaoNegativaUrl={baba.certidaoNegativaUrl} corDestaque={GOLD_DEEP} />
         )}
 
-        <Tabs tabs={tabs} active={tab} onChange={setTab} />
+        <div data-tour="abas-perfil">
+          <Tabs tabs={tabs} active={tab} onChange={setTab} />
+        </div>
 
         <div style={{ marginTop: 18, fontFamily: "Manrope, sans-serif" }}>
           {tab === "Sobre" && (
@@ -1592,10 +1606,10 @@ function BabaDetail({
 
       {!editable && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, display: "flex", flexDirection: "column", gap: 8, background: `linear-gradient(180deg, transparent, ${PAPER} 30%)` }}>
-          <button style={{ ...btnSecondary, width: "100%" }} onClick={() => setShowAgendar(true)}>
+          <button data-tour="agendar-btn" style={{ ...btnSecondary, width: "100%" }} onClick={() => setShowAgendar(true)}>
             <CalendarCheck size={16} /> Agendar com {baba.name.split(" ")[0]}
           </button>
-          <button className="shine-cta" style={{ ...btnPrimary, width: "100%" }} onClick={() => setShowCall(true)}>
+          <button data-tour="chamar-btn" className="shine-cta" style={{ ...btnPrimary, width: "100%" }} onClick={() => setShowCall(true)}>
             <MessageCircle size={16} /> Chamar {baba.name.split(" ")[0]} no particular
           </button>
         </div>
@@ -2036,6 +2050,7 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
   const tourPassos = [
     { alvo: "busca-nome", titulo: "Busca por nome", texto: "Se você já sabe o nome da babá que procura, digite aqui." },
     { alvo: "filtro-bairro", titulo: "Filtrar por bairro", texto: "Toque num bairro pra ver só as babás mais perto de você." },
+    { alvo: "filtro-avancado", titulo: "Mais filtros", texto: "Toque aqui pra filtrar por avaliação (estrelas) e por valor cobrado." },
     { alvo: "notificacoes-header", titulo: "Notificações", texto: "Aqui aparecem avisos sobre suas contratações e mensagens." },
     { alvo: "meu-perfil-header", titulo: "Seu perfil", texto: "Toque aqui pra ver seus dados, seus contatos de confiança, ou sair da conta." },
   ];
@@ -2096,7 +2111,9 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
         <VerticalFilterBar ratingMin={ratingMin} setRatingMin={setRatingMin} preco={preco} setPreco={setPreco}
           onReset={() => { setRatingMin(0); setPreco([15, 45]); }} onFechar={() => setFiltrosAbertos(false)} />
       ) : (
-        <FilterTab onClick={() => setFiltrosAbertos(true)} filtrosAtivos={filtrosAtivos} />
+        <div data-tour="filtro-avancado" style={{ display: "contents" }}>
+          <FilterTab onClick={() => setFiltrosAbertos(true)} filtrosAtivos={filtrosAtivos} />
+        </div>
       )}
 
       {popupAberto && boosts?.popup?.ativo && perfilImpulsionado && (
@@ -2228,6 +2245,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
   const tourPassos = [
     { alvo: "busca-nome", titulo: "Busca por nome", texto: "Se você já sabe o nome da diarista que procura, digite aqui." },
     { alvo: "filtro-bairro", titulo: "Filtrar por bairro", texto: "Toque num bairro pra ver só as diaristas mais perto de você." },
+    { alvo: "filtro-avancado", titulo: "Mais filtros", texto: "Toque aqui pra filtrar por avaliação (estrelas) e por valor cobrado." },
     { alvo: "notificacoes-header", titulo: "Notificações", texto: "Aqui aparecem avisos sobre suas contratações e mensagens." },
     { alvo: "meu-perfil-header", titulo: "Seu perfil", texto: "Toque aqui pra ver seus dados, seus contatos de confiança, ou sair da conta." },
   ];
@@ -2285,7 +2303,9 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
           faixaMin={50} faixaMax={300} rotuloValor="Valor/faxina" entidade="Diaristas"
           onReset={() => { setRatingMin(0); setPreco([50, 300]); }} onFechar={() => setFiltrosAbertos(false)} />
       ) : (
-        <FilterTab onClick={() => setFiltrosAbertos(true)} filtrosAtivos={filtrosAtivos} />
+        <div data-tour="filtro-avancado" style={{ display: "contents" }}>
+          <FilterTab onClick={() => setFiltrosAbertos(true)} filtrosAtivos={filtrosAtivos} />
+        </div>
       )}
     </div>
   );
@@ -2307,6 +2327,7 @@ function DiaristaDetail({
   const [seguidores, setSeguidores] = useState(diarista.seguidores || 0);
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
+  const [tourClienteAtivo, finalizarTourCliente] = usePrimeiraVez("diarista_perfil_cliente");
 
   const extras = avaliacoesExtras.filter((a) => a.prestadorId === diarista.id);
   const ratingCount = diarista.ratingCount + extras.length;
@@ -2378,6 +2399,17 @@ function DiaristaDetail({
 
   return (
     <div style={{ position: "relative", height: "100%", display: "flex", flexDirection: "column" }}>
+      {!editable && tourClienteAtivo && (
+        <TourOverlay
+          passos={[
+            { alvo: "agendar-btn", titulo: "Agendar", texto: `Toque aqui pra marcar um horário com ${diarista.name.split(" ")[0]}.` },
+            { alvo: "chamar-btn", titulo: "Fale com ela", texto: "Toque aqui pra conversar pelo chat do app. Lá dentro também tem um botão vermelho de emergência, caso precise de ajuda rápida." },
+            { alvo: "abas-perfil", titulo: "Mais informações", texto: "Toque nas abas pra ver depoimentos de outras famílias e os valores cobrados." },
+          ]}
+          onFinalizar={finalizarTourCliente}
+          corDestaque={D_CORAL_DEEP}
+        />
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px", background: "#5A2420" }}>
         <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer" }}>
           <ChevronLeft size={20} color="#FFF6F1" />
@@ -2822,7 +2854,7 @@ function DiaristaDetail({
 
       {!editable && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 16, display: "flex", flexDirection: "column", gap: 8, background: "linear-gradient(180deg, transparent, #FFF6F1 30%)" }}>
-          <button onClick={() => setShowAgendar(true)} style={{
+          <button data-tour="agendar-btn" onClick={() => setShowAgendar(true)} style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             background: "transparent", border: `1.5px solid ${D_CORAL_DEEP}`, borderRadius: 12,
             padding: "12px 16px", fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 13.5,
@@ -2830,7 +2862,7 @@ function DiaristaDetail({
           }}>
             <CalendarCheck size={16} /> Agendar com {diarista.name.split(" ")[0]}
           </button>
-          <button className="shine-cta" style={{
+          <button data-tour="chamar-btn" className="shine-cta" style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             background: `linear-gradient(120deg, ${D_CORAL_LIGHT} 0%, ${D_CORAL} 55%, ${D_CORAL_DEEP} 100%)`,
             color: "#FFFFFF", border: "none", borderRadius: 12,
