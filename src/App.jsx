@@ -471,6 +471,7 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
   const [link, setLink] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
+  const [mostrarAjuda, setMostrarAjuda] = useState(false);
 
   useEffect(() => {
     if (certidaoNegativaUrl) { setStatus("aprovada"); return; }
@@ -521,13 +522,61 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
           </p>
           <input style={inputStyle} placeholder="https://..." value={link} onChange={(e) => setLink(e.target.value)} />
           {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
-          <button onClick={enviar} disabled={enviando || !link.trim()} style={{
-            marginTop: 8, background: corDestaque, border: "none", borderRadius: 10, padding: "8px 14px",
-            color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: enviando ? "default" : "pointer", opacity: enviando || !link.trim() ? 0.7 : 1,
-          }}>
-            {enviando ? "Enviando..." : "Enviar pra análise"}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
+            <button onClick={enviar} disabled={enviando || !link.trim()} style={{
+              background: corDestaque, border: "none", borderRadius: 10, padding: "8px 14px",
+              color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: enviando ? "default" : "pointer", opacity: enviando || !link.trim() ? 0.7 : 1,
+            }}>
+              {enviando ? "Enviando..." : "Enviar pra análise"}
+            </button>
+            <button onClick={() => setMostrarAjuda(true)} style={{
+              background: "none", border: "none", padding: 0, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 4,
+            }}>
+              <HelpCircle size={13} color={corDestaque} />
+              <span style={{ fontSize: 11, color: corDestaque, fontWeight: 700, textDecoration: "underline" }}>
+                Não sei como conseguir
+              </span>
+            </button>
+          </div>
         </>
+      )}
+
+      {mostrarAjuda && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 60 }} onClick={() => setMostrarAjuda(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: CARD, width: "100%", borderRadius: "22px 22px 0 0", padding: "22px 20px 28px",
+            fontFamily: "Manrope, sans-serif", maxHeight: "82vh", overflowY: "auto", boxSizing: "border-box",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <span style={{ fontFamily: "Fraunces, serif", fontSize: 16, color: INK }}>Como tirar sua certidão</span>
+              <button onClick={() => setMostrarAjuda(false)} style={{ background: "none", border: "none", cursor: "pointer" }}>
+                <X size={18} color={INK} />
+              </button>
+            </div>
+            <p style={{ fontSize: 12.5, color: "#3A2F26", lineHeight: 1.6, margin: "0 0 14px" }}>
+              É a <b>Certidão de Antecedentes Criminais</b>, emitida de graça pela <b>Polícia Federal</b> direto pela internet — vale em todo o Brasil, não precisa ser da "polícia civil" do seu estado.
+            </p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: "0 0 6px" }}>Passo a passo</p>
+            <ol style={{ fontSize: 12, color: "#3A2F26", lineHeight: 1.75, margin: "0 0 18px", paddingLeft: 20 }}>
+              <li>Toque no botão abaixo</li>
+              <li>Preencha nome completo, CPF, data de nascimento e nome da mãe</li>
+              <li>Toque em "Emitir Certidão"</li>
+              <li>Depois de emitida, copie o link da página (ou do PDF) e volte aqui pra colar no app</li>
+            </ol>
+            <a
+              href="https://www.gov.br/pt-br/servicos/emitir-certidao-de-antecedentes-criminais"
+              target="_blank" rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: corDestaque, color: "#fff", borderRadius: 12, padding: "13px 16px",
+                fontWeight: 700, fontSize: 13, textDecoration: "none",
+              }}
+            >
+              <ExternalLink size={15} /> Emitir certidão no gov.br
+            </a>
+          </div>
+        </div>
       )}
     </div>
   );
