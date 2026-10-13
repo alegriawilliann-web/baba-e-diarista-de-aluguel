@@ -894,10 +894,8 @@ function CampoEdit({ label, children }) {
 }
 
 function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP, tipoServico = "Cuidado infantil" }) {
-  const [passo, setPasso] = useState(1);
   const [diaEscolhido, setDiaEscolhido] = useState(null);
   const [horario, setHorario] = useState(null);
-  const [formaPagamento, setFormaPagamento] = useState("Pix");
   const [confirmado, setConfirmado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
@@ -924,8 +922,11 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
     setErro("");
     setEnviando(true);
     try {
+      // O app não processa pagamento de agendamento (combinado direto entre
+      // cliente e profissional) — "formaPagamento" só existe pra satisfazer
+      // uma coluna obrigatória no banco, não é exibido nem escolhido aqui.
       await onConfirmar({
-        data: diaEscolhido.label, dataISO: diaEscolhido.iso, horario, formaPagamento, valor: valorTexto, servico: tipoServico,
+        data: diaEscolhido.label, dataISO: diaEscolhido.iso, horario, formaPagamento: "Pix", valor: valorTexto, servico: tipoServico,
       });
       setConfirmado(true);
     } catch (e) {
@@ -966,7 +967,7 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
               Entendi
             </button>
           </div>
-        ) : passo === 1 ? (
+        ) : (
           <>
             <p style={{ fontSize: 11.5, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Escolha o dia</p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
@@ -994,36 +995,16 @@ function AgendarModal({ prestador, onClose, onConfirmar, corDestaque = GOLD_DEEP
                 </button>
               ))}
             </div>
-            <button
-              className="shine-cta"
-              disabled={!diaEscolhido || !horario}
-              onClick={() => setPasso(2)}
-              style={{ ...btnPrimary, background: corDestaque, width: "100%", opacity: (!diaEscolhido || !horario) ? 0.5 : 1 }}
-            >
-              Continuar
-            </button>
-          </>
-        ) : (
-          <>
-            <div style={{ background: PAPER, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 5 }}>
-                <span style={{ color: INK_SOFT }}>Dia e horário</span>
-                <span style={{ color: INK, fontWeight: 700 }}>{diaEscolhido?.label} às {horario}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
-                <span style={{ color: INK_SOFT }}>Valor</span>
-                <span style={{ color: INK, fontWeight: 700 }}>{valorTexto}</span>
-              </div>
-            </div>
-            <p style={{ fontSize: 11.5, fontWeight: 700, color: INK_SOFT, marginBottom: 8 }}>Como você prefere pagar</p>
-            <ChoicePills options={["Pix", "Cartão de crédito"]} value={formaPagamento} onChange={setFormaPagamento} />
-            <p style={{ fontSize: 10.5, color: "#8B6A52", margin: "10px 0 18px", lineHeight: 1.5 }}>
-              O valor só é cobrado depois que {prestador.name.split(" ")[0]} confirmar o agendamento.
+            <p style={{ fontSize: 10.5, color: "#8B6A52", margin: "0 0 18px", lineHeight: 1.5 }}>
+              O app só organiza o agendamento — {prestador.name.split(" ")[0]} vai receber o pedido e pode aceitar ou recusar. O pagamento pelo serviço é combinado direto entre vocês.
             </p>
             {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", marginBottom: 10 }}>{erro}</p>}
-            <button className="shine-cta" onClick={confirmar} disabled={enviando} style={{
-              ...btnPrimary, background: corDestaque, width: "100%", opacity: enviando ? 0.6 : 1, cursor: enviando ? "default" : "pointer",
-            }}>
+            <button
+              className="shine-cta"
+              disabled={!diaEscolhido || !horario || enviando}
+              onClick={confirmar}
+              style={{ ...btnPrimary, background: corDestaque, width: "100%", opacity: (!diaEscolhido || !horario || enviando) ? 0.5 : 1 }}
+            >
               {enviando ? "Enviando..." : "Confirmar agendamento"}
             </button>
           </>
