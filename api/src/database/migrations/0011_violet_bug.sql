@@ -1,0 +1,1 @@
+ALTER TABLE "client_profiles" ADD COLUMN "quantidade_filhos" integer;

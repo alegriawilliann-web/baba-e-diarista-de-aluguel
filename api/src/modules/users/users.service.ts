@@ -46,9 +46,9 @@ export async function grantClientRole(userId: string, input: GrantClientRoleInpu
 
     const existingProfile = await tx.query.clientProfiles.findFirst({ where: eq(clientProfiles.userId, userId) });
     if (existingProfile) {
-      await tx.update(clientProfiles).set({ bairro: input.bairro }).where(eq(clientProfiles.userId, userId));
+      await tx.update(clientProfiles).set({ bairro: input.bairro, quantidadeFilhos: input.quantidadeFilhos }).where(eq(clientProfiles.userId, userId));
     } else {
-      await tx.insert(clientProfiles).values({ userId, bairro: input.bairro });
+      await tx.insert(clientProfiles).values({ userId, bairro: input.bairro, quantidadeFilhos: input.quantidadeFilhos });
     }
   });
 

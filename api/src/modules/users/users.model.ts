@@ -86,6 +86,7 @@ export const clientProfiles = pgTable("client_profiles", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
   bairro: varchar("bairro", { length: 100 }).notNull(),
+  quantidadeFilhos: integer("quantidade_filhos"),
   photoUrl: varchar("photo_url", { length: 2048 }),
   seguindoCount: integer("seguindo_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -9,6 +9,7 @@ export interface UpdateMeInput {
 export interface GrantClientRoleInput {
   serviceType: "baba" | "diarista";
   bairro: string;
+  quantidadeFilhos?: number;
 }
 
 export interface TrustedContactInput {
