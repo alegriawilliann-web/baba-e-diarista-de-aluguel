@@ -10,6 +10,7 @@ import {
   Radio, Vibrate, ExternalLink, ShieldQuestion
 } from "lucide-react";
 import { App as CapacitorApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
@@ -311,6 +312,107 @@ function StarRow({ rating, size = 14, color = GOLD }) {
   );
 }
 
+// <a target="_blank"> não abre o navegador do sistema dentro do WebView do
+// app empacotado (o Android ignora silenciosamente o "new window") — por
+// isso todo link externo precisa passar por aqui em vez de um <a> comum.
+function abrirLink(url) {
+  if (!url) return;
+  const comEsquema = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  Browser.open({ url: comEsquema });
+}
+
+// Lê um arquivo escolhido (câmera ou galeria) e devolve um JPEG em base64
+// redimensionado — evita mandar fotos de 5-10MB pro servidor/banco.
+function lerImagemRedimensionada(file, tamanhoMax = 1280, qualidade = 0.75) {
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+    leitor.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Arquivo inválido — escolha uma imagem."));
+      img.onload = () => {
+        const escala = Math.min(1, tamanhoMax / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * escala);
+        canvas.height = Math.round(img.height * escala);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", qualidade));
+      };
+      img.src = leitor.result;
+    };
+    leitor.readAsDataURL(file);
+  });
+}
+
+// Botão de anexar foto/print reutilizado no CN da própria profissional e no
+// CN de cada pessoa da equipe — sem "capture", pra abrir o seletor nativo
+// com as duas opções (câmera e galeria), já que um print de PDF só existe
+// na galeria.
+function SeletorFotoCertidao({ foto, onChange, corDestaque = GOLD_DEEP }) {
+  const inputRef = useRef(null);
+  const [erro, setErro] = useState("");
+
+  const escolher = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setErro("");
+    try {
+      onChange(await lerImagemRedimensionada(file));
+    } catch (err) {
+      setErro(err.message || "Não foi possível carregar a imagem.");
+    }
+  };
+
+  if (foto) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <img src={foto} alt="Certidão anexada" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}` }} />
+        <button type="button" onClick={() => inputRef.current?.click()} style={{ background: "none", border: `1px solid ${corDestaque}`, borderRadius: 10, padding: "6px 12px", color: corDestaque, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+          Trocar foto
+        </button>
+        <button type="button" onClick={() => onChange("")} style={{ background: "none", border: "none", color: ERROR, fontSize: 11.5, cursor: "pointer" }}>
+          Remover
+        </button>
+        <input ref={inputRef} type="file" accept="image/*" onChange={escolher} style={{ display: "none" }} />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button type="button" onClick={() => inputRef.current?.click()} style={{
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
+        background: "none", border: `1.5px dashed ${corDestaque}`, borderRadius: 12, padding: "12px 0",
+        color: corDestaque, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12.5, cursor: "pointer",
+      }}>
+        <Camera size={15} /> Anexar foto ou print da certidão
+      </button>
+      <input ref={inputRef} type="file" accept="image/*" onChange={escolher} style={{ display: "none" }} />
+      {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
+    </div>
+  );
+}
+
+// Modal simples pra ver em tela cheia uma foto de certidão anexada (CN da
+// profissional ou de alguém da equipe) — toque fora fecha.
+function FotoCertidaoModal({ src, onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 300,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+    }}>
+      <img src={src} alt="Certidão Negativa" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 10 }} />
+      <button onClick={onClose} style={{
+        position: "absolute", top: 18, right: 18, background: "rgba(255,255,255,0.15)", border: "none",
+        borderRadius: "50%", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+      }}>
+        <X size={18} color="#fff" />
+      </button>
+    </div>
+  );
+}
+
 function LogoBrilho({ width, style, src = LOGO_B64, alt = "Babá de Aluguel" }) {
   return (
     <div style={{ position: "relative", width, overflow: "hidden", display: "inline-block", ...style }}>
@@ -443,35 +545,37 @@ function Avatar({ initials, color, size = 44, fotoUrl }) {
 // profissional (ver módulo verifications). Clicável: abre o link oficial
 // do governo direto, pra quem vai contratar conferir por conta própria.
 function NcBadge({ url, size = 22 }) {
+  const [verFoto, setVerFoto] = useState(false);
   if (!url) return null;
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      title="Certidão Negativa de Antecedentes Criminais verificada — toque para ver o comprovante oficial"
-      style={{
-        position: "absolute", bottom: -2, left: -2, width: size, height: size, borderRadius: "50%",
-        background: "#2563EB", border: "2px solid " + CARD, display: "flex", alignItems: "center",
-        justifyContent: "center", textDecoration: "none", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", zIndex: 1,
-      }}
-    >
-      <span style={{ color: "#fff", fontSize: size * 0.4, fontWeight: 800, fontFamily: "Manrope, sans-serif", letterSpacing: "-0.02em" }}>CN</span>
-    </a>
+    <>
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVerFoto(true); }}
+        title="Certidão Negativa de Antecedentes Criminais verificada — toque para ver o comprovante"
+        style={{
+          position: "absolute", bottom: -2, left: -2, width: size, height: size, borderRadius: "50%",
+          background: "#2563EB", border: "2px solid " + CARD, display: "flex", alignItems: "center",
+          justifyContent: "center", cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", zIndex: 1,
+        }}
+      >
+        <span style={{ color: "#fff", fontSize: size * 0.4, fontWeight: 800, fontFamily: "Manrope, sans-serif", letterSpacing: "-0.02em" }}>CN</span>
+      </button>
+      {verFoto && <FotoCertidaoModal src={url} onClose={() => setVerFoto(false)} />}
+    </>
   );
 }
 
 // Caixa de envio/status da Certidão Negativa, mostrada só no próprio perfil
-// (editable). O profissional cola o link oficial de validação (gov.br ou
-// Tribunal de Justiça); um admin confere e aprova pela fila de verificação
-// — só depois disso o selo CN azul aparece pros clientes.
+// (editable). O profissional anexa uma foto/print da certidão; um admin
+// confere e aprova pela fila de verificação — só depois disso o selo CN
+// azul aparece pros clientes.
 function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = GOLD_DEEP }) {
-  const [status, setStatus] = useState(null); // null = carregando | "none" | "pending" | "rejected" | "aprovada"
-  const [link, setLink] = useState("");
+  const [status, setStatus] = useState(null); // null = carregando | "none" | "pending" | "rejected" | "vencida" | "aprovada"
+  const [foto, setFoto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [mostrarAjuda, setMostrarAjuda] = useState(false);
+  const [verFoto, setVerFoto] = useState(false);
 
   useEffect(() => {
     if (certidaoNegativaUrl) { setStatus("aprovada"); return; }
@@ -482,18 +586,20 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
         const ultima = (lista || [])
           .filter((v) => v.documentType === "certidao_negativa")
           .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0];
-        setStatus(ultima ? ultima.status : "none");
+        // Se a última veio "approved" mas não chegou foto aprovada (prop
+        // null), é porque os 90 dias de validade já passaram.
+        setStatus(ultima ? (ultima.status === "approved" ? "vencida" : ultima.status) : "none");
       })
       .catch(() => { if (!cancelado) setStatus("none"); });
     return () => { cancelado = true; };
   }, [serviceType, certidaoNegativaUrl]);
 
   const enviar = async () => {
-    if (!link.trim()) return;
+    if (!foto) return;
     setEnviando(true);
     setErro("");
     try {
-      await submitVerification({ serviceType, documentType: "certidao_negativa", documentRef: link.trim() });
+      await submitVerification({ serviceType, documentType: "certidao_negativa", documentRef: foto });
       setStatus("pending");
     } catch (e) {
       setErro(e.message || "Não foi possível enviar agora. Tente de novo.");
@@ -511,21 +617,28 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
         <span style={{ fontSize: 12.5, fontWeight: 700, color: INK }}>Certidão Negativa de Antecedentes Criminais</span>
       </div>
       {status === "aprovada" ? (
-        <p style={{ fontSize: 11.5, color: FOREST, margin: 0 }}>Verificada — o selo "CN" azul já aparece no seu perfil.</p>
+        <>
+          <p style={{ fontSize: 11.5, color: FOREST, margin: "0 0 6px" }}>Verificada — o selo "CN" azul já aparece no seu perfil.</p>
+          <button onClick={() => setVerFoto(true)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 11, color: corDestaque, fontWeight: 700, textDecoration: "underline" }}>
+            Ver foto enviada
+          </button>
+          {verFoto && <FotoCertidaoModal src={certidaoNegativaUrl} onClose={() => setVerFoto(false)} />}
+        </>
       ) : status === "pending" ? (
         <p style={{ fontSize: 11.5, color: "#8B6A52", margin: 0 }}>Em análise. Avisamos quando for aprovado.</p>
       ) : (
         <>
           <p style={{ fontSize: 11, color: "#8B6A52", margin: "0 0 8px" }}>
             {status === "rejected" ? "Seu último envio não foi aprovado. " : ""}
-            Cole o link oficial de validação da sua certidão (gov.br ou site do Tribunal de Justiça) pra ganhar o selo azul "CN" e passar mais confiança pra quem for te contratar.
+            {status === "vencida" ? "Sua certidão venceu (validade de 90 dias) — envie uma atualizada. " : ""}
+            Tire uma foto ou envie um print da sua certidão (gov.br ou Tribunal de Justiça) pra ganhar o selo azul "CN" e passar mais confiança pra quem for te contratar.
           </p>
-          <input style={inputStyle} placeholder="https://..." value={link} onChange={(e) => setLink(e.target.value)} />
+          <SeletorFotoCertidao foto={foto} onChange={setFoto} corDestaque={corDestaque} />
           {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
-            <button onClick={enviar} disabled={enviando || !link.trim()} style={{
+            <button onClick={enviar} disabled={enviando || !foto} style={{
               background: corDestaque, border: "none", borderRadius: 10, padding: "8px 14px",
-              color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: enviando ? "default" : "pointer", opacity: enviando || !link.trim() ? 0.7 : 1,
+              color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: enviando ? "default" : "pointer", opacity: enviando || !foto ? 0.7 : 1,
             }}>
               {enviando ? "Enviando..." : "Enviar pra análise"}
             </button>
@@ -562,11 +675,11 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
               <li>Toque no botão abaixo</li>
               <li>Preencha nome completo, CPF, data de nascimento e nome da mãe</li>
               <li>Toque em "Emitir Certidão"</li>
-              <li>Depois de emitida, copie o link da página (ou do PDF) e volte aqui pra colar no app</li>
+              <li>Depois de emitida, volte aqui e anexe uma foto ou print da certidão (câmera ou galeria)</li>
             </ol>
             <a
               href="https://www.gov.br/pt-br/servicos/emitir-certidao-de-antecedentes-criminais"
-              target="_blank" rel="noopener noreferrer"
+              onClick={(e) => { e.preventDefault(); abrirLink("https://www.gov.br/pt-br/servicos/emitir-certidao-de-antecedentes-criminais"); }}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 background: corDestaque, color: "#fff", borderRadius: 12, padding: "13px 16px",
@@ -587,6 +700,7 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
 // professionals.service.ts/fetchApprovedEquipe) nem o CPF (fica só com o
 // admin, pra conferir a identidade sem expor dado sensível).
 function EquipeList({ equipe, corDestaque = D_CORAL_DEEP }) {
+  const [fotoAberta, setFotoAberta] = useState(null);
   if (!equipe || equipe.length === 0) return null;
   return (
     <div style={{ marginTop: 12 }}>
@@ -600,14 +714,15 @@ function EquipeList({ equipe, corDestaque = D_CORAL_DEEP }) {
             <span style={{ fontSize: 12.5, color: INK, fontFamily: "Manrope, sans-serif", fontWeight: 600 }}>{m.nome}</span>
             <div style={{ marginTop: 3 }}>
               {m.certidaoNegativaUrl ? (
-                <a href={m.certidaoNegativaUrl} target="_blank" rel="noopener noreferrer" style={{
-                  display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "#2563EB", textDecoration: "none",
+                <button onClick={() => setFotoAberta(m.certidaoNegativaUrl)} style={{
+                  display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "#2563EB",
+                  background: "none", border: "none", padding: 0, cursor: "pointer",
                 }}>
                   <span style={{ background: "#2563EB", color: "#fff", borderRadius: 4, padding: "1px 5px", fontWeight: 800, fontSize: 9.5, fontFamily: "Manrope, sans-serif" }}>
                     CN
                   </span>
                   Certidão verificada
-                </a>
+                </button>
               ) : (
                 <span style={{ fontSize: 10.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Certidão ainda não enviada</span>
               )}
@@ -615,6 +730,7 @@ function EquipeList({ equipe, corDestaque = D_CORAL_DEEP }) {
           </div>
         ))}
       </div>
+      {fotoAberta && <FotoCertidaoModal src={fotoAberta} onClose={() => setFotoAberta(null)} />}
     </div>
   );
 }
@@ -4063,7 +4179,11 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-          <a href={`https://wa.me/${telefoneNumero.replace("+", "")}?text=${mensagemWhats}`} target="_blank" rel="noreferrer" style={btnContato}>
+          <a
+            href={`https://wa.me/${telefoneNumero.replace("+", "")}?text=${mensagemWhats}`}
+            onClick={(e) => { e.preventDefault(); abrirLink(`https://wa.me/${telefoneNumero.replace("+", "")}?text=${mensagemWhats}`); }}
+            style={btnContato}
+          >
             <MessageCircle size={15} /> WhatsApp
           </a>
         </div>
@@ -4121,6 +4241,7 @@ function AdminVerificacoesScreen({ onVoltar }) {
   const [carregando, setCarregando] = useState(true);
   const [processando, setProcessando] = useState(null);
   const [erro, setErro] = useState("");
+  const [fotoAberta, setFotoAberta] = useState(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -4208,13 +4329,25 @@ function AdminVerificacoesScreen({ onVoltar }) {
                   {DOCUMENT_TYPE_LABEL[v.documentType] || v.documentType}
                 </p>
               )}
-              {(fonte === "verificacoes" ? v.documentRef : v.certidaoNegativaUrl) ? (
-                <a href={fonte === "verificacoes" ? v.documentRef : v.certidaoNegativaUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11.5, color: FOREST, wordBreak: "break-all" }}>
-                  {fonte === "verificacoes" ? v.documentRef : v.certidaoNegativaUrl}
-                </a>
-              ) : (
-                fonte === "equipe" && <p style={{ fontSize: 11, color: "#8B6A52", margin: 0 }}>Sem link de certidão enviado</p>
-              )}
+              {(() => {
+                const valor = fonte === "verificacoes" ? v.documentRef : v.certidaoNegativaFoto;
+                const ehFoto = fonte === "equipe" || v.documentType === "certidao_negativa";
+                if (!valor) {
+                  return fonte === "equipe" && <p style={{ fontSize: 11, color: "#8B6A52", margin: 0 }}>Sem certidão enviada</p>;
+                }
+                if (ehFoto) {
+                  return (
+                    <button onClick={() => setFotoAberta(valor)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                      <img src={valor} alt="Certidão enviada" style={{ width: 90, height: 90, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}` }} />
+                    </button>
+                  );
+                }
+                return (
+                  <a href={valor} onClick={(e) => { e.preventDefault(); abrirLink(valor); }} style={{ fontSize: 11.5, color: FOREST, wordBreak: "break-all" }}>
+                    {valor}
+                  </a>
+                );
+              })()}
               {status === "pending" && (
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                   <button onClick={() => revisar(v.id, "rejected")} disabled={processando === v.id} style={{
@@ -4235,6 +4368,7 @@ function AdminVerificacoesScreen({ onVoltar }) {
           ))
         )}
       </div>
+      {fotoAberta && <FotoCertidaoModal src={fotoAberta} onClose={() => setFotoAberta(null)} />}
     </div>
   );
 }
@@ -5071,18 +5205,18 @@ function TermosModal({ onClose, corDestaque = GOLD_DEEP, appNome = "Babá de Alu
 
 // Pergunta "Trabalho com mais pessoas" (diarista) abre essa lista pra
 // declarar quem mais pode aparecer no serviço — nome, CPF e, se já tiver
-// em mãos, o link da certidão negativa de cada pessoa. Isso não passa pela
+// em mãos, a foto da certidão negativa de cada pessoa. Isso não passa pela
 // fila de verificação (é só a própria diarista declarando, não um selo
 // aprovado por admin como o CN dela).
 function EquipeStep({ membros, setMembros, corDestaque = D_CORAL_DEEP }) {
-  const lista = membros.length > 0 ? membros : [{ nome: "", cpf: "", certidaoNegativaUrl: "" }];
+  const lista = membros.length > 0 ? membros : [{ nome: "", cpf: "", certidaoNegativaFoto: "" }];
 
   const atualizar = (i, campo, valor) => {
     const novos = [...lista];
     novos[i] = { ...novos[i], [campo]: valor };
     setMembros(novos);
   };
-  const adicionar = () => setMembros([...lista, { nome: "", cpf: "", certidaoNegativaUrl: "" }]);
+  const adicionar = () => setMembros([...lista, { nome: "", cpf: "", certidaoNegativaFoto: "" }]);
   const remover = (i) => setMembros(lista.filter((_, idx) => idx !== i));
 
   return (
@@ -5102,7 +5236,7 @@ function EquipeStep({ membros, setMembros, corDestaque = D_CORAL_DEEP }) {
           </div>
           <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="Nome completo" value={m.nome} onChange={(e) => atualizar(i, "nome", e.target.value)} />
           <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="CPF" value={m.cpf} onChange={(e) => atualizar(i, "cpf", e.target.value)} />
-          <input style={inputStyle} placeholder="Link da certidão negativa (opcional, pode enviar depois)" value={m.certidaoNegativaUrl} onChange={(e) => atualizar(i, "certidaoNegativaUrl", e.target.value)} />
+          <SeletorFotoCertidao foto={m.certidaoNegativaFoto} onChange={(v) => atualizar(i, "certidaoNegativaFoto", v)} corDestaque={corDestaque} />
         </div>
       ))}
       <button onClick={adicionar} style={{

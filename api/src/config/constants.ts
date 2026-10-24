@@ -59,6 +59,11 @@ export type Transporte = (typeof TRANSPORTE_OPTIONS)[number];
 
 export const MENSALIDADE_CENTS = 2990;
 
+// Validade da Certidão de Antecedentes Criminais (mesmo prazo da própria PF)
+// — depois disso o selo CN para de aparecer publicamente e o profissional
+// precisa reenviar uma foto atualizada.
+export const CERTIDAO_VALIDADE_DIAS = 90;
+
 interface CountryDefaults {
   currency: string;
   locale: string;

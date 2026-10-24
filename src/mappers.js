@@ -112,13 +112,13 @@ export function respostasParaCreateProfessionalInput(respostas, serviceType) {
       trabalhaComEquipe,
       servicos: valorCombinar ? [{ label: "Faxina", valorCents: null }] : servicos,
       // Declarado pela própria diarista (não passa pela fila de verificação
-      // de admin) — nome, CPF e, se já tiver, o link da certidão de cada
+      // de admin) — nome, CPF e, se já tiver, a foto da certidão de cada
       // pessoa que também pode aparecer no serviço.
       equipe: trabalhaComEquipe
         ? (respostas.equipe || []).filter((m) => m.nome?.trim() && m.cpf?.trim()).map((m) => ({
             nome: m.nome.trim(),
             cpf: m.cpf.trim(),
-            certidaoNegativaUrl: m.certidaoNegativaUrl?.trim() || null,
+            certidaoNegativaFoto: m.certidaoNegativaFoto || null,
           }))
         : [],
     };

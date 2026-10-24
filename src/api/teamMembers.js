@@ -1,9 +1,9 @@
 import { request } from "./client.js";
 
-export function submitTeamMember({ serviceType, nome, cpf, certidaoNegativaUrl }) {
+export function submitTeamMember({ serviceType, nome, cpf, certidaoNegativaFoto }) {
   return request("/professionals/me/equipe", {
     method: "POST",
-    body: { serviceType, nome, cpf, certidaoNegativaUrl: certidaoNegativaUrl || undefined },
+    body: { serviceType, nome, cpf, certidaoNegativaFoto: certidaoNegativaFoto || undefined },
   });
 }
 

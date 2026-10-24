@@ -5,11 +5,16 @@ import { users, addresses } from "../users/users.model";
 import { userRoles } from "../users/users.model";
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from "../../shared/errors";
 import { parsePagination, buildPageMeta } from "../../shared/utils/pagination";
-import { MENSALIDADE_GRACE_DAYS } from "../../config/constants";
+import { MENSALIDADE_GRACE_DAYS, CERTIDAO_VALIDADE_DIAS } from "../../config/constants";
 import type { Role } from "../../config/constants";
 import type { CreateProfessionalInput, SearchProfessionalsQuery } from "./professionals.types";
 
 const GRACE_MS = MENSALIDADE_GRACE_DAYS * 24 * 60 * 60 * 1000;
+const CERTIDAO_VALIDADE_MS = CERTIDAO_VALIDADE_DIAS * 24 * 60 * 60 * 1000;
+
+function certidaoValida(aprovadaEm: Date | null): boolean {
+  return !!aprovadaEm && Date.now() - new Date(aprovadaEm).getTime() < CERTIDAO_VALIDADE_MS;
+}
 
 function validateDetails(input: CreateProfessionalInput) {
   const d = input.details as Record<string, unknown>;
@@ -32,14 +37,17 @@ function validateDetails(input: CreateProfessionalInput) {
 async function fetchApprovedEquipe(professionalIds: string[]) {
   if (professionalIds.length === 0) return new Map<string, { id: string; nome: string; certidaoNegativaUrl: string | null }[]>();
   const rows = await db
-    .select({ id: teamMembers.id, professionalId: teamMembers.professionalId, nome: teamMembers.nome, certidaoNegativaUrl: teamMembers.certidaoNegativaUrl })
+    .select({
+      id: teamMembers.id, professionalId: teamMembers.professionalId, nome: teamMembers.nome,
+      certidaoNegativaFoto: teamMembers.certidaoNegativaFoto, reviewedAt: teamMembers.reviewedAt,
+    })
     .from(teamMembers)
     .where(and(inArray(teamMembers.professionalId, professionalIds), eq(teamMembers.status, "approved")));
 
   const map = new Map<string, { id: string; nome: string; certidaoNegativaUrl: string | null }[]>();
   for (const r of rows) {
     const lista = map.get(r.professionalId) ?? [];
-    lista.push({ id: r.id, nome: r.nome, certidaoNegativaUrl: r.certidaoNegativaUrl });
+    lista.push({ id: r.id, nome: r.nome, certidaoNegativaUrl: certidaoValida(r.reviewedAt) ? r.certidaoNegativaFoto : null });
     map.set(r.professionalId, lista);
   }
   return map;
@@ -66,7 +74,7 @@ function shapeProfile(
     rating: Number(profile.rating),
     ratingCount: profile.ratingCount,
     verificada: profile.verificada,
-    certidaoNegativaUrl: profile.certidaoNegativaUrl,
+    certidaoNegativaUrl: certidaoValida(profile.certidaoNegativaAprovadaEm) ? profile.certidaoNegativaFoto : null,
     equipe,
     bio: profile.bio,
     disponibilidadeNoite: profile.disponibilidadeNoite,

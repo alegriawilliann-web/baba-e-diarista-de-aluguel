@@ -1,7 +1,7 @@
 import * as teamMembersService from "./team-members.service";
 
 export async function submit(ctx: any) {
-  const { serviceType, ...input } = ctx.body as { serviceType: "baba" | "diarista"; nome: string; cpf: string; certidaoNegativaUrl?: string };
+  const { serviceType, ...input } = ctx.body as { serviceType: "baba" | "diarista"; nome: string; cpf: string; certidaoNegativaFoto?: string };
   ctx.set.status = 201;
   return teamMembersService.submit(ctx.user.sub, serviceType, input);
 }

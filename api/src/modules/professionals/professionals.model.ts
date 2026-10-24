@@ -32,11 +32,17 @@ export const professionalProfiles = pgTable(
     ratingBreakdown: jsonb("rating_breakdown").notNull().default({ "5": 0, "4": 0, "3": 0, "2": 0, "1": 0 }),
     seguidoresCount: integer("seguidores_count").notNull().default(0),
     verificada: boolean("verificada").notNull().default(false),
-    // Link oficial de validação da Certidão Negativa de Antecedentes
-    // Criminais (ex: gov.br/validação, código de autenticação do TJ) —
-    // preenchido quando um admin aprova uma verificação do tipo
-    // "certidao_negativa". Null = selo NC ainda não liberado.
-    certidaoNegativaUrl: text("certidao_negativa_url"),
+    // Foto/print (base64) da Certidão Negativa de Antecedentes Criminais —
+    // a PF não oferece um link de validação por pessoa (só uma página fixa
+    // onde se digita o número da certidão), então o comprovante é a própria
+    // imagem enviada pelo profissional. Preenchido quando um admin aprova
+    // uma verificação do tipo "certidao_negativa". Null = selo CN ainda não
+    // liberado (ou vencido — ver certidaoNegativaAprovadaEm).
+    certidaoNegativaFoto: text("certidao_negativa_foto"),
+    // Data da aprovação — usada pra saber quando os CERTIDAO_VALIDADE_DIAS
+    // (90, mesma validade oficial da PF) vencem e o selo CN deve sumir até
+    // o profissional reenviar uma foto atualizada.
+    certidaoNegativaAprovadaEm: timestamp("certidao_negativa_aprovada_em", { withTimezone: true }),
     formaPagamento: paymentMethodEnum("forma_pagamento").notNull(),
     statusPagamento: subscriptionStatusEnum("status_pagamento").notNull().default("pendente"),
     subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
@@ -79,7 +85,7 @@ export const teamMembers = pgTable(
     professionalId: uuid("professional_id").notNull().references(() => professionalProfiles.id, { onDelete: "cascade" }),
     nome: varchar("nome", { length: 150 }).notNull(),
     cpf: varchar("cpf", { length: 14 }).notNull(),
-    certidaoNegativaUrl: text("certidao_negativa_url"),
+    certidaoNegativaFoto: text("certidao_negativa_foto"),
     status: teamMemberStatusEnum("status").notNull().default("pending"),
     submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),

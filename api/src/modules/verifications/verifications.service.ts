@@ -60,7 +60,7 @@ export async function review(reviewerId: string, id: string, status: "approved" 
     if (verification.documentType === "certidao_negativa") {
       await db
         .update(professionalProfiles)
-        .set({ certidaoNegativaUrl: verification.documentRef })
+        .set({ certidaoNegativaFoto: verification.documentRef, certidaoNegativaAprovadaEm: new Date() })
         .where(eq(professionalProfiles.id, verification.professionalId));
     } else {
       await db.update(professionalProfiles).set({ verificada: true }).where(eq(professionalProfiles.id, verification.professionalId));

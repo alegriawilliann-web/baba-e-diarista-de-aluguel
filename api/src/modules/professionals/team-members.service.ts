@@ -12,11 +12,11 @@ async function ownProfile(userId: string, serviceType: "baba" | "diarista") {
   return profile;
 }
 
-export async function submit(userId: string, serviceType: "baba" | "diarista", input: { nome: string; cpf: string; certidaoNegativaUrl?: string }) {
+export async function submit(userId: string, serviceType: "baba" | "diarista", input: { nome: string; cpf: string; certidaoNegativaFoto?: string }) {
   const profile = await ownProfile(userId, serviceType);
   const [row] = await db
     .insert(teamMembers)
-    .values({ professionalId: profile.id, nome: input.nome, cpf: input.cpf, certidaoNegativaUrl: input.certidaoNegativaUrl })
+    .values({ professionalId: profile.id, nome: input.nome, cpf: input.cpf, certidaoNegativaFoto: input.certidaoNegativaFoto })
     .returning();
   return row;
 }
