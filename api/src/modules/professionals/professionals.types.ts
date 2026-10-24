@@ -60,6 +60,7 @@ export interface SearchProfessionalsQuery {
   serviceType: ServiceType;
   q?: string;
   bairro?: string;
+  cidade?: string;
   minRating?: string | number;
   priceMin?: string | number;
   priceMax?: string | number;

@@ -43,6 +43,7 @@ export const searchProfessionalsQuery = t.Object({
   serviceType: t.Union([t.Literal("baba"), t.Literal("diarista")]),
   q: t.Optional(t.String()),
   bairro: t.Optional(t.String()),
+  cidade: t.Optional(t.String()),
   minRating: t.Optional(t.Numeric()),
   priceMin: t.Optional(t.Numeric()),
   priceMax: t.Optional(t.Numeric()),

@@ -202,6 +202,7 @@ export async function searchProfessionals(query: SearchProfessionalsQuery, calle
   }
 
   if (query.bairro) conditions.push(ilike(addresses.neighborhood, `%${query.bairro}%`));
+  if (query.cidade) conditions.push(ilike(addresses.city, `%${query.cidade}%`));
   if (query.minRating) conditions.push(gte(professionalProfiles.rating, String(query.minRating)));
   if (query.priceMin) conditions.push(gte(professionalProfiles.precoHoraCents, Number(query.priceMin) * 100));
   if (query.priceMax) conditions.push(lte(professionalProfiles.precoHoraCents, Number(query.priceMax) * 100));

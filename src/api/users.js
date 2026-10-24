@@ -1,9 +1,9 @@
 import { request } from "./client.js";
 
-export function grantClientRole({ serviceType, bairro, quantidadeFilhos }) {
+export function grantClientRole({ serviceType, bairro, cidade, uf, quantidadeFilhos }) {
   return request("/users/me/roles/client", {
     method: "POST",
-    body: { serviceType, bairro, quantidadeFilhos },
+    body: { serviceType, bairro, cidade, uf, quantidadeFilhos },
   });
 }
 

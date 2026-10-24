@@ -1994,7 +1994,7 @@ function BotaoCarregarMais({ onClick, carregando, corDestaque = GOLD_DEEP }) {
   );
 }
 
-function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
+function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [], cidade }) {
   const [search, setSearch] = useState("");
   const [bairro, setBairro] = useState("Todos");
   const [ratingMin, setRatingMin] = useState(0);
@@ -2024,6 +2024,7 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
       serviceType: "baba",
       q: buscaDebounced || undefined,
       bairro,
+      cidade,
       minRating: ratingMin || undefined,
       priceMin: preco[0] > 15 ? preco[0] : undefined,
       priceMax: preco[1] < 45 ? preco[1] : undefined,
@@ -2040,7 +2041,7 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
       .catch(() => { if (!cancelado) setErro("Não foi possível carregar as babás agora. Verifique sua internet e tente novamente."); })
       .finally(() => { if (!cancelado) setCarregando(false); });
     return () => { cancelado = true; };
-  }, [buscaDebounced, bairro, ratingMin, preco]);
+  }, [buscaDebounced, bairro, cidade, ratingMin, preco]);
 
   const carregarMais = async () => {
     setCarregando(true);
@@ -2051,6 +2052,7 @@ function MaeView({ onSelect, perfilImpulsionado, boosts, bloqueados = [] }) {
         serviceType: "baba",
         q: buscaDebounced || undefined,
         bairro,
+        cidade,
         minRating: ratingMin || undefined,
         priceMin: preco[0] > 15 ? preco[0] : undefined,
         priceMax: preco[1] < 45 ? preco[1] : undefined,
@@ -2196,7 +2198,7 @@ function DiaristaCard({ diarista, onClick }) {
   );
 }
 
-function DiaristaSearchView({ onSelect, bloqueados = [] }) {
+function DiaristaSearchView({ onSelect, bloqueados = [], cidade }) {
   const [search, setSearch] = useState("");
   const [bairro, setBairro] = useState("Todos");
   const [ratingMin, setRatingMin] = useState(0);
@@ -2225,6 +2227,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
       serviceType: "diarista",
       q: buscaDebounced || undefined,
       bairro,
+      cidade,
       minRating: ratingMin || undefined,
       priceMin: preco[0] > 50 ? preco[0] : undefined,
       priceMax: preco[1] < 300 ? preco[1] : undefined,
@@ -2241,7 +2244,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
       .catch(() => { if (!cancelado) setErro("Não foi possível carregar as diaristas agora. Verifique sua internet e tente novamente."); })
       .finally(() => { if (!cancelado) setCarregando(false); });
     return () => { cancelado = true; };
-  }, [buscaDebounced, bairro, ratingMin, preco]);
+  }, [buscaDebounced, bairro, cidade, ratingMin, preco]);
 
   const carregarMais = async () => {
     setCarregando(true);
@@ -2252,6 +2255,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [] }) {
         serviceType: "diarista",
         q: buscaDebounced || undefined,
         bairro,
+        cidade,
         minRating: ratingMin || undefined,
         priceMin: preco[0] > 50 ? preco[0] : undefined,
         priceMax: preco[1] < 300 ? preco[1] : undefined,
@@ -5195,6 +5199,8 @@ function CadastroMae({
   const [senha, setSenha] = useState("");
   const [cep, setCep] = useState("");
   const [bairro, setBairro] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [uf, setUf] = useState("");
   const [quantidadeFilhos, setQuantidadeFilhos] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -5216,6 +5222,8 @@ function CadastroMae({
         setStatusBuscaCep("naoEncontrado");
       } else {
         setBairro(dados.bairro || dados.localidade || "");
+        setCidade(dados.localidade || "");
+        setUf(dados.uf || "");
         setStatusBuscaCep("ok");
       }
     } catch {
@@ -5239,7 +5247,7 @@ function CadastroMae({
     setCarregando(true);
     try {
       await onConcluir({
-        nome: nome.trim(), email: email.trim(), senha, bairro: bairro.trim(),
+        nome: nome.trim(), email: email.trim(), senha, bairro: bairro.trim(), cidade: cidade.trim(), uf: uf.trim(),
         quantidadeFilhos: pedirFilhos ? Number(quantidadeFilhos.replace("+", "")) : undefined,
       });
     } catch (e) {
@@ -6399,11 +6407,11 @@ export default function App() {
     setTela(tipo === "mae" ? "cadastroMae" : "cadastroBaba");
   };
 
-  const cadastroMaeEnviado = async ({ nome, email, senha, bairro, quantidadeFilhos }) => {
+  const cadastroMaeEnviado = async ({ nome, email, senha, bairro, cidade, uf, quantidadeFilhos }) => {
     await registrarOuLogar({ email, password: senha, name: nome });
-    await grantClientRole({ serviceType: "baba", bairro, quantidadeFilhos });
+    await grantClientRole({ serviceType: "baba", bairro, cidade: cidade || undefined, uf: uf || undefined, quantidadeFilhos });
     const perfilAtualizado = await auth.refreshRoles();
-    setPerfilMaePendente({ nome: perfilAtualizado.name, email: perfilAtualizado.email, bairro, quantidadeFilhos, seguidores: 0, seguindo: 0 });
+    setPerfilMaePendente({ nome: perfilAtualizado.name, email: perfilAtualizado.email, bairro, cidade, uf, quantidadeFilhos, seguidores: 0, seguindo: 0 });
     setTela("confirmacaoEmailMae");
   };
 
@@ -6611,11 +6619,11 @@ export default function App() {
     }
   };
 
-  const cadastroClienteDiaristaEnviado = async ({ nome, email, senha, bairro }) => {
+  const cadastroClienteDiaristaEnviado = async ({ nome, email, senha, bairro, cidade, uf }) => {
     await registrarOuLogar({ email, password: senha, name: nome });
-    await grantClientRole({ serviceType: "diarista", bairro });
+    await grantClientRole({ serviceType: "diarista", bairro, cidade: cidade || undefined, uf: uf || undefined });
     const perfilAtualizado = await auth.refreshRoles();
-    setPerfilClienteDiaristaPendente({ nome: perfilAtualizado.name, email: perfilAtualizado.email, bairro, seguidores: 0, seguindo: 0 });
+    setPerfilClienteDiaristaPendente({ nome: perfilAtualizado.name, email: perfilAtualizado.email, bairro, cidade, uf, seguidores: 0, seguindo: 0 });
     setTela("confirmacaoEmailClienteDiarista");
   };
 
@@ -6988,7 +6996,7 @@ export default function App() {
                   onAvisoSilencioso={notificarContatosConfianca}
                 />
               ) : modoDiarista === "cliente" ? (
-                <DiaristaSearchView onSelect={setSelecionadaDiarista} bloqueados={idsBloqueadosDiarista} />
+                <DiaristaSearchView onSelect={setSelecionadaDiarista} bloqueados={idsBloqueadosDiarista} cidade={meuPerfilCliente?.cidade} />
               ) : meuPerfilDiarista.statusPagamento === "vencida" ? (
                 <MensalidadeBloqueada perfil={meuPerfilDiarista} serviceType="diarista" corDestaque={D_CORAL_DEEP} onPago={recarregarPerfilDiarista} />
               ) : mostrarPagamentoDiarista ? (
@@ -7102,6 +7110,7 @@ export default function App() {
                   boosts={boosts}
                   perfilImpulsionado={boosts.destaque?.ativo || boosts.banner?.ativo || boosts.popup?.ativo ? meuPerfilBaba : null}
                   bloqueados={idsBloqueadosBaba}
+                  cidade={meuPerfilMae?.cidade}
                 />
               ) : meuPerfilBaba.statusPagamento === "vencida" ? (
                 <MensalidadeBloqueada perfil={meuPerfilBaba} serviceType="baba" corDestaque={GOLD_DEEP} onPago={recarregarPerfilBaba} />

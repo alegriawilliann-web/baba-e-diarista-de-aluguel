@@ -16,10 +16,11 @@ export function getProfessionalById(id) {
   return request(`/professionals/${id}`, { auth: false });
 }
 
-export function searchProfessionals({ serviceType, q, bairro, minRating, priceMin, priceMax, page = 1, limit = 20 }) {
+export function searchProfessionals({ serviceType, q, bairro, cidade, minRating, priceMin, priceMax, page = 1, limit = 20 }) {
   const params = new URLSearchParams({ serviceType, page: String(page), limit: String(limit) });
   if (q) params.set("q", q);
   if (bairro && bairro !== "Todos") params.set("bairro", bairro);
+  if (cidade) params.set("cidade", cidade);
   if (minRating) params.set("minRating", String(minRating));
   if (priceMin != null) params.set("priceMin", String(priceMin));
   if (priceMax != null) params.set("priceMax", String(priceMax));

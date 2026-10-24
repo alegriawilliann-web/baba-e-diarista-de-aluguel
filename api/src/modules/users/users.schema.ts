@@ -9,6 +9,8 @@ export const updateMeBody = t.Object({
 export const grantClientRoleBody = t.Object({
   serviceType: t.Union([t.Literal("baba"), t.Literal("diarista")]),
   bairro: t.String({ minLength: 2, maxLength: 100 }),
+  cidade: t.Optional(t.String({ maxLength: 100 })),
+  uf: t.Optional(t.String({ maxLength: 2 })),
   quantidadeFilhos: t.Optional(t.Integer({ minimum: 0, maximum: 20 })),
 });
 
