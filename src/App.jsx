@@ -5175,8 +5175,21 @@ function TermosModal({ onClose, corDestaque = GOLD_DEEP, appNome = "Babá de Alu
           <p style={{ fontWeight: 700, color: INK, marginBottom: 4 }}>Termos de Uso</p>
           <p style={{ marginBottom: 12 }}>
             Ao usar o {appNome}, você concorda em fornecer informações verdadeiras no cadastro, manter sua senha em sigilo
-            e usar a plataforma apenas para combinar serviços entre famílias e profissionais. A intermediação de pagamentos
-            e a verificação de antecedentes seguem as regras descritas na Central de Ajuda.
+            e usar a plataforma apenas para combinar serviços entre famílias e profissionais. O app é um intermediário
+            (provedor de aplicação de internet, Lei nº 12.965/2014) — não participamos da execução do serviço contratado
+            e não temos qualquer responsabilidade por danos, condutas ou disputas entre contratante e profissional.
+          </p>
+          <p style={{ fontWeight: 700, color: INK, marginBottom: 4 }}>Pagamentos</p>
+          <p style={{ marginBottom: 12 }}>
+            Só processamos, via Mercado Pago, a mensalidade da profissional e o impulsionamento de perfil. O pagamento
+            pelo serviço de babá ou diarista contratado é combinado e realizado <b>diretamente entre as partes</b>,
+            fora do app — não temos nenhuma responsabilidade sobre esse valor, forma de pagamento ou eventual disputa.
+          </p>
+          <p style={{ fontWeight: 700, color: INK, marginBottom: 4 }}>Sem vínculo empregatício</p>
+          <p style={{ marginBottom: 12 }}>
+            Profissionais cadastradas atuam de forma autônoma (art. 5º, XIII, e art. 170 da Constituição Federal). O
+            cadastro no app não cria vínculo empregatício entre a profissional e o {appNome}, nem entre a profissional
+            e a contratante.
           </p>
           <p style={{ fontWeight: 700, color: INK, marginBottom: 4 }}>Política de Privacidade (LGPD)</p>
           <p style={{ marginBottom: 12 }}>
@@ -5186,11 +5199,19 @@ function TermosModal({ onClose, corDestaque = GOLD_DEEP, appNome = "Babá de Alu
             pelo SAC.
           </p>
           <p style={{ fontWeight: 700, color: INK, marginBottom: 4 }}>Segurança da conta</p>
-          <p>
+          <p style={{ marginBottom: 12 }}>
             Recomendamos uma senha exclusiva para este app, não compartilhar seu código de verificação com ninguém —
             nem com pessoas que digam trabalhar no {appNome} — e nos avisar imediatamente pelo SAC se notar qualquer
             acesso que você não reconheça.
           </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <button onClick={() => abrirLink("https://baba-de-aluguel-api.onrender.com/terms-of-use")} style={{ background: "none", border: "none", padding: 0, textAlign: "left", color: corDestaque, fontWeight: 700, fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
+              Ler os Termos de Uso completos
+            </button>
+            <button onClick={() => abrirLink("https://baba-de-aluguel-api.onrender.com/privacy-policy")} style={{ background: "none", border: "none", padding: 0, textAlign: "left", color: corDestaque, fontWeight: 700, fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
+              Ler a Política de Privacidade completa
+            </button>
+          </div>
         </div>
         <button onClick={onClose} style={{
           marginTop: 16, flexShrink: 0, background: corDestaque, color: "#FFFFFF", border: "none", borderRadius: 12,

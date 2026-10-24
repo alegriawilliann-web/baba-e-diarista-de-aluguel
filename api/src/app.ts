@@ -23,6 +23,7 @@ import { verificationsRoutes } from "./modules/verifications/verifications.route
 // "link para exclusão de dados" do Play Console (seção 07 da página cobre
 // o pedido de exclusão de conta).
 const privacyPolicyHtml = readFileSync(join(import.meta.dir, "../public/privacy-policy.html"), "utf-8");
+const termsOfUseHtml = readFileSync(join(import.meta.dir, "../public/terms-of-use.html"), "utf-8");
 
 export const app = new Elysia()
   .use(errorMiddleware)
@@ -39,6 +40,7 @@ export const app = new Elysia()
   .get("/health", () => ({ ok: true, service: "baba-de-aluguel-api" }))
   .get("/", () => ({ ok: true, docs: "/docs" }))
   .get("/privacy-policy", () => new Response(privacyPolicyHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
+  .get("/terms-of-use", () => new Response(termsOfUseHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   .group("/api", (api) =>
     api
       .use(authRoutes)

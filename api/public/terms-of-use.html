@@ -1,0 +1,432 @@
+<!doctype html>
+<title>Termos de Uso</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    color-scheme: light;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --paper: #FBF3E7;
+    --card: #FFFDF8;
+    --ink: #16403C;
+    --ink-soft: #6B5642;
+    --line: rgba(22, 64, 60, 0.14);
+    --gold: #C98A56;
+    --gold-deep: #9C5F35;
+    --coral: #C2412C;
+    --coral-soft: rgba(194, 65, 44, 0.12);
+    --gold-soft: rgba(201, 138, 86, 0.14);
+    --focus: #2F7A6E;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #10201D;
+      --card: #16302C;
+      --ink: #F2E9DC;
+      --ink-soft: #C9B79F;
+      --line: rgba(242, 233, 220, 0.14);
+      --gold: #E3A96F;
+      --gold-deep: #F0C08C;
+      --coral: #E8836A;
+      --coral-soft: rgba(232, 131, 106, 0.16);
+      --gold-soft: rgba(227, 169, 111, 0.14);
+      --focus: #7FBFAE;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #10201D;
+    --card: #16302C;
+    --ink: #F2E9DC;
+    --ink-soft: #C9B79F;
+    --line: rgba(242, 233, 220, 0.14);
+    --gold: #E3A96F;
+    --gold-deep: #F0C08C;
+    --coral: #E8836A;
+    --coral-soft: rgba(232, 131, 106, 0.16);
+    --gold-soft: rgba(227, 169, 111, 0.14);
+    --focus: #7FBFAE;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Manrope", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  a { color: var(--gold-deep); text-decoration-thickness: 1.5px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 64px;
+  }
+
+  header.top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-bottom: 6px;
+  }
+  .brandpair {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .brandtag {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .brandtag.baba { background: var(--gold-soft); color: var(--gold-deep); }
+  .brandtag.diarista { background: var(--coral-soft); color: var(--coral); }
+
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(28px, 6vw, 38px);
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 10px 0 8px;
+  }
+  .meta {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    margin: 0 0 28px;
+  }
+  .intro {
+    font-size: 16.5px;
+    color: var(--ink);
+    max-width: 62ch;
+    margin: 0 0 32px;
+  }
+  .intro strong { color: var(--ink); }
+
+  nav.toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 40px;
+  }
+  nav.toc p {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    columns: 1;
+    font-size: 14.5px;
+  }
+  nav.toc li { margin-bottom: 7px; }
+  nav.toc a { color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { color: var(--gold-deep); text-decoration: underline; }
+  nav.toc .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-right: 8px; }
+
+  section {
+    margin-bottom: 36px;
+    scroll-margin-top: 20px;
+  }
+  section h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 21px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  section h2 .n {
+    font-size: 14px;
+    color: var(--gold-deep);
+    font-family: "Manrope", sans-serif;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  section p, section li { max-width: 66ch; }
+  section p { margin: 0 0 14px; }
+  section ul { margin: 0 0 14px; padding-left: 22px; }
+  section li { margin-bottom: 8px; }
+
+  .callout {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--focus);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14.5px;
+    color: var(--ink);
+    margin: 0 0 16px;
+  }
+  .callout strong { color: var(--focus); }
+
+  .callout.warn { border-left-color: var(--coral); }
+  .callout.warn strong { color: var(--coral); }
+
+  footer.contact {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px 22px;
+    margin-top: 44px;
+  }
+  footer.contact h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    border: none;
+    padding: 0;
+  }
+  footer.contact p { margin: 0 0 6px; font-size: 14.5px; color: var(--ink-soft); }
+  footer.contact a { color: var(--ink); font-weight: 700; }
+
+  .backtotop {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-top: 6px;
+  }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 26px; }
+    section h2 { font-size: 18px; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="brandpair">
+      <span class="brandtag baba">Babá de Aluguel</span>
+      <span class="brandtag diarista">Diarista de Aluguel</span>
+    </span>
+  </header>
+  <h1>Termos de Uso</h1>
+  <p class="meta">Última atualização: 24 de outubro de 2026 · Válido para os aplicativos Babá de Aluguel e Diarista de Aluguel</p>
+
+  <p class="intro">
+    Este documento explica, em linguagem direta, o que o <strong>Babá de Aluguel</strong> e o <strong>Diarista de
+    Aluguel</strong> são (e o que não são), qual é a nossa responsabilidade e qual é a responsabilidade de quem
+    contrata e de quem presta o serviço. Ao criar uma conta, você declara que leu e concorda com estes termos.
+  </p>
+
+  <nav class="toc" aria-label="Sumário">
+    <p>Neste documento</p>
+    <ol>
+      <li><span class="n">01</span><a href="#quem-somos">Quem somos e o que a plataforma faz</a></li>
+      <li><span class="n">02</span><a href="#intermediacao">Natureza de intermediação — não somos parte do serviço contratado</a></li>
+      <li><span class="n">03</span><a href="#pagamentos">Pagamentos: o que processamos e o que não processamos</a></li>
+      <li><span class="n">04</span><a href="#vinculo">Ausência de vínculo empregatício</a></li>
+      <li><span class="n">05</span><a href="#verificacoes">Verificações, avaliações e selo "CN"</a></li>
+      <li><span class="n">06</span><a href="#responsabilidades">Responsabilidades de quem usa o app</a></li>
+      <li><span class="n">07</span><a href="#limitacao">Limitação de responsabilidade</a></li>
+      <li><span class="n">08</span><a href="#suspensao">Suspensão, bloqueio e encerramento de conta</a></li>
+      <li><span class="n">09</span><a href="#propriedade">Propriedade intelectual</a></li>
+      <li><span class="n">10</span><a href="#legislacao">Legislação aplicável e foro</a></li>
+      <li><span class="n">11</span><a href="#alteracoes">Alterações nestes termos</a></li>
+      <li><span class="n">12</span><a href="#contato">Fale conosco</a></li>
+    </ol>
+  </nav>
+
+  <section id="quem-somos">
+    <h2><span class="n">01</span> Quem somos e o que a plataforma faz</h2>
+    <p>
+      Babá de Aluguel e Diarista de Aluguel são aplicativos operados pela mesma equipe, sob responsabilidade de
+      <strong>Willian Sergio Sozzi Alegria</strong>, que conectam famílias a babás e diaristas autônomas através de
+      busca, perfis, avaliações e um sistema de agendamento. Os dois aplicativos compartilham a mesma infraestrutura
+      e as mesmas regras descritas aqui.
+    </p>
+    <p>
+      O app existe pra facilitar o <strong>encontro</strong> entre quem precisa do serviço e quem presta o serviço.
+      A partir do momento em que um agendamento é combinado dentro do app, a execução do serviço — datas, horários,
+      forma de pagamento, valor e qualquer ajuste — passa a ser um acordo direto entre as duas partes.
+    </p>
+  </section>
+
+  <section id="intermediacao">
+    <h2><span class="n">02</span> Natureza de intermediação — não somos parte do serviço contratado</h2>
+    <p>
+      O Babá de Aluguel e o Diarista de Aluguel atuam exclusivamente como <strong>provedores de aplicação de
+      internet</strong>, nos termos do art. 5º, VII, da Lei nº 12.965/2014 (Marco Civil da Internet), oferecendo um
+      espaço de encontro entre contratantes e profissionais autônomas. Não somos parte do contrato de prestação de
+      serviços de babá ou de diarista firmado entre essas duas pessoas, e não participamos da execução, supervisão
+      ou fiscalização do serviço prestado.
+    </p>
+    <p>
+      Isso significa que a contratante e a profissional são as únicas responsáveis por combinar e cumprir as
+      condições do serviço (data, horário, local, forma de pagamento, valor, eventuais danos, atrasos ou
+      cancelamentos). A plataforma não garante a realização do serviço, nem a qualidade, pontualidade, legalidade
+      ou resultado do que for combinado entre as partes.
+    </p>
+  </section>
+
+  <section id="pagamentos">
+    <h2><span class="n">03</span> Pagamentos: o que processamos e o que não processamos</h2>
+    <p>Pra deixar isso bem claro, separamos os dois tipos de pagamento que existem no app:</p>
+    <ul>
+      <li>
+        <strong>Mensalidade da profissional e impulsionamento de perfil ("boost"):</strong> esses, sim, são
+        processados por nós através do Mercado Pago, e dão direito a aparecer na busca ou ter maior destaque nela.
+      </li>
+      <li>
+        <strong>Pagamento pelo serviço de babá ou diarista contratado (o agendamento em si):</strong> este
+        <strong> não é processado, intermediado, custodiado nem garantido pelo aplicativo em nenhuma hipótese</strong>.
+        O valor, a forma de pagamento (dinheiro, Pix, cartão ou qualquer outra) e o momento do pagamento são
+        combinados e realizados <strong>diretamente entre a contratante e a profissional</strong>, fora do app.
+      </li>
+    </ul>
+    <div class="callout warn">
+      <strong>Isenção de responsabilidade sobre pagamentos entre usuários.</strong> O Babá de Aluguel e o Diarista
+      de Aluguel não têm qualquer responsabilidade por inadimplência, atraso, valor cobrado a maior ou a menor,
+      estorno, reembolso, fraude ou qualquer outro problema relacionado ao pagamento do serviço combinado entre
+      contratante e profissional. Qualquer disputa sobre esse pagamento deve ser resolvida diretamente entre as
+      partes, inclusive, se necessário, pelas vias legais cabíveis (Juizado Especial Cível, por exemplo), sem
+      envolvimento da plataforma.
+    </div>
+  </section>
+
+  <section id="vinculo">
+    <h2><span class="n">04</span> Ausência de vínculo empregatício</h2>
+    <p>
+      Babás e diaristas cadastradas no app atuam como <strong>profissionais autônomas</strong>, no exercício livre
+      de profissão garantido pelo art. 5º, XIII, da Constituição Federal, e com base no princípio da livre
+      iniciativa (art. 1º, IV, e art. 170 da Constituição Federal). O cadastro na plataforma:
+    </p>
+    <ul>
+      <li>Não gera vínculo empregatício entre a profissional e o Babá de Aluguel / Diarista de Aluguel, nos termos do art. 3º da Consolidação das Leis do Trabalho (CLT), já que não há subordinação, horário fixo imposto pela plataforma nem exclusividade;</li>
+      <li>Não gera, por si só, vínculo empregatício entre a profissional e a contratante apenas por conta do uso do app — a existência ou não de vínculo, caso o serviço se torne contínuo e subordinado, depende das condições reais combinadas e executadas diretamente entre as partes, fora da nossa plataforma e fora do nosso controle;</li>
+      <li>Não torna o app responsável por encargos trabalhistas, previdenciários, fiscais ou de qualquer outra natureza decorrentes da relação entre contratante e profissional.</li>
+    </ul>
+  </section>
+
+  <section id="verificacoes">
+    <h2><span class="n">05</span> Verificações, avaliações e selo "CN"</h2>
+    <p>
+      O selo azul "CN" indica que uma foto da Certidão de Antecedentes Criminais foi enviada pela profissional e
+      conferida visualmente por um administrador do app, com validade de 90 dias (mesmo prazo de validade da
+      certidão emitida pela Polícia Federal). Essa conferência é feita de boa-fé, mas <strong>não constitui garantia
+      absoluta de autenticidade do documento, nem atestado de idoneidade, conduta ou caráter da profissional</strong>.
+    </p>
+    <p>
+      Avaliações, notas e depoimentos exibidos nos perfis são de responsabilidade de quem os escreveu, refletem
+      experiências individuais e não são verificados quanto à veracidade pelo app, além da checagem básica de que
+      vêm de uma contratação de fato realizada pela plataforma.
+    </p>
+    <p>
+      Recomendamos que toda contratante tome os cuidados que considerar necessários antes e durante a prestação do
+      serviço — como confirmar documentos pessoalmente e manter contatos de confiança informados, recurso já
+      disponível dentro do app.
+    </p>
+  </section>
+
+  <section id="responsabilidades">
+    <h2><span class="n">06</span> Responsabilidades de quem usa o app</h2>
+    <ul>
+      <li>Fornecer informações verdadeiras, completas e atualizadas no cadastro;</li>
+      <li>Manter a senha da conta em sigilo e não compartilhar códigos de verificação, nem com pessoas que digam trabalhar no app;</li>
+      <li>Usar a plataforma apenas para a finalidade a que se destina — conectar famílias a profissionais de babá e diarista;</li>
+      <li>Cumprir, de boa-fé, o que for combinado diretamente com a outra parte (horário, valor, forma de pagamento);</li>
+      <li>Não publicar conteúdo falso, ofensivo, discriminatório ou que viole direitos de terceiros;</li>
+      <li>Comunicar imediatamente qualquer uso indevido da conta ou situação de risco pelo Central de Atendimento (SAC) do app.</li>
+    </ul>
+  </section>
+
+  <section id="limitacao">
+    <h2><span class="n">07</span> Limitação de responsabilidade</h2>
+    <p>Dentro dos limites permitidos pela legislação brasileira, o Babá de Aluguel e o Diarista de Aluguel não se responsabilizam por:</p>
+    <ul>
+      <li>Danos materiais, morais, corporais ou de qualquer outra natureza decorrentes da relação, do encontro físico ou da execução do serviço entre contratante e profissional;</li>
+      <li>Condutas de usuárias e usuários dentro ou fora do app, inclusive durante a prestação do serviço combinado;</li>
+      <li>Perda, extravio, roubo ou dano a bens de qualquer das partes durante o período do serviço;</li>
+      <li>Disputas sobre valores, formas ou prazos de pagamento combinados diretamente entre as partes (ver seção 03);</li>
+      <li>Indisponibilidade temporária do app por motivos técnicos, manutenção ou causas fora do nosso controle.</li>
+    </ul>
+    <p>
+      Essas limitações não afastam a aplicação do Código de Defesa do Consumidor (Lei nº 8.078/1990) nos pontos em
+      que ele for aplicável à relação entre a plataforma e quem a utiliza — por exemplo, quanto à qualidade da
+      intermediação, à transparência das informações prestadas pelo app e ao direito de informação do usuário sobre
+      estes termos.
+    </p>
+  </section>
+
+  <section id="suspensao">
+    <h2><span class="n">08</span> Suspensão, bloqueio e encerramento de conta</h2>
+    <p>
+      Podemos suspender ou encerrar uma conta, a qualquer momento, em caso de denúncia procedente, violação destes
+      termos, fornecimento de informações falsas ou comportamento que coloque em risco outras pessoas usuárias do
+      app. Qualquer pessoa pode pedir a exclusão da própria conta a qualquer momento, pelo Central de Atendimento ou
+      pelo e-mail informado na nossa <a href="/privacy-policy">Política de Privacidade</a>.
+    </p>
+  </section>
+
+  <section id="propriedade">
+    <h2><span class="n">09</span> Propriedade intelectual</h2>
+    <p>
+      A marca, o layout, os textos e o código dos aplicativos Babá de Aluguel e Diarista de Aluguel pertencem aos
+      seus desenvolvedores. O conteúdo enviado por cada usuária ou usuário (fotos de perfil, avaliações,
+      depoimentos) permanece de propriedade de quem o enviou, mas é licenciado ao app para exibição dentro da
+      própria plataforma, pelo tempo em que a conta estiver ativa.
+    </p>
+  </section>
+
+  <section id="legislacao">
+    <h2><span class="n">10</span> Legislação aplicável e foro</h2>
+    <p>
+      Estes Termos de Uso são regidos pelas leis da República Federativa do Brasil, em especial pela Constituição
+      Federal de 1988, pelo Código Civil (Lei nº 10.406/2002), pelo Código de Defesa do Consumidor (Lei nº
+      8.078/1990, no que for aplicável), pelo Marco Civil da Internet (Lei nº 12.965/2014) e pela Lei Geral de
+      Proteção de Dados (Lei nº 13.709/2018). Fica eleito o foro do domicílio da pessoa usuária, consumidora, para
+      dirimir eventuais controvérsias decorrentes destes termos, conforme o art. 101, I, do Código de Defesa do
+      Consumidor.
+    </p>
+  </section>
+
+  <section id="alteracoes">
+    <h2><span class="n">11</span> Alterações nestes termos</h2>
+    <p>
+      Podemos atualizar este documento conforme o app evolui. Mudanças relevantes serão avisadas dentro do próprio
+      aplicativo. A data no topo desta página sempre indica a versão mais recente, e o uso continuado do app após
+      uma atualização representa concordância com os novos termos.
+    </p>
+  </section>
+
+  <footer class="contact" id="contato">
+    <h2><span aria-hidden="true">12 · </span>Fale conosco</h2>
+    <p>Dúvidas sobre estes termos, ou sobre qualquer contratação feita através do app:</p>
+    <p><a href="mailto:alegriawilliann@gmail.com">alegriawilliann@gmail.com</a></p>
+    <a class="backtotop" href="#quem-somos">↑ Voltar ao início</a>
+  </footer>
+</div>
