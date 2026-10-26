@@ -808,6 +808,19 @@ function TrabalhoModal({ onClose, onSalvar, corDestaque = D_CORAL_DEEP }) {
   const [foto, setFoto] = useState(null);
   const [legenda, setLegenda] = useState("");
   const [marcado, setMarcado] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const publicar = async () => {
+    setEnviando(true);
+    setErro("");
+    try {
+      await onSalvar({ url: foto, legenda: legenda.trim(), marcado: marcado.trim() });
+    } catch (e) {
+      setErro(e.message || "Não foi possível publicar agora. Tente de novo.");
+      setEnviando(false);
+    }
+  };
 
   return (
     <div style={{ position: "absolute", inset: 0, background: "rgba(90,36,32,0.55)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
@@ -830,12 +843,14 @@ function TrabalhoModal({ onClose, onSalvar, corDestaque = D_CORAL_DEEP }) {
             <CampoEdit label="Marcar alguém (opcional)">
               <input style={inputStyle} value={marcado} onChange={(e) => setMarcado(e.target.value)} placeholder="@nome-da-pessoa" />
             </CampoEdit>
+            {erro && <p style={{ fontSize: 11.5, color: ERROR, margin: 0 }}>{erro}</p>}
             <button
               className="shine-cta"
-              onClick={() => onSalvar({ url: foto, legenda: legenda.trim(), marcado: marcado.trim() })}
-              style={{ ...btnPrimary, background: corDestaque, width: "100%", boxShadow: "none" }}
+              onClick={publicar}
+              disabled={enviando}
+              style={{ ...btnPrimary, background: corDestaque, width: "100%", boxShadow: "none", opacity: enviando ? 0.7 : 1, cursor: enviando ? "default" : "pointer" }}
             >
-              Publicar
+              {enviando ? "Publicando..." : "Publicar"}
             </button>
           </div>
         )}
@@ -3186,8 +3201,8 @@ function DiaristaDetail({
       {showTrabalhoModal && (
         <TrabalhoModal
           onClose={() => setShowTrabalhoModal(false)}
-          onSalvar={(trabalho) => {
-            onAdicionarTrabalho?.(trabalho);
+          onSalvar={async (trabalho) => {
+            await onAdicionarTrabalho?.(trabalho);
             setShowTrabalhoModal(false);
           }}
         />
