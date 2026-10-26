@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
-import { eq, and, isNull, gt } from "drizzle-orm";
+import { eq, and, isNull, gt, sql } from "drizzle-orm";
 import { db } from "../../config/database";
 import { users, userRoles, refreshTokens, authTokens } from "./auth.model";
 import { hashPassword, verifyPassword } from "../../shared/utils/hash";
@@ -14,18 +14,25 @@ function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+// E-mail não deve ser sensível a maiúsculas/minúsculas — o teclado do
+// celular autocapitaliza a primeira letra de campos de texto, e antes disso
+// travava gente de verdade fora da própria conta ("Demo@..." vs "demo@...").
+function porEmail(email: string) {
+  return eq(sql`lower(${users.email})`, email.trim().toLowerCase());
+}
+
 const EMAIL_VERIFICATION_HOURS = 24;
 const PASSWORD_RESET_MINUTES = 15;
 
 export async function registerUser(input: RegisterInput) {
-  const existing = await db.query.users.findFirst({ where: eq(users.email, input.email) });
+  const existing = await db.query.users.findFirst({ where: porEmail(input.email) });
   if (existing) throw new ConflictError("Já existe uma conta com esse e-mail");
 
   const passwordHash = await hashPassword(input.password);
   const [user] = await db
     .insert(users)
     .values({
-      email: input.email,
+      email: input.email.trim().toLowerCase(),
       passwordHash,
       name: input.name,
       phone: input.phone,
@@ -70,7 +77,7 @@ export async function verifyEmailToken(rawToken: string) {
 }
 
 export async function requestPasswordReset(email: string) {
-  const user = await db.query.users.findFirst({ where: eq(users.email, email) });
+  const user = await db.query.users.findFirst({ where: porEmail(email) });
   // Não revela se o e-mail existe ou não — resposta é sempre a mesma pro chamador.
   if (!user) return;
 
@@ -85,7 +92,7 @@ export async function requestPasswordReset(email: string) {
 }
 
 export async function resetPassword(email: string, code: string, newPassword: string) {
-  const user = await db.query.users.findFirst({ where: eq(users.email, email) });
+  const user = await db.query.users.findFirst({ where: porEmail(email) });
   if (!user) throw new UnauthorizedError("Código inválido ou expirado");
 
   const tokenHash = sha256(code);
@@ -108,7 +115,7 @@ export async function resetPassword(email: string, code: string, newPassword: st
 }
 
 export async function verifyCredentials(email: string, password: string) {
-  const user = await db.query.users.findFirst({ where: eq(users.email, email) });
+  const user = await db.query.users.findFirst({ where: porEmail(email) });
   if (!user) throw new UnauthorizedError("E-mail ou senha inválidos");
 
   const valid = await verifyPassword(password, user.passwordHash);
