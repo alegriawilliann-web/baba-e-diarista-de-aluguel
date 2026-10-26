@@ -7154,7 +7154,7 @@ export default function App() {
                 <DiaristaSearchView onSelect={setSelecionadaDiarista} bloqueados={idsBloqueadosDiarista} cidade={meuPerfilCliente?.cidade} />
               ) : meuPerfilDiarista.statusPagamento === "vencida" ? (
                 <MensalidadeBloqueada perfil={meuPerfilDiarista} serviceType="diarista" corDestaque={D_CORAL_DEEP} onPago={recarregarPerfilDiarista} />
-              ) : mostrarPagamentoDiarista ? (
+              ) : mostrarPagamentoDiarista || meuPerfilDiarista.statusPagamento !== "liberado" ? (
                 <PagamentoReal perfil={meuPerfilDiarista} serviceType="diarista" corDestaque={D_CORAL_DEEP} onSucesso={recarregarPerfilDiarista} />
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
@@ -7269,7 +7269,7 @@ export default function App() {
                 />
               ) : meuPerfilBaba.statusPagamento === "vencida" ? (
                 <MensalidadeBloqueada perfil={meuPerfilBaba} serviceType="baba" corDestaque={GOLD_DEEP} onPago={recarregarPerfilBaba} />
-              ) : mostrarPagamentoBaba ? (
+              ) : mostrarPagamentoBaba || meuPerfilBaba.statusPagamento !== "liberado" ? (
                 <PagamentoReal perfil={meuPerfilBaba} serviceType="baba" corDestaque={GOLD_DEEP} onSucesso={recarregarPerfilBaba} />
               ) : (
                 <div style={{ padding: 16 }}>
