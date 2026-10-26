@@ -356,9 +356,10 @@ function lerImagemRedimensionada(file, tamanhoMax = 1280, qualidade = 0.75) {
 // seletor nativo do Android com câmera (frontal OU traseira, o usuário
 // escolhe lá) e galeria na mesma caixa de diálogo. Reaproveitado no envio
 // da Certidão Negativa e nas fotos de trabalho da diarista.
-function SeletorFoto({ foto, onChange, corDestaque = GOLD_DEEP, label = "Anexar foto", alt = "Foto anexada", trocarLabel = "Trocar foto" }) {
+function SeletorFoto({ foto, onChange, corDestaque = GOLD_DEEP, alt = "Foto anexada", trocarLabel = "Trocar foto" }) {
   const inputRef = useRef(null);
   const [erro, setErro] = useState("");
+  const [mostrarCamera, setMostrarCamera] = useState(false);
 
   const escolher = async (e) => {
     const file = e.target.files?.[0];
@@ -372,32 +373,77 @@ function SeletorFoto({ foto, onChange, corDestaque = GOLD_DEEP, label = "Anexar 
     }
   };
 
-  if (foto) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <img src={foto} alt={alt} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}` }} />
-        <button type="button" onClick={() => inputRef.current?.click()} style={{ background: "none", border: `1px solid ${corDestaque}`, borderRadius: 10, padding: "6px 12px", color: corDestaque, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
-          {trocarLabel}
-        </button>
-        <button type="button" onClick={() => onChange("")} style={{ background: "none", border: "none", color: ERROR, fontSize: 11.5, cursor: "pointer" }}>
-          Remover
-        </button>
-        <input ref={inputRef} type="file" accept="image/*" onChange={escolher} style={{ display: "none" }} />
-      </div>
-    );
-  }
+  const botoes = foto ? (
+    <>
+      <button type="button" onClick={() => setMostrarCamera(true)} style={{ background: "none", border: `1px solid ${corDestaque}`, borderRadius: 10, padding: "6px 12px", color: corDestaque, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+        {trocarLabel}
+      </button>
+      <button type="button" onClick={() => onChange("")} style={{ background: "none", border: "none", color: ERROR, fontSize: 11.5, cursor: "pointer" }}>
+        Remover
+      </button>
+    </>
+  ) : null;
 
   return (
     <div>
-      <button type="button" onClick={() => inputRef.current?.click()} style={{
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%",
-        background: "none", border: `1.5px dashed ${corDestaque}`, borderRadius: 12, padding: "12px 0",
-        color: corDestaque, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12.5, cursor: "pointer",
-      }}>
-        <Camera size={15} /> {label}
-      </button>
+      {foto ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <img src={foto} alt={alt} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}` }} />
+          {botoes}
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={() => setMostrarCamera(true)} style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: "none", border: `1.5px dashed ${corDestaque}`, borderRadius: 12, padding: "12px 6px",
+            color: corDestaque, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12, cursor: "pointer",
+          }}>
+            <Camera size={15} /> Tirar foto agora
+          </button>
+          <button type="button" onClick={() => inputRef.current?.click()} style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            background: "none", border: `1.5px dashed ${corDestaque}`, borderRadius: 12, padding: "12px 6px",
+            color: corDestaque, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12, cursor: "pointer",
+          }}>
+            <Image size={15} /> Escolher da galeria
+          </button>
+        </div>
+      )}
       <input ref={inputRef} type="file" accept="image/*" onChange={escolher} style={{ display: "none" }} />
       {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
+      {mostrarCamera && (
+        <CameraModal
+          corDestaque={corDestaque}
+          onClose={() => setMostrarCamera(false)}
+          onUsarFoto={(f) => { onChange(f); setMostrarCamera(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal com a câmera ao vivo (frontal/traseira, com botão de virar) —
+// reaproveitado em qualquer SeletorFoto, não só no da certidão.
+function CameraModal({ onClose, onUsarFoto, corDestaque = GOLD_DEEP }) {
+  const [foto, setFoto] = useState(null);
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(22,64,60,0.7)", display: "flex", alignItems: "flex-end", zIndex: 200 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: CARD, width: "100%", borderRadius: "22px 22px 0 0", padding: "22px 20px 26px", fontFamily: "Manrope, sans-serif",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 17, color: INK }}>Tirar foto</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
+            <X size={18} color={INK} />
+          </button>
+        </div>
+        <FotoCameraStep foto={foto} setFoto={setFoto} permitirGaleria avisoFixo="Toque no ícone de virar pra trocar entre câmera frontal e traseira." />
+        {foto && (
+          <button className="shine-cta" onClick={() => onUsarFoto(foto)} style={{ ...btnPrimary, background: corDestaque, width: "100%", marginTop: 12, boxShadow: "none" }}>
+            Usar essa foto
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -641,7 +687,7 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
             {status === "vencida" ? "Sua certidão venceu (validade de 90 dias) — envie uma atualizada. " : ""}
             Tire uma foto ou envie um print da sua certidão (gov.br ou Tribunal de Justiça) pra ganhar o selo azul "CN" e passar mais confiança pra quem for te contratar.
           </p>
-          <SeletorFoto foto={foto} onChange={setFoto} corDestaque={corDestaque} label="Anexar foto ou print da certidão" alt="Certidão anexada" />
+          <SeletorFoto foto={foto} onChange={setFoto} corDestaque={corDestaque} alt="Certidão anexada" />
           {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
             <button onClick={enviar} disabled={enviando || !foto} style={{
@@ -837,7 +883,7 @@ function TrabalhoModal({ onClose, onSalvar, corDestaque = D_CORAL_DEEP }) {
             <X size={18} color="#5A2420" />
           </button>
         </div>
-        <SeletorFoto foto={foto} onChange={setFoto} corDestaque={corDestaque} label="Tirar foto (câmera) ou escolher da galeria" alt="Foto do trabalho" />
+        <SeletorFoto foto={foto} onChange={setFoto} corDestaque={corDestaque} alt="Foto do trabalho" />
         {foto && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
             <CampoEdit label="Legenda (opcional)">
@@ -5124,19 +5170,22 @@ function FieldLabel({ children }) {
 
 // ---- captura de foto só pela câmera (sem acesso à galeria, evita fraude) ----
 
-function FotoCameraStep({ foto, setFoto }) {
+function FotoCameraStep({ foto, setFoto, permitirGaleria = false, avisoFixo }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const [erroCamera, setErroCamera] = useState("");
   const [carregando, setCarregando] = useState(true);
+  // "user" = frontal, "environment" = traseira — a pessoa escolhe com o
+  // botão de virar, começa na frontal pra manter o comportamento de antes.
+  const [facingMode, setFacingMode] = useState("user");
 
   useEffect(() => {
     if (foto) return; // já tem foto, não precisa da câmera ligada
     let cancelado = false;
     setCarregando(true);
     setErroCamera("");
-    navigator.mediaDevices?.getUserMedia?.({ video: { facingMode: "user" }, audio: false })
+    navigator.mediaDevices?.getUserMedia?.({ video: { facingMode }, audio: false })
       .then((stream) => {
         if (cancelado) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
@@ -5154,7 +5203,9 @@ function FotoCameraStep({ foto, setFoto }) {
       cancelado = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [foto]);
+  }, [foto, facingMode]);
+
+  const virarCamera = () => setFacingMode((f) => (f === "user" ? "environment" : "user"));
 
   const tirarFoto = () => {
     const video = videoRef.current;
@@ -5166,8 +5217,12 @@ function FotoCameraStep({ foto, setFoto }) {
     const ctx = canvas.getContext("2d");
     const offsetX = (video.videoWidth - tamanho) / 2;
     const offsetY = (video.videoHeight - tamanho) / 2;
-    ctx.translate(tamanho, 0);
-    ctx.scale(-1, 1);
+    // Só espelha a frontal — é a convenção (selfie "como no espelho"); a
+    // traseira tem que sair do jeito que a câmera realmente vê.
+    if (facingMode === "user") {
+      ctx.translate(tamanho, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, offsetX, offsetY, tamanho, tamanho, 0, 0, tamanho, tamanho);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     setFoto(dataUrl);
@@ -5191,8 +5246,17 @@ function FotoCameraStep({ foto, setFoto }) {
               autoPlay
               playsInline
               muted
-              style={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
             />
+            {!carregando && !erroCamera && (
+              <button onClick={virarCamera} title="Virar câmera" style={{
+                position: "absolute", top: 10, right: 10, width: 34, height: 34, borderRadius: "50%",
+                background: "rgba(0,0,0,0.45)", border: "none", display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer",
+              }}>
+                <RotateCcw size={16} color="#fff" />
+              </button>
+            )}
             {carregando && !erroCamera && (
               <div style={{
                 position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
@@ -5229,8 +5293,9 @@ function FotoCameraStep({ foto, setFoto }) {
       )}
 
       <p style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 10, textAlign: "center" }}>
-        Por segurança, a foto do seu perfil só pode ser tirada agora, na hora, pela câmera. Não é possível
-        enviar uma imagem da galeria.
+        {avisoFixo ?? (permitirGaleria
+          ? "Toque no ícone de virar pra trocar entre câmera frontal e traseira."
+          : "Por segurança, a foto do seu perfil só pode ser tirada agora, na hora, pela câmera (frontal ou traseira, use o ícone de virar). Não é possível enviar uma imagem da galeria.")}
       </p>
     </div>
   );
@@ -5411,7 +5476,7 @@ function EquipeStep({ membros, setMembros, corDestaque = D_CORAL_DEEP }) {
           </div>
           <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="Nome completo" value={m.nome} onChange={(e) => atualizar(i, "nome", e.target.value)} />
           <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="CPF" value={m.cpf} onChange={(e) => atualizar(i, "cpf", e.target.value)} />
-          <SeletorFoto foto={m.certidaoNegativaFoto} onChange={(v) => atualizar(i, "certidaoNegativaFoto", v)} corDestaque={corDestaque} label="Anexar foto ou print da certidão" alt="Certidão anexada" />
+          <SeletorFoto foto={m.certidaoNegativaFoto} onChange={(v) => atualizar(i, "certidaoNegativaFoto", v)} corDestaque={corDestaque} alt="Certidão anexada" />
         </div>
       ))}
       <button onClick={adicionar} style={{
