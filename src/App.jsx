@@ -329,7 +329,10 @@ function lerImagemRedimensionada(file, tamanhoMax = 1280, qualidade = 0.75) {
     const leitor = new FileReader();
     leitor.onerror = () => reject(new Error("Não foi possível ler a imagem."));
     leitor.onload = () => {
-      const img = new Image();
+      // `window.Image`, não `Image` puro — esse nome colide com o ícone
+      // `Image` importado do lucide-react lá em cima (os dois teriam o mesmo
+      // identificador no escopo do módulo, e o ícone venceria).
+      const img = new window.Image();
       img.onerror = () => reject(new Error("Arquivo inválido — escolha uma imagem."));
       img.onload = () => {
         const escala = Math.min(1, tamanhoMax / Math.max(img.width, img.height));
