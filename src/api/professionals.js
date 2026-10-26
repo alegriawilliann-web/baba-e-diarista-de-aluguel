@@ -16,6 +16,22 @@ export function getProfessionalById(id) {
   return request(`/professionals/${id}`, { auth: false });
 }
 
+export function listMyPortfolio() {
+  return request("/professionals/me/portfolio");
+}
+
+export function addPortfolioPost(payload) {
+  return request("/professionals/me/portfolio", { method: "POST", body: payload });
+}
+
+export function deletePortfolioPost(id) {
+  return request(`/professionals/me/portfolio/${id}`, { method: "DELETE" });
+}
+
+export function reorderPortfolio(ids) {
+  return request("/professionals/me/portfolio/reorder", { method: "PATCH", body: { ids } });
+}
+
 export function searchProfessionals({ serviceType, q, bairro, cidade, minRating, priceMin, priceMax, page = 1, limit = 20 }) {
   const params = new URLSearchParams({ serviceType, page: String(page), limit: String(limit) });
   if (q) params.set("q", q);

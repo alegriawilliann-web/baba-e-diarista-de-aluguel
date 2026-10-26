@@ -271,9 +271,18 @@ export async function updateMyProfile(userId: string, serviceType: "baba" | "dia
   return shapeProfile(row!, equipeMap.get(profile.id) ?? []);
 }
 
-export async function addPortfolioPost(userId: string, input: { cor?: string; legenda?: string; url?: string; marcado?: boolean }) {
+export async function listMyPortfolio(userId: string) {
   const profile = await loadOwnProfileByServiceType(userId, "diarista");
-  const [row] = await db.insert(portfolioPosts).values({ professionalId: profile.id, ...input }).returning();
+  return db.query.portfolioPosts.findMany({
+    where: eq(portfolioPosts.professionalId, profile.id),
+    orderBy: (p, { asc }) => [asc(p.ordem), asc(p.createdAt)],
+  });
+}
+
+export async function addPortfolioPost(userId: string, input: { cor?: string; legenda?: string; url?: string; marcado?: string }) {
+  const profile = await loadOwnProfileByServiceType(userId, "diarista");
+  const [{ total }] = await db.select({ total: count() }).from(portfolioPosts).where(eq(portfolioPosts.professionalId, profile.id));
+  const [row] = await db.insert(portfolioPosts).values({ professionalId: profile.id, ordem: total, ...input }).returning();
   return row;
 }
 
@@ -283,5 +292,17 @@ export async function deletePortfolioPost(userId: string, postId: string) {
   if (!post || post.professionalId !== profile.id) throw new NotFoundError("Post não encontrado");
 
   await db.delete(portfolioPosts).where(eq(portfolioPosts.id, postId));
+  return { ok: true };
+}
+
+// Reordenar manda a lista inteira de ids na ordem desejada (mais simples que
+// mover um de cada vez) -- a posição de cada id na lista vira o novo "ordem".
+export async function reorderPortfolio(userId: string, orderedIds: string[]) {
+  const profile = await loadOwnProfileByServiceType(userId, "diarista");
+  const posts = await db.query.portfolioPosts.findMany({ where: eq(portfolioPosts.professionalId, profile.id) });
+  const idsValidos = new Set(posts.map((p) => p.id));
+  if (orderedIds.some((id) => !idsValidos.has(id))) throw new ForbiddenError();
+
+  await Promise.all(orderedIds.map((id, index) => db.update(portfolioPosts).set({ ordem: index }).where(eq(portfolioPosts.id, id))));
   return { ok: true };
 }

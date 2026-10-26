@@ -24,6 +24,10 @@ export async function updateMe(ctx: any) {
   return professionalsService.updateMyProfile(ctx.user.sub, serviceType, ctx.body as Record<string, unknown>);
 }
 
+export async function listPortfolio(ctx: any) {
+  return professionalsService.listMyPortfolio(ctx.user.sub);
+}
+
 export async function addPortfolioPost(ctx: any) {
   ctx.set.status = 201;
   return professionalsService.addPortfolioPost(ctx.user.sub, ctx.body);
@@ -31,4 +35,9 @@ export async function addPortfolioPost(ctx: any) {
 
 export async function deletePortfolioPost(ctx: any) {
   return professionalsService.deletePortfolioPost(ctx.user.sub, ctx.params.id);
+}
+
+export async function reorderPortfolio(ctx: any) {
+  const { ids } = ctx.body as { ids: string[] };
+  return professionalsService.reorderPortfolio(ctx.user.sub, ids);
 }

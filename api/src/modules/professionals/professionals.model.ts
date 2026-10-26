@@ -66,7 +66,10 @@ export const portfolioPosts = pgTable(
     cor: varchar("cor", { length: 20 }),
     legenda: text("legenda"),
     url: text("url"),
-    marcado: boolean("marcado").notNull().default(false),
+    // Nome de quem foi marcado na foto (ex: "@familia-oliveira") -- texto
+    // livre, nao e so um "marcado: sim/nao".
+    marcado: text("marcado"),
+    ordem: integer("ordem").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("portfolio_posts_professional_id_idx").on(t.professionalId)]

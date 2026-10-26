@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Star, Phone, MessageCircle, ShieldCheck, MapPin, Search,
   ChevronLeft, Clock, Wallet, Calendar, X, Quote,
-  SlidersHorizontal, ChevronDown, RotateCcw, Check, Heart,
+  SlidersHorizontal, ChevronDown, ChevronUp, RotateCcw, Check, Heart,
   CheckCircle2, XCircle, Home, Car, Camera, RefreshCw, CreditCard,
   QrCode, FileText, Clock3, User, Mail, HelpCircle, Edit3,
   Rocket, Image, Bell, Sparkles, Share2, Users, UserPlus, Tag, Eye, EyeOff, ShieldAlert, Lock,
@@ -15,7 +15,7 @@ import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentSt
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile } from "./api/users.js";
-import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile } from "./api/professionals.js";
+import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile, listMyPortfolio, addPortfolioPost, deletePortfolioPost, reorderPortfolio } from "./api/professionals.js";
 import {
   createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
   checkinBooking, checkoutBooking, completeBooking,
@@ -349,7 +349,11 @@ function lerImagemRedimensionada(file, tamanhoMax = 1280, qualidade = 0.75) {
 // CN de cada pessoa da equipe — sem "capture", pra abrir o seletor nativo
 // com as duas opções (câmera e galeria), já que um print de PDF só existe
 // na galeria.
-function SeletorFotoCertidao({ foto, onChange, corDestaque = GOLD_DEEP }) {
+// Seletor de foto genérico — o <input type="file"> sem "capture" abre o
+// seletor nativo do Android com câmera (frontal OU traseira, o usuário
+// escolhe lá) e galeria na mesma caixa de diálogo. Reaproveitado no envio
+// da Certidão Negativa e nas fotos de trabalho da diarista.
+function SeletorFoto({ foto, onChange, corDestaque = GOLD_DEEP, label = "Anexar foto", alt = "Foto anexada", trocarLabel = "Trocar foto" }) {
   const inputRef = useRef(null);
   const [erro, setErro] = useState("");
 
@@ -368,9 +372,9 @@ function SeletorFotoCertidao({ foto, onChange, corDestaque = GOLD_DEEP }) {
   if (foto) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <img src={foto} alt="Certidão anexada" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}` }} />
+        <img src={foto} alt={alt} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}` }} />
         <button type="button" onClick={() => inputRef.current?.click()} style={{ background: "none", border: `1px solid ${corDestaque}`, borderRadius: 10, padding: "6px 12px", color: corDestaque, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
-          Trocar foto
+          {trocarLabel}
         </button>
         <button type="button" onClick={() => onChange("")} style={{ background: "none", border: "none", color: ERROR, fontSize: 11.5, cursor: "pointer" }}>
           Remover
@@ -387,7 +391,7 @@ function SeletorFotoCertidao({ foto, onChange, corDestaque = GOLD_DEEP }) {
         background: "none", border: `1.5px dashed ${corDestaque}`, borderRadius: 12, padding: "12px 0",
         color: corDestaque, fontFamily: "Manrope, sans-serif", fontWeight: 700, fontSize: 12.5, cursor: "pointer",
       }}>
-        <Camera size={15} /> Anexar foto ou print da certidão
+        <Camera size={15} /> {label}
       </button>
       <input ref={inputRef} type="file" accept="image/*" onChange={escolher} style={{ display: "none" }} />
       {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
@@ -634,7 +638,7 @@ function CertidaoNegativaBox({ serviceType, certidaoNegativaUrl, corDestaque = G
             {status === "vencida" ? "Sua certidão venceu (validade de 90 dias) — envie uma atualizada. " : ""}
             Tire uma foto ou envie um print da sua certidão (gov.br ou Tribunal de Justiça) pra ganhar o selo azul "CN" e passar mais confiança pra quem for te contratar.
           </p>
-          <SeletorFotoCertidao foto={foto} onChange={setFoto} corDestaque={corDestaque} />
+          <SeletorFoto foto={foto} onChange={setFoto} corDestaque={corDestaque} label="Anexar foto ou print da certidão" alt="Certidão anexada" />
           {erro && <p style={{ fontSize: 11, color: ERROR, margin: "4px 0 0" }}>{erro}</p>}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
             <button onClick={enviar} disabled={enviando || !foto} style={{
@@ -817,7 +821,7 @@ function TrabalhoModal({ onClose, onSalvar, corDestaque = D_CORAL_DEEP }) {
             <X size={18} color="#5A2420" />
           </button>
         </div>
-        <FotoCameraStep foto={foto} setFoto={setFoto} />
+        <SeletorFoto foto={foto} onChange={setFoto} corDestaque={corDestaque} label="Tirar foto (câmera) ou escolher da galeria" alt="Foto do trabalho" />
         {foto && (
           <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
             <CampoEdit label="Legenda (opcional)">
@@ -1369,7 +1373,7 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
 
 function BabaDetail({
   baba, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAgendar, avaliacoesExtras = [],
-  onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso,
+  onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
@@ -1829,6 +1833,16 @@ function BabaDetail({
                     <ContatosConfiancaView contatos={baba.contatosConfianca} />
                   )}
                 </div>
+              )}
+
+              {editable && !editando && onSair && (
+                <button onClick={onSair} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 20,
+                  background: "none", border: "none", padding: "10px 14px", cursor: "pointer",
+                }}>
+                  <XCircle size={14} color="#B23B3B" />
+                  <span style={{ fontSize: 12.5, color: "#B23B3B", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Sair da conta</span>
+                </button>
               )}
             </div>
           )}
@@ -2547,8 +2561,8 @@ function DiaristaSearchView({ onSelect, bloqueados = [], cidade }) {
 }
 
 function DiaristaDetail({
-  diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onAgendar, avaliacoesExtras = [],
-  onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso,
+  diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onRemoverTrabalho, onMoverTrabalho, onAgendar, avaliacoesExtras = [],
+  onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
@@ -2870,7 +2884,7 @@ function DiaristaDetail({
                 Fotos de trabalhos já feitos por {diarista.name.split(" ")[0]}. {editable ? "Poste quantas quiser." : ""}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {diarista.trabalhos.map((foto) => (
+                {diarista.trabalhos.map((foto, indice) => (
                   <div key={foto.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <div style={{
                       aspectRatio: "1", borderRadius: 12, background: foto.url ? undefined : (foto.cor || D_CORAL_LIGHT),
@@ -2880,6 +2894,33 @@ function DiaristaDetail({
                         <img src={foto.url} alt={foto.legenda || "Trabalho realizado"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
                         <Sparkles size={20} color="#FFFFFF" style={{ opacity: 0.85 }} />
+                      )}
+                      {editable && (
+                        <>
+                          <button onClick={() => onRemoverTrabalho?.(foto.id)} title="Excluir foto" style={{
+                            position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: "50%",
+                            background: "rgba(0,0,0,0.55)", border: "none", display: "flex", alignItems: "center",
+                            justifyContent: "center", cursor: "pointer",
+                          }}>
+                            <X size={12} color="#fff" />
+                          </button>
+                          <div style={{ position: "absolute", top: 5, left: 5, display: "flex", flexDirection: "column", gap: 3 }}>
+                            <button onClick={() => onMoverTrabalho?.(foto.id, "cima")} disabled={indice === 0} title="Mover pra cima" style={{
+                              width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: "none",
+                              display: "flex", alignItems: "center", justifyContent: "center", cursor: indice === 0 ? "default" : "pointer",
+                              opacity: indice === 0 ? 0.4 : 1,
+                            }}>
+                              <ChevronUp size={12} color="#fff" />
+                            </button>
+                            <button onClick={() => onMoverTrabalho?.(foto.id, "baixo")} disabled={indice === diarista.trabalhos.length - 1} title="Mover pra baixo" style={{
+                              width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.55)", border: "none",
+                              display: "flex", alignItems: "center", justifyContent: "center", cursor: indice === diarista.trabalhos.length - 1 ? "default" : "pointer",
+                              opacity: indice === diarista.trabalhos.length - 1 ? 0.4 : 1,
+                            }}>
+                              <ChevronDown size={12} color="#fff" />
+                            </button>
+                          </div>
+                        </>
                       )}
                       {foto.marcado && (
                         <span style={{
@@ -3081,6 +3122,16 @@ function DiaristaDetail({
                     <ContatosConfiancaView contatos={diarista.contatosConfianca} />
                   )}
                 </div>
+              )}
+
+              {editable && !editando && onSair && (
+                <button onClick={onSair} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", marginTop: 20,
+                  background: "none", border: "none", padding: "10px 14px", cursor: "pointer",
+                }}>
+                  <XCircle size={14} color="#B23B3B" />
+                  <span style={{ fontSize: 12.5, color: "#B23B3B", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Sair da conta</span>
+                </button>
               )}
             </div>
           )}
@@ -5342,7 +5393,7 @@ function EquipeStep({ membros, setMembros, corDestaque = D_CORAL_DEEP }) {
           </div>
           <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="Nome completo" value={m.nome} onChange={(e) => atualizar(i, "nome", e.target.value)} />
           <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="CPF" value={m.cpf} onChange={(e) => atualizar(i, "cpf", e.target.value)} />
-          <SeletorFotoCertidao foto={m.certidaoNegativaFoto} onChange={(v) => atualizar(i, "certidaoNegativaFoto", v)} corDestaque={corDestaque} />
+          <SeletorFoto foto={m.certidaoNegativaFoto} onChange={(v) => atualizar(i, "certidaoNegativaFoto", v)} corDestaque={corDestaque} label="Anexar foto ou print da certidão" alt="Certidão anexada" />
         </div>
       ))}
       <button onClick={adicionar} style={{
@@ -6499,6 +6550,8 @@ export default function App() {
         try {
           const dto = await getMyProfessionalProfile("diarista");
           if (!cancelado) setMeuPerfilDiarista(adaptarProfissionalDiarista(dto));
+          const trabalhos = await listMyPortfolio().catch(() => []);
+          if (!cancelado) setMeuPerfilDiarista((p) => ({ ...p, trabalhos }));
         } catch {}
       }
     })();
@@ -6528,6 +6581,8 @@ export default function App() {
     try {
       const dto = await getMyProfessionalProfile("diarista");
       setMeuPerfilDiarista(adaptarProfissionalDiarista(dto));
+      const trabalhos = await listMyPortfolio().catch(() => []);
+      setMeuPerfilDiarista((p) => ({ ...p, trabalhos }));
     } catch {}
     setMostrarPagamentoDiarista(false);
   };
@@ -6968,8 +7023,35 @@ export default function App() {
     updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
-  const adicionarTrabalhoDiarista = (trabalho) => {
-    setMeuPerfilDiarista((p) => ({ ...p, trabalhos: [...p.trabalhos, { id: Date.now(), ...trabalho }] }));
+  const adicionarTrabalhoDiarista = async (trabalho) => {
+    const novo = await addPortfolioPost(trabalho);
+    setMeuPerfilDiarista((p) => ({ ...p, trabalhos: [...p.trabalhos, novo] }));
+  };
+
+  const removerTrabalhoDiarista = async (id) => {
+    const anteriores = meuPerfilDiarista.trabalhos;
+    setMeuPerfilDiarista((p) => ({ ...p, trabalhos: p.trabalhos.filter((t) => t.id !== id) }));
+    try {
+      await deletePortfolioPost(id);
+    } catch {
+      setMeuPerfilDiarista((p) => ({ ...p, trabalhos: anteriores }));
+    }
+  };
+
+  // Sem drag-and-drop — mover uma posição pra cima/baixo e salvar a ordem
+  // inteira de novo é bem mais simples de acertar numa tela de toque.
+  const moverTrabalhoDiarista = async (id, direcao) => {
+    const lista = [...meuPerfilDiarista.trabalhos];
+    const i = lista.findIndex((t) => t.id === id);
+    const j = direcao === "cima" ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    setMeuPerfilDiarista((p) => ({ ...p, trabalhos: lista }));
+    try {
+      await reorderPortfolio(lista.map((t) => t.id));
+    } catch {
+      await recarregarPerfilDiarista();
+    }
   };
 
   const atualizarPerfilDiarista = (dados) => {
@@ -7283,10 +7365,13 @@ export default function App() {
                       editable={true}
                       onAtualizarFoto={atualizarFotoPerfilDiarista}
                       onAdicionarTrabalho={adicionarTrabalhoDiarista}
+                      onRemoverTrabalho={removerTrabalhoDiarista}
+                      onMoverTrabalho={moverTrabalhoDiarista}
                       onSalvarPerfil={atualizarPerfilDiarista}
                       avaliacoesExtras={avaliacoesExtras}
                       onVerAgenda={() => setVerHistorico("prestadorDiarista")}
                       pendentesCount={pendentesDiarista}
+                      onSair={async () => { await auth.logout(); setTela("hub"); }}
                     />
                   </div>
                 </div>
@@ -7481,6 +7566,7 @@ export default function App() {
             avaliacoesExtras={avaliacoesExtras}
             onVerAgenda={modo === "baba" ? () => setVerHistorico("prestadorBaba") : undefined}
             pendentesCount={pendentesBaba}
+            onSair={modo === "baba" ? async () => { await auth.logout(); setTela("hub"); } : undefined}
             onDenunciar={modo === "mae" ? (perfil, motivo, detalhes) => enviarDenuncia(perfil, "baba", motivo, detalhes) : undefined}
             onBloquear={modo === "mae" ? (perfil) => bloquearPerfil(perfil, "baba") : undefined}
             meuContato={meuPerfilMae}

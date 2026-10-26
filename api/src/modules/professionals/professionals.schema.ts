@@ -55,5 +55,9 @@ export const portfolioPostBody = t.Object({
   cor: t.Optional(t.String()),
   legenda: t.Optional(t.String()),
   url: t.Optional(t.String()),
-  marcado: t.Optional(t.Boolean()),
+  marcado: t.Optional(t.String()),
+});
+
+export const reorderPortfolioBody = t.Object({
+  ids: t.Array(t.String({ format: "uuid" })),
 });
