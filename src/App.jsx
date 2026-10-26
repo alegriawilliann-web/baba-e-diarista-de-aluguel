@@ -14,7 +14,7 @@ import { Browser } from "@capacitor/browser";
 import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
-import { grantClientRole, deleteMyAccount } from "./api/users.js";
+import { grantClientRole, deleteMyAccount, updateMe } from "./api/users.js";
 import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile } from "./api/professionals.js";
 import {
   createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
@@ -6578,6 +6578,7 @@ export default function App() {
 
   const finalizarCadastroBaba = async (respostas) => {
     await registrarOuLogar({ email: respostas.email, password: respostas.senha, name: respostas.nome });
+    if (respostas.fotoPerfil) await updateMe({ photoUrl: respostas.fotoPerfil }).catch(() => {});
     const payload = respostasParaCreateProfessionalInput(respostas, "baba");
     await createProfessionalProfile(payload);
     await auth.refreshRoles();
@@ -6599,6 +6600,7 @@ export default function App() {
   const atualizarFotoPerfil = (fotoUrl) => {
     setMeuPerfilBaba((p) => ({ ...p, fotoUrl }));
     setSelecionada((s) => (s ? { ...s, fotoUrl } : s));
+    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const atualizarPerfilBaba = (dados) => {
@@ -6612,6 +6614,7 @@ export default function App() {
 
   const atualizarFotoPerfilMae = (fotoUrl) => {
     setMeuPerfilMae((p) => ({ ...(p || {}), fotoUrl }));
+    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const FORMA_PAGAMENTO_API = { "Pix": "pix", "Cartão de crédito": "credito" };
@@ -6791,6 +6794,7 @@ export default function App() {
 
   const finalizarCadastroDiarista = async (respostas) => {
     await registrarOuLogar({ email: respostas.email, password: respostas.senha, name: respostas.nome });
+    if (respostas.fotoPerfil) await updateMe({ photoUrl: respostas.fotoPerfil }).catch(() => {});
     const payload = respostasParaCreateProfessionalInput(respostas, "diarista");
     await createProfessionalProfile(payload);
     await auth.refreshRoles();
@@ -6854,6 +6858,7 @@ export default function App() {
   const atualizarFotoPerfilDiarista = (fotoUrl) => {
     setMeuPerfilDiarista((p) => ({ ...p, fotoUrl }));
     setSelecionadaDiarista((s) => (s ? { ...s, fotoUrl } : s));
+    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const adicionarTrabalhoDiarista = (trabalho) => {
@@ -6871,6 +6876,7 @@ export default function App() {
 
   const atualizarFotoPerfilCliente = (fotoUrl) => {
     setMeuPerfilCliente((p) => ({ ...(p || {}), fotoUrl }));
+    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const MOTIVO_DENUNCIA_API = {

@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, pgEnum, boolean, unique, index, numeric, integer } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, timestamp, pgEnum, boolean, unique, index, numeric, integer, text } from "drizzle-orm/pg-core";
 import { ROLES } from "../../config/constants";
 
 export const roleEnum = pgEnum("role", [...ROLES]);
@@ -9,7 +9,9 @@ export const users = pgTable("users", {
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   name: varchar("name", { length: 150 }).notNull(),
   phone: varchar("phone", { length: 20 }),
-  photoUrl: varchar("photo_url", { length: 2048 }),
+  // text (não varchar) porque a foto é salva como imagem em base64, igual
+  // a certidaoNegativaFoto — não há upload/armazenamento de arquivo externo.
+  photoUrl: text("photo_url"),
   countryCode: varchar("country_code", { length: 2 }).notNull().default("BR"),
   locale: varchar("locale", { length: 10 }).notNull().default("pt-BR"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
