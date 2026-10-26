@@ -14,7 +14,7 @@ import { Browser } from "@capacitor/browser";
 import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
-import { grantClientRole, deleteMyAccount, updateMe } from "./api/users.js";
+import { grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile } from "./api/users.js";
 import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile } from "./api/professionals.js";
 import {
   createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
@@ -25,6 +25,7 @@ import { blockProfessional, unblockProfessional, listMyBlocks, reportProfessiona
 import { getMyBoosts } from "./api/boosts.js";
 import { submitVerification, listMyVerifications, listVerificationQueue, reviewVerification } from "./api/verifications.js";
 import { submitTeamMember, listMyTeamMembers, listTeamMemberQueue, reviewTeamMember } from "./api/teamMembers.js";
+import { listNotifications, markAllNotificationsRead as apiMarkAllNotificationsRead } from "./api/notifications.js";
 import { respostasParaCreateProfessionalInput, respostasParaAgenda } from "./mappers.js";
 
 // ---- paleta ----
@@ -1228,8 +1229,13 @@ function AvaliarModal({ nome, onClose, onEnviar, corDestaque = GOLD_DEEP }) {
 
 function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }) {
   const [copiado, setCopiado] = useState(false);
-  const [handle, setHandle] = useState("");
+  const [query, setQuery] = useState("");
+  const [resultados, setResultados] = useState([]);
+  const [buscando, setBuscando] = useState(false);
+  const [selecionado, setSelecionado] = useState(null);
+  const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [erro, setErro] = useState("");
 
   const slug = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   const link = `${appNome === "diarista" ? "diaristadealuguel.app" : "babadealuguel.app"}/perfil/${slug}`;
@@ -1239,9 +1245,45 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
     setTimeout(() => setCopiado(false), 2000);
   };
 
-  const enviarArroba = () => {
-    if (!handle.trim()) return;
-    setEnviado(true);
+  // P\u00f3s busca: espera parar de digitar, procura gente de verdade pelo nome
+  // \u2014 n\u00e3o d\u00e1 mais pra "enviar" pra algu\u00e9m que n\u00e3o existe.
+  useEffect(() => {
+    if (selecionado || query.trim().length < 2) { setResultados([]); return; }
+    let cancelado = false;
+    setBuscando(true);
+    const t = setTimeout(() => {
+      searchUsers(query.trim())
+        .then((res) => { if (!cancelado) setResultados(res || []); })
+        .catch(() => { if (!cancelado) setResultados([]); })
+        .finally(() => { if (!cancelado) setBuscando(false); });
+    }, 350);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [query, selecionado]);
+
+  const escolher = (usuario) => {
+    setSelecionado(usuario);
+    setQuery(usuario.name);
+    setResultados([]);
+  };
+
+  const limparSelecao = () => {
+    setSelecionado(null);
+    setQuery("");
+    setEnviado(false);
+  };
+
+  const enviar = async () => {
+    if (!selecionado) return;
+    setEnviando(true);
+    setErro("");
+    try {
+      await shareProfile({ targetUserId: selecionado.id, nome });
+      setEnviado(true);
+    } catch (e) {
+      setErro(e.message || "N\u00e3o foi poss\u00edvel enviar agora. Tente de novo.");
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -1265,16 +1307,59 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
           {copiado ? <Check size={16} /> : <FileText size={16} />} {copiado ? "Link copiado!" : "Copiar link"}
         </button>
 
-        <p style={{ fontSize: 11, color: INK_SOFT, marginBottom: 8, fontWeight: 700 }}>Ou envie direto por @</p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input value={handle} onChange={(e) => { setHandle(e.target.value); setEnviado(false); }} placeholder="@usuario"
-            style={{ ...inputStyle, flex: 1 }} />
-          <button onClick={enviarArroba} style={{ ...btnPrimary, background: corDestaque, width: 90, boxShadow: "none" }}>Enviar</button>
+        <p style={{ fontSize: 11, color: INK_SOFT, marginBottom: 8, fontWeight: 700 }}>Ou envie direto pra alguém do app</p>
+        <div style={{ position: "relative" }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setSelecionado(null); setEnviado(false); setErro(""); }}
+              placeholder="Digite o nome da pessoa"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <button onClick={enviar} disabled={!selecionado || enviando} style={{
+              ...btnPrimary, background: corDestaque, width: 90, boxShadow: "none",
+              opacity: !selecionado || enviando ? 0.5 : 1, cursor: !selecionado || enviando ? "default" : "pointer",
+            }}>
+              {enviando ? "..." : "Enviar"}
+            </button>
+          </div>
+          {!selecionado && query.trim().length >= 2 && (
+            <div style={{
+              position: "absolute", top: "100%", left: 0, right: 90 + 8, marginTop: 4, background: CARD,
+              border: `1px solid ${LINE}`, borderRadius: 12, overflow: "hidden", zIndex: 5,
+              boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
+            }}>
+              {buscando ? (
+                <p style={{ fontSize: 11.5, color: INK_SOFT, padding: "10px 13px", margin: 0 }}>Buscando...</p>
+              ) : resultados.length === 0 ? (
+                <p style={{ fontSize: 11.5, color: INK_SOFT, padding: "10px 13px", margin: 0 }}>Ninguém encontrado com esse nome.</p>
+              ) : (
+                resultados.map((u) => (
+                  <button key={u.id} onClick={() => escolher(u)} style={{
+                    display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "9px 13px",
+                    background: "none", border: "none", borderBottom: `1px solid ${LINE}`, cursor: "pointer", textAlign: "left",
+                  }}>
+                    <Avatar initials={iniciaisDoNome(u.name)} color={corDestaque} fotoUrl={u.photoUrl} size={26} />
+                    <span style={{ fontSize: 12.5, color: INK }}>{u.name}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
+        {selecionado && !enviado && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+            <span style={{ fontSize: 11, color: INK_SOFT }}>Enviando pra <b style={{ color: INK }}>{selecionado.name}</b></span>
+            <button onClick={limparSelecao} style={{ background: "none", border: "none", color: corDestaque, fontSize: 11, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
+              trocar
+            </button>
+          </div>
+        )}
+        {erro && <p style={{ fontSize: 11.5, color: ERROR, marginTop: 8 }}>{erro}</p>}
         {enviado && (
           <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 10 }}>
             <CheckCircle2 size={14} color={FOREST} />
-            <span style={{ fontSize: 12, color: FOREST, fontWeight: 700 }}>Perfil enviado para {handle}!</span>
+            <span style={{ fontSize: 12, color: FOREST, fontWeight: 700 }}>Perfil enviado para {selecionado?.name}!</span>
           </div>
         )}
       </div>
@@ -6303,6 +6388,28 @@ export default function App() {
     setNotificacoes((n) => [{ id: novoId, texto, lida: false }, ...n]);
   };
 
+  // Notificações de verdade vindas do servidor (ex: alguém te enviou um
+  // perfil) — somadas às locais acima, que são só avisos instantâneos desta
+  // sessão (nunca persistidos). Busca de novo toda vez que a tela de
+  // notificações abre, pra pegar o que chegou enquanto o app estava fechado.
+  useEffect(() => {
+    if (auth.status !== "authenticated" || !verNotificacoes) return;
+    let cancelado = false;
+    listNotifications()
+      .then((rows) => {
+        if (cancelado) return;
+        setNotificacoes((atuais) => {
+          const idsLocais = new Set(atuais.map((n) => n.id));
+          const doServidor = (rows || [])
+            .filter((r) => !idsLocais.has(r.id))
+            .map((r) => ({ id: r.id, texto: r.texto, lida: r.lida }));
+          return [...doServidor, ...atuais];
+        });
+      })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [auth.status, verNotificacoes]);
+
   const notificarContatosConfianca = (contatos, mensagem) => {
     const nomes = (contatos || []).map((c) => c.nome).filter(Boolean).join(", ");
     if (!nomes) return;
@@ -7396,7 +7503,10 @@ export default function App() {
         <NotificacoesScreen
           notificacoes={notificacoes}
           onVoltar={() => setVerNotificacoes(false)}
-          onLerTodas={() => setNotificacoes((n) => n.map((x) => ({ ...x, lida: true })))}
+          onLerTodas={() => {
+            setNotificacoes((n) => n.map((x) => ({ ...x, lida: true })));
+            apiMarkAllNotificationsRead().catch(() => {});
+          }}
         />
       )}
     </div>

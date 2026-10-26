@@ -34,6 +34,15 @@ export async function deleteTrustedContact(ctx: any) {
   return usersService.deleteTrustedContact(ctx.user.sub, ctx.params.id);
 }
 
+export async function searchUsers(ctx: any) {
+  return usersService.searchUsers(ctx.user.sub, ctx.query.q);
+}
+
+export async function shareProfile(ctx: any) {
+  const { targetUserId, nome } = ctx.body as { targetUserId: string; nome: string };
+  return usersService.shareProfile(ctx.user.sub, targetUserId, nome);
+}
+
 export async function listUsers(ctx: any) {
   return usersService.listUsers(ctx.query);
 }

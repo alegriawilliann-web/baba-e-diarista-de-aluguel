@@ -1,4 +1,4 @@
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, ilike, ne } from "drizzle-orm";
 import { db } from "../../config/database";
 import { users, userRoles, clientProfiles, trustedContacts, addresses, authTokens, refreshTokens, roleEnum } from "./users.model";
 import { professionalProfiles, portfolioPosts, follows, teamMembers } from "../professionals/professionals.model";
@@ -21,6 +21,19 @@ export async function getMe(userId: string) {
   if (!user) throw new NotFoundError("Usuário não encontrado");
   const roles = await getRolesForUser(userId);
   return { id: user.id, email: user.email, name: user.name, phone: user.phone, photoUrl: user.photoUrl, roles };
+}
+
+// Busca pra "enviar perfil por @" — nome parcial, só dados públicos (nunca
+// e-mail/telefone), e nunca o próprio usuário logado na lista de resultados.
+export async function searchUsers(callerId: string, q: string) {
+  const termo = (q || "").trim();
+  if (termo.length < 2) return [];
+  const rows = await db.query.users.findMany({
+    where: and(ilike(users.name, `%${termo}%`), ne(users.id, callerId)),
+    limit: 8,
+    orderBy: (u, { asc }) => [asc(u.name)],
+  });
+  return rows.map((u) => ({ id: u.id, name: u.name, photoUrl: u.photoUrl }));
 }
 
 export async function updateMe(userId: string, input: UpdateMeInput) {
@@ -134,6 +147,25 @@ export async function deleteMyAccount(userId: string) {
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+  });
+
+  return { ok: true };
+}
+
+export async function shareProfile(callerId: string, targetUserId: string, nomePerfil: string) {
+  if (targetUserId === callerId) throw new ForbiddenError("Você não pode enviar um perfil pra si mesmo");
+
+  const [caller, target] = await Promise.all([
+    db.query.users.findFirst({ where: eq(users.id, callerId) }),
+    db.query.users.findFirst({ where: eq(users.id, targetUserId) }),
+  ]);
+  if (!target) throw new NotFoundError("Esse usuário não existe");
+
+  const { notify } = await import("../notifications/notifications.service");
+  await notify({
+    userId: targetUserId,
+    tipo: "perfil_compartilhado",
+    texto: `${caller?.name ?? "Alguém"} compartilhou o perfil de ${nomePerfil} com você.`,
   });
 
   return { ok: true };

@@ -29,3 +29,8 @@ export const trustedContactUpdateBody = t.Object({
 export const roleUpdateBody = t.Object({
   roles: t.Array(t.String()),
 });
+
+export const shareProfileBody = t.Object({
+  targetUserId: t.String({ format: "uuid" }),
+  nome: t.String({ minLength: 1, maxLength: 150 }),
+});
