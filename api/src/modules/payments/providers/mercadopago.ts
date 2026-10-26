@@ -7,6 +7,12 @@ function client() {
   return new Payment(new MercadoPagoConfig({ accessToken: env.MP_ACCESS_TOKEN }));
 }
 
+// Sem isso, o Mercado Pago só avisa a aprovação se houver um webhook
+// configurado manualmente no painel do app — e não havia. Mandando a URL
+// em toda cobrança, a confirmação chega de qualquer forma, mesmo que o
+// painel nunca seja configurado.
+const notificationUrl = `${env.APP_BASE_URL}/api/webhooks/mercadopago`;
+
 // Porta direta da lógica já validada em server/src/mercadopago.js (protótipo
 // Express) — mesma API do SDK v2, agora atrás da interface PaymentProviderAdapter.
 export const mercadoPagoProvider: PaymentProviderAdapter = {
@@ -18,6 +24,7 @@ export const mercadoPagoProvider: PaymentProviderAdapter = {
         description: input.descricao,
         payment_method_id: "pix",
         external_reference: input.referenciaExterna,
+        notification_url: notificationUrl,
         payer: { email: input.email, first_name: firstName, last_name: rest.join(" ") || firstName },
       },
     });
@@ -42,6 +49,7 @@ export const mercadoPagoProvider: PaymentProviderAdapter = {
         issuer_id: input.issuerId,
         payment_method_id: input.paymentMethodId,
         external_reference: input.referenciaExterna,
+        notification_url: notificationUrl,
         payer: { email: input.email },
       },
     });
