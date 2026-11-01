@@ -830,6 +830,20 @@ function Tabs({ tabs, active, onChange }) {
 
 function FotoModal({ onClose, onSalvar, titulo = "Foto de perfil", textoBotao = "Salvar foto" }) {
   const [foto, setFoto] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const salvar = async () => {
+    setEnviando(true);
+    setErro("");
+    try {
+      await onSalvar(foto);
+    } catch (e) {
+      setErro(e.message || "Não foi possível salvar a foto agora. Tente de novo.");
+      setEnviando(false);
+    }
+  };
+
   return (
     <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{
@@ -843,9 +857,10 @@ function FotoModal({ onClose, onSalvar, titulo = "Foto de perfil", textoBotao = 
           </button>
         </div>
         <FotoCameraStep foto={foto} setFoto={setFoto} />
+        {erro && <p style={{ fontSize: 11.5, color: ERROR, margin: "0 0 8px" }}>{erro}</p>}
         {foto && (
-          <button className="shine-cta" onClick={() => onSalvar(foto)} style={{ ...btnPrimary, width: "100%", marginTop: 14 }}>
-            {textoBotao}
+          <button className="shine-cta" onClick={salvar} disabled={enviando} style={{ ...btnPrimary, width: "100%", marginTop: 14, opacity: enviando ? 0.7 : 1, cursor: enviando ? "default" : "pointer" }}>
+            {enviando ? "Salvando..." : textoBotao}
           </button>
         )}
       </div>
@@ -1950,8 +1965,8 @@ function BabaDetail({
       {showFotoModal && (
         <FotoModal
           onClose={() => setShowFotoModal(false)}
-          onSalvar={(foto) => {
-            onAtualizarFoto?.(foto);
+          onSalvar={async (foto) => {
+            await onAtualizarFoto?.(foto);
             setShowFotoModal(false);
           }}
         />
@@ -3241,8 +3256,8 @@ function DiaristaDetail({
       {showFotoModal && (
         <FotoModal
           onClose={() => setShowFotoModal(false)}
-          onSalvar={(foto) => {
-            onAtualizarFoto?.(foto);
+          onSalvar={async (foto) => {
+            await onAtualizarFoto?.(foto);
             setShowFotoModal(false);
           }}
         />
@@ -4254,8 +4269,8 @@ function PerfilMae({
           titulo="Foto de perfil"
           textoBotao="Salvar foto"
           onClose={() => setShowFotoModal(false)}
-          onSalvar={(foto) => {
-            onAtualizarFoto?.(foto);
+          onSalvar={async (foto) => {
+            await onAtualizarFoto?.(foto);
             setShowFotoModal(false);
           }}
         />
@@ -5211,19 +5226,23 @@ function FotoCameraStep({ foto, setFoto, permitirGaleria = false, avisoFixo }) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-    const tamanho = Math.min(video.videoWidth, video.videoHeight);
+    // Capado em 1000px — câmeras modernas capturam em resolução bem maior
+    // que isso, e sem limite o base64 ficava enorme e o salvamento no
+    // servidor falhava quieto (foto sumia ao reabrir o app).
+    const origem = Math.min(video.videoWidth, video.videoHeight);
+    const tamanho = Math.min(origem, 1000);
     canvas.width = tamanho;
     canvas.height = tamanho;
     const ctx = canvas.getContext("2d");
-    const offsetX = (video.videoWidth - tamanho) / 2;
-    const offsetY = (video.videoHeight - tamanho) / 2;
+    const offsetX = (video.videoWidth - origem) / 2;
+    const offsetY = (video.videoHeight - origem) / 2;
     // Só espelha a frontal — é a convenção (selfie "como no espelho"); a
     // traseira tem que sair do jeito que a câmera realmente vê.
     if (facingMode === "user") {
       ctx.translate(tamanho, 0);
       ctx.scale(-1, 1);
     }
-    ctx.drawImage(video, offsetX, offsetY, tamanho, tamanho, 0, 0, tamanho, tamanho);
+    ctx.drawImage(video, offsetX, offsetY, origem, origem, 0, 0, tamanho, tamanho);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     setFoto(dataUrl);
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -6842,10 +6861,10 @@ export default function App() {
     setTela("app");
   };
 
-  const atualizarFotoPerfil = (fotoUrl) => {
+  const atualizarFotoPerfil = async (fotoUrl) => {
+    await updateMe({ photoUrl: fotoUrl });
     setMeuPerfilBaba((p) => ({ ...p, fotoUrl }));
     setSelecionada((s) => (s ? { ...s, fotoUrl } : s));
-    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const atualizarPerfilBaba = (dados) => {
@@ -6857,9 +6876,9 @@ export default function App() {
     setMeuPerfilMae((p) => ({ ...(p || {}), ...dados }));
   };
 
-  const atualizarFotoPerfilMae = (fotoUrl) => {
+  const atualizarFotoPerfilMae = async (fotoUrl) => {
+    await updateMe({ photoUrl: fotoUrl });
     setMeuPerfilMae((p) => ({ ...(p || {}), fotoUrl }));
-    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const FORMA_PAGAMENTO_API = { "Pix": "pix", "Cartão de crédito": "credito" };
@@ -7100,10 +7119,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tela]);
 
-  const atualizarFotoPerfilDiarista = (fotoUrl) => {
+  const atualizarFotoPerfilDiarista = async (fotoUrl) => {
+    await updateMe({ photoUrl: fotoUrl });
     setMeuPerfilDiarista((p) => ({ ...p, fotoUrl }));
     setSelecionadaDiarista((s) => (s ? { ...s, fotoUrl } : s));
-    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const adicionarTrabalhoDiarista = async (trabalho) => {
@@ -7146,9 +7165,9 @@ export default function App() {
     setMeuPerfilCliente((p) => ({ ...(p || {}), ...dados }));
   };
 
-  const atualizarFotoPerfilCliente = (fotoUrl) => {
+  const atualizarFotoPerfilCliente = async (fotoUrl) => {
+    await updateMe({ photoUrl: fotoUrl });
     setMeuPerfilCliente((p) => ({ ...(p || {}), fotoUrl }));
-    updateMe({ photoUrl: fotoUrl }).catch(() => {});
   };
 
   const MOTIVO_DENUNCIA_API = {
