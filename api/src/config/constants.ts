@@ -54,6 +54,12 @@ export type ReportStatus = (typeof REPORT_STATUSES)[number];
 export const VERIFICATION_STATUSES = ["pending", "approved", "rejected"] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
+export const JOB_STATUSES = ["aberta", "fechada"] as const;
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
+export const JOB_APPLICATION_STATUSES = ["pendente", "aceita", "recusada"] as const;
+export type JobApplicationStatus = (typeof JOB_APPLICATION_STATUSES)[number];
+
 export const TRANSPORTE_OPTIONS = ["carro", "moto", "buscada"] as const;
 export type Transporte = (typeof TRANSPORTE_OPTIONS)[number];
 

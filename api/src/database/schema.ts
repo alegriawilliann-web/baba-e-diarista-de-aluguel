@@ -14,3 +14,4 @@ export * from "../modules/notifications/notifications.model";
 export * from "../modules/trust-safety/trust-safety.model";
 export * from "../modules/messages/messages.model";
 export * from "../modules/verifications/verifications.model";
+export * from "../modules/jobs/jobs.model";

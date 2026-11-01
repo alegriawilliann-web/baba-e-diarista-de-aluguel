@@ -7,7 +7,7 @@ import {
   QrCode, FileText, Clock3, User, Mail, HelpCircle, Edit3,
   Rocket, Image, Bell, Sparkles, Share2, Users, UserPlus, Tag, Eye, EyeOff, ShieldAlert, Lock,
   Send, CalendarCheck, CalendarClock, History, ClipboardList, MoreVertical, Flag, Ban, Siren, PhoneCall, MapPinned,
-  Radio, Vibrate, ExternalLink, ShieldQuestion
+  Radio, Vibrate, ExternalLink, ShieldQuestion, Briefcase, Plus
 } from "lucide-react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
@@ -26,6 +26,10 @@ import { getMyBoosts } from "./api/boosts.js";
 import { submitVerification, listMyVerifications, listVerificationQueue, reviewVerification } from "./api/verifications.js";
 import { submitTeamMember, listMyTeamMembers, listTeamMemberQueue, reviewTeamMember } from "./api/teamMembers.js";
 import { listNotifications, markAllNotificationsRead as apiMarkAllNotificationsRead } from "./api/notifications.js";
+import {
+  createJobPost, listMyJobPosts, closeJobPost, listOpenJobs, applyToJob, listMyApplications,
+  getJobPostApplications, updateApplicationStatus,
+} from "./api/jobs.js";
 import { respostasParaCreateProfessionalInput, respostasParaAgenda } from "./mappers.js";
 
 // ---- paleta ----
@@ -1452,7 +1456,7 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
 
 function BabaDetail({
   baba, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAgendar, avaliacoesExtras = [],
-  onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
+  onVerAgenda, onVerVagas, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
@@ -1564,6 +1568,14 @@ function BabaDetail({
                 {pendentesCount}
               </span>
             )}
+          </button>
+        )}
+        {editable && onVerVagas && !editando && (
+          <button onClick={onVerVagas} title="Vagas disponíveis" style={{
+            display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
+            borderRadius: "50%", background: "rgba(201,138,86,0.16)", border: `1px solid ${GOLD}`, cursor: "pointer",
+          }}>
+            <Briefcase size={13} color={GOLD} />
           </button>
         )}
         {!editable && (onDenunciar || onBloquear) && (
@@ -2641,7 +2653,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [], cidade }) {
 
 function DiaristaDetail({
   diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onRemoverTrabalho, onMoverTrabalho, onAgendar, avaliacoesExtras = [],
-  onVerAgenda, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
+  onVerAgenda, onVerVagas, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
@@ -2760,6 +2772,14 @@ function DiaristaDetail({
                 {pendentesCount}
               </span>
             )}
+          </button>
+        )}
+        {editable && onVerVagas && !editando && (
+          <button onClick={onVerVagas} title="Vagas disponíveis" style={{
+            display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
+            borderRadius: "50%", background: "rgba(226,122,109,0.22)", border: `1px solid ${D_CORAL}`, cursor: "pointer",
+          }}>
+            <Briefcase size={13} color={D_CORAL} />
           </button>
         )}
         {!editable && (onDenunciar || onBloquear) && (
@@ -3998,8 +4018,382 @@ function BloqueadosScreen({ bloqueados, onVoltar, onDesbloquear, corDestaque = G
   );
 }
 
+function NovaVagaModal({ onClose, onPublicar, corDestaque = GOLD_DEEP }) {
+  const [descricao, setDescricao] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const publicar = async () => {
+    if (descricao.trim().length < 10) {
+      setErro("Descreva o que você precisa (pelo menos 10 letras).");
+      return;
+    }
+    setEnviando(true);
+    setErro("");
+    try {
+      await onPublicar({ descricao: descricao.trim(), bairro: bairro.trim() || undefined, cidade: cidade.trim() || undefined });
+    } catch (e) {
+      setErro(e.message || "Não foi possível publicar agora. Tente de novo.");
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "rgba(30,20,10,0.55)", display: "flex", alignItems: "flex-end", zIndex: 36 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: "#FFFFFF", width: "100%", borderRadius: "22px 22px 0 0",
+        padding: "22px 20px 26px", fontFamily: "Manrope, sans-serif", maxHeight: "88%", overflowY: "auto", boxSizing: "border-box",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 17, color: INK }}>Publicar vaga</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
+            <X size={18} color={INK} />
+          </button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <CampoEdit label="O que você precisa?">
+            <textarea
+              style={{ ...inputStyle, minHeight: 90, resize: "vertical", fontFamily: "Manrope, sans-serif" }}
+              value={descricao} onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Ex: Preciso de alguém 3x por semana, período da tarde, para cuidar de uma criança de 2 anos."
+            />
+          </CampoEdit>
+          <CampoEdit label="Bairro (opcional)">
+            <input style={inputStyle} value={bairro} onChange={(e) => setBairro(e.target.value)} placeholder="Ex: Tatuapé" />
+          </CampoEdit>
+          <CampoEdit label="Cidade (opcional)">
+            <input style={inputStyle} value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Ex: São Paulo" />
+          </CampoEdit>
+          {erro && <p style={{ fontSize: 11.5, color: ERROR, margin: 0 }}>{erro}</p>}
+          <button
+            onClick={publicar}
+            disabled={enviando}
+            style={{ ...btnPrimary, background: corDestaque, width: "100%", boxShadow: "none", opacity: enviando ? 0.7 : 1, cursor: enviando ? "default" : "pointer" }}
+          >
+            {enviando ? "Publicando..." : "Publicar vaga"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CandidaturaModal({ vaga, onClose, onEnviar, corDestaque = GOLD_DEEP }) {
+  const [mensagem, setMensagem] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const enviar = async () => {
+    if (mensagem.trim().length < 10) {
+      setErro("Escreva uma mensagem com pelo menos 10 letras, contando um pouco da sua experiência.");
+      return;
+    }
+    setEnviando(true);
+    setErro("");
+    try {
+      await onEnviar(mensagem.trim());
+    } catch (e) {
+      setErro(e.message || "Não foi possível enviar agora. Tente de novo.");
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "rgba(30,20,10,0.55)", display: "flex", alignItems: "flex-end", zIndex: 36 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        background: "#FFFFFF", width: "100%", borderRadius: "22px 22px 0 0",
+        padding: "22px 20px 26px", fontFamily: "Manrope, sans-serif", maxHeight: "88%", overflowY: "auto", boxSizing: "border-box",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 17, color: INK }}>Enviar candidatura</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
+            <X size={18} color={INK} />
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: "#8B6A52", marginBottom: 14 }}>{vaga?.descricao}</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <CampoEdit label="Sua mensagem">
+            <textarea
+              style={{ ...inputStyle, minHeight: 100, resize: "vertical", fontFamily: "Manrope, sans-serif" }}
+              value={mensagem} onChange={(e) => setMensagem(e.target.value)}
+              placeholder="Conte sua experiência e por que você é uma boa escolha para essa vaga."
+            />
+          </CampoEdit>
+          {erro && <p style={{ fontSize: 11.5, color: ERROR, margin: 0 }}>{erro}</p>}
+          <button
+            onClick={enviar}
+            disabled={enviando}
+            style={{ ...btnPrimary, background: corDestaque, width: "100%", boxShadow: "none", opacity: enviando ? 0.7 : 1, cursor: enviando ? "default" : "pointer" }}
+          >
+            {enviando ? "Enviando..." : "Enviar candidatura"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const STATUS_CANDIDATURA = {
+  pendente: { texto: "Pendente", cor: "#8B6A52" },
+  aceita: { texto: "Aceita", cor: FOREST },
+  recusada: { texto: "Recusada", cor: ERROR },
+};
+
+function VagasScreen({ papel, serviceType, onVoltar, corDestaque = GOLD_DEEP, corHeader = INK, corTexto = PAPER }) {
+  const [aba, setAba] = useState(papel === "profissional" ? "disponiveis" : "minhas");
+  const [vagas, setVagas] = useState([]);
+  const [minhasCandidaturas, setMinhasCandidaturas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+  const [mostrarNovaVaga, setMostrarNovaVaga] = useState(false);
+  const [vagaAberta, setVagaAberta] = useState(null);
+  const [candidaturas, setCandidaturas] = useState([]);
+  const [carregandoCandidaturas, setCarregandoCandidaturas] = useState(false);
+  const [vagaCandidatando, setVagaCandidatando] = useState(null);
+
+  useEffect(() => {
+    setErro("");
+    if (aba === "minhas" && papel === "profissional") {
+      setCarregando(true);
+      listMyApplications(serviceType)
+        .then((lista) => setMinhasCandidaturas(lista || []))
+        .catch((e) => setErro(e.message || "Não foi possível carregar suas candidaturas."))
+        .finally(() => setCarregando(false));
+      return;
+    }
+    setCarregando(true);
+    const promessa = papel === "cliente" ? listMyJobPosts() : listOpenJobs(serviceType).then((r) => r.data);
+    promessa
+      .then((lista) => setVagas(lista || []))
+      .catch((e) => setErro(e.message || "Não foi possível carregar as vagas."))
+      .finally(() => setCarregando(false));
+  }, [aba, papel, serviceType]);
+
+  const recarregarVagas = () => {
+    const promessa = papel === "cliente" ? listMyJobPosts() : listOpenJobs(serviceType).then((r) => r.data);
+    promessa.then((lista) => setVagas(lista || [])).catch(() => {});
+  };
+
+  const publicarVaga = async (dados) => {
+    await createJobPost({ serviceType, ...dados });
+    setMostrarNovaVaga(false);
+    recarregarVagas();
+  };
+
+  const fecharVaga = async (id) => {
+    try {
+      await closeJobPost(id);
+      setVagas((lista) => lista.map((v) => (v.id === id ? { ...v, status: "fechada" } : v)));
+    } catch (e) {
+      setErro(e.message || "Não foi possível fechar a vaga.");
+    }
+  };
+
+  const abrirCandidaturas = (vaga) => {
+    setVagaAberta(vaga);
+    setCarregandoCandidaturas(true);
+    getJobPostApplications(vaga.id)
+      .then((lista) => setCandidaturas(lista || []))
+      .catch((e) => setErro(e.message || "Não foi possível carregar as candidaturas."))
+      .finally(() => setCarregandoCandidaturas(false));
+  };
+
+  const decidirCandidatura = async (applicationId, status) => {
+    try {
+      await updateApplicationStatus(vagaAberta.id, applicationId, status);
+      setCandidaturas((lista) => lista.map((c) => (c.id === applicationId ? { ...c, status } : c)));
+    } catch (e) {
+      setErro(e.message || "Não foi possível atualizar a candidatura.");
+    }
+  };
+
+  const enviarCandidatura = async (mensagem) => {
+    await applyToJob(vagaCandidatando.id, mensagem);
+    setVagas((lista) => lista.map((v) => (v.id === vagaCandidatando.id ? { ...v, jaCandidatei: true } : v)));
+    setVagaCandidatando(null);
+  };
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: PAPER, zIndex: 32, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px", background: corHeader }}>
+        <button onClick={vagaAberta ? () => setVagaAberta(null) : onVoltar} style={{ background: "none", border: "none", cursor: "pointer" }}>
+          <ChevronLeft size={20} color={corTexto} />
+        </button>
+        <span style={{ color: corTexto, fontFamily: "Manrope, sans-serif", fontSize: 13.5, flex: 1 }}>
+          {vagaAberta ? "Candidaturas" : papel === "cliente" ? "Vagas" : "Vagas"}
+        </span>
+        {papel === "cliente" && !vagaAberta && (
+          <button onClick={() => setMostrarNovaVaga(true)} style={{
+            display: "flex", alignItems: "center", gap: 5, background: corDestaque, border: "none",
+            borderRadius: 20, padding: "6px 12px", cursor: "pointer",
+          }}>
+            <Plus size={12} color="#FFFFFF" />
+            <span style={{ fontSize: 10.5, color: "#FFFFFF", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Publicar vaga</span>
+          </button>
+        )}
+      </div>
+
+      {papel === "profissional" && !vagaAberta && (
+        <div style={{ display: "flex", gap: 8, padding: "12px 16px 0" }}>
+          <button onClick={() => setAba("disponiveis")} style={{
+            flex: 1, padding: "9px 0", borderRadius: 10, border: `1px solid ${corDestaque}`, cursor: "pointer",
+            background: aba === "disponiveis" ? corDestaque : "none",
+            color: aba === "disponiveis" ? "#FFFFFF" : corDestaque, fontSize: 12, fontFamily: "Manrope, sans-serif", fontWeight: 700,
+          }}>Disponíveis</button>
+          <button onClick={() => setAba("minhas")} style={{
+            flex: 1, padding: "9px 0", borderRadius: 10, border: `1px solid ${corDestaque}`, cursor: "pointer",
+            background: aba === "minhas" ? corDestaque : "none",
+            color: aba === "minhas" ? "#FFFFFF" : corDestaque, fontSize: 12, fontFamily: "Manrope, sans-serif", fontWeight: 700,
+          }}>Minhas candidaturas</button>
+        </div>
+      )}
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px", fontFamily: "Manrope, sans-serif" }}>
+        {erro && <p style={{ fontSize: 11.5, color: ERROR, marginBottom: 12 }}>{erro}</p>}
+
+        {vagaAberta ? (
+          carregandoCandidaturas ? (
+            <p style={{ fontSize: 12.5, color: "#8B6A52", textAlign: "center", marginTop: 30 }}>Carregando...</p>
+          ) : candidaturas.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 10px" }}>
+              <Briefcase size={28} color="#C7B8A3" style={{ marginBottom: 10 }} />
+              <p style={{ fontSize: 12.5, color: "#8B6A52" }}>Ainda não chegou nenhuma candidatura para essa vaga.</p>
+            </div>
+          ) : (
+            candidaturas.map((c) => {
+              const nome = c.profissional?.nome || "Profissional";
+              const iniciais = nome.trim().split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+              const st = STATUS_CANDIDATURA[c.status] || STATUS_CANDIDATURA.pendente;
+              return (
+                <div key={c.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Avatar initials={iniciais} color={corDestaque} fotoUrl={c.profissional?.fotoUrl} size={36} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, color: INK, fontWeight: 700, margin: 0 }}>{nome}</p>
+                      {c.profissional?.ratingCount > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                          <Star size={10} color={GOLD} fill={GOLD} />
+                          <span style={{ fontSize: 10.5, color: "#8B6A52" }}>{c.profissional.rating.toFixed(1)} ({c.profissional.ratingCount})</span>
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: st.cor }}>{st.texto}</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: "#4A3526", marginTop: 8, marginBottom: c.status === "pendente" ? 10 : 0 }}>{c.mensagem}</p>
+                  {c.status === "pendente" && (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => decidirCandidatura(c.id, "recusada")} style={{
+                        flex: 1, fontSize: 11, fontWeight: 700, padding: "8px 0", borderRadius: 9, cursor: "pointer",
+                        border: `1px solid ${LINE}`, background: "none", color: "#8B6A52",
+                      }}>Recusar</button>
+                      <button onClick={() => decidirCandidatura(c.id, "aceita")} style={{
+                        flex: 1, fontSize: 11, fontWeight: 700, padding: "8px 0", borderRadius: 9, cursor: "pointer",
+                        border: "none", background: corDestaque, color: "#FFFFFF",
+                      }}>Aceitar</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )
+        ) : carregando ? (
+          <p style={{ fontSize: 12.5, color: "#8B6A52", textAlign: "center", marginTop: 30 }}>Carregando...</p>
+        ) : aba === "minhas" && papel === "profissional" ? (
+          minhasCandidaturas.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 10px" }}>
+              <Send size={28} color="#C7B8A3" style={{ marginBottom: 10 }} />
+              <p style={{ fontSize: 12.5, color: "#8B6A52" }}>Você ainda não enviou nenhuma candidatura.</p>
+            </div>
+          ) : (
+            minhasCandidaturas.map((c) => {
+              const st = STATUS_CANDIDATURA[c.status] || STATUS_CANDIDATURA.pendente;
+              return (
+                <div key={c.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <p style={{ fontSize: 12.5, color: INK, margin: 0, flex: 1 }}>{c.vaga?.descricao}</p>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: st.cor, whiteSpace: "nowrap" }}>{st.texto}</span>
+                  </div>
+                  {(c.vaga?.bairro || c.vaga?.cidade) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+                      <MapPin size={11} color="#8B6A52" />
+                      <span style={{ fontSize: 11, color: "#8B6A52" }}>{[c.vaga?.bairro, c.vaga?.cidade].filter(Boolean).join(", ")}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )
+        ) : vagas.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 10px" }}>
+            <Briefcase size={28} color="#C7B8A3" style={{ marginBottom: 10 }} />
+            <p style={{ fontSize: 12.5, color: "#8B6A52" }}>
+              {papel === "cliente" ? "Você ainda não publicou nenhuma vaga." : "Nenhuma vaga disponível no momento."}
+            </p>
+          </div>
+        ) : (
+          vagas.map((v) => (
+            <div key={v.id} style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: "12px 14px", marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <p style={{ fontSize: 12.5, color: INK, margin: 0, flex: 1 }}>{v.descricao}</p>
+                {papel === "cliente" && (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: v.status === "aberta" ? FOREST : "#8B6A52", whiteSpace: "nowrap" }}>
+                    {v.status === "aberta" ? "Aberta" : "Fechada"}
+                  </span>
+                )}
+              </div>
+              {(v.bairro || v.cidade) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
+                  <MapPin size={11} color="#8B6A52" />
+                  <span style={{ fontSize: 11, color: "#8B6A52" }}>{[v.bairro, v.cidade].filter(Boolean).join(", ")}</span>
+                </div>
+              )}
+              {papel === "cliente" ? (
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => abrirCandidaturas(v)} style={{
+                    flex: 1, fontSize: 11, fontWeight: 700, padding: "8px 0", borderRadius: 9, cursor: "pointer",
+                    border: `1px solid ${corDestaque}`, background: "none", color: corDestaque,
+                  }}>
+                    Ver candidaturas{v.candidaturasCount > 0 ? ` (${v.candidaturasCount})` : ""}
+                  </button>
+                  {v.status === "aberta" && (
+                    <button onClick={() => fecharVaga(v.id)} style={{
+                      fontSize: 11, fontWeight: 700, padding: "8px 12px", borderRadius: 9, cursor: "pointer",
+                      border: `1px solid ${LINE}`, background: "none", color: "#8B6A52",
+                    }}>Fechar</button>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => !v.jaCandidatei && setVagaCandidatando(v)}
+                  disabled={v.jaCandidatei}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", marginTop: 10,
+                    fontSize: 11, fontWeight: 700, padding: "9px 0", borderRadius: 9,
+                    cursor: v.jaCandidatei ? "default" : "pointer",
+                    border: v.jaCandidatei ? `1px solid ${LINE}` : "none",
+                    background: v.jaCandidatei ? "none" : corDestaque,
+                    color: v.jaCandidatei ? "#8B6A52" : "#FFFFFF",
+                  }}
+                >
+                  <Send size={12} />
+                  {v.jaCandidatei ? "Candidatura enviada" : "Enviar candidatura"}
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {mostrarNovaVaga && <NovaVagaModal onClose={() => setMostrarNovaVaga(false)} onPublicar={publicarVaga} corDestaque={corDestaque} />}
+      {vagaCandidatando && <CandidaturaModal vaga={vagaCandidatando} onClose={() => setVagaCandidatando(null)} onEnviar={enviarCandidatura} corDestaque={corDestaque} />}
+    </div>
+  );
+}
+
 function PerfilMae({
-  perfil, onVoltar, onSalvar, onAtualizarFoto, onVerContratacoes, onVerBloqueados, totalBloqueados = 0, onSair, onExcluirConta,
+  perfil, onVoltar, onSalvar, onAtualizarFoto, onVerContratacoes, onVerBloqueados, onVerVagas, totalBloqueados = 0, onSair, onExcluirConta,
   corDestaque = GOLD, corHeader = INK, corTexto = PAPER, rotulo = "Pai ou mãe na Babá de Aluguel", appNome = "baba",
 }) {
   const [edit, setEdit] = useState(null);
@@ -4196,6 +4590,17 @@ function PerfilMae({
           }}>
             <ClipboardList size={16} color={corDestaque} />
             <span style={{ fontSize: 13, color: INK, fontFamily: "Manrope, sans-serif", flex: 1 }}>Minhas contratações</span>
+            <ChevronLeft size={14} color="#8B6A52" style={{ transform: "rotate(180deg)" }} />
+          </button>
+        )}
+        {!editando && onVerVagas && (
+          <button onClick={onVerVagas} style={{
+            display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 10,
+            background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: "13px 14px",
+            cursor: "pointer", textAlign: "left",
+          }}>
+            <Briefcase size={16} color={corDestaque} />
+            <span style={{ fontSize: 13, color: INK, fontFamily: "Manrope, sans-serif", flex: 1 }}>Publicar vaga para profissionais</span>
             <ChevronLeft size={14} color="#8B6A52" style={{ transform: "rotate(180deg)" }} />
           </button>
         )}
@@ -6582,6 +6987,7 @@ export default function App() {
   const [perfisBloqueados, setPerfisBloqueados] = useState([]); // [{ tipo: "baba"|"diarista", id, nome }]
   const [denuncias, setDenuncias] = useState([]);
   const [verBloqueados, setVerBloqueados] = useState(false);
+  const [verVagas, setVerVagas] = useState(false);
 
   // Histórico de telas pra permitir que o botão físico de voltar do Android
   // navegue passo a passo pelo app (hub -> login -> app -> perfil, etc.) em
@@ -6600,6 +7006,7 @@ export default function App() {
     let handle;
     CapacitorApp.addListener("backButton", () => {
       if (verNotificacoes) return setVerNotificacoes(false);
+      if (verVagas) return setVerVagas(false);
       if (verBloqueados) return setVerBloqueados(false);
       if (verHistorico) return setVerHistorico(null);
       if (verPerfilMae) return setVerPerfilMae(false);
@@ -6618,7 +7025,7 @@ export default function App() {
       }
     }).then((h) => { handle = h; });
     return () => { handle?.remove(); };
-  }, [verNotificacoes, verBloqueados, verHistorico, verPerfilMae, verPerfilCliente, avaliando, selecionada, selecionadaDiarista]);
+  }, [verNotificacoes, verVagas, verBloqueados, verHistorico, verPerfilMae, verPerfilCliente, avaliando, selecionada, selecionadaDiarista]);
 
   // Se a sessão não existir mais (nunca existiu, expirou, ou foi encerrada em
   // outro lugar), desfaz o chute otimista da tela inicial e limpa a marcação
@@ -7417,6 +7824,15 @@ export default function App() {
                   corHeader="#5A2420"
                   corTexto="#FFF6F1"
                 />
+              ) : verVagas ? (
+                <VagasScreen
+                  papel={modoDiarista === "cliente" ? "cliente" : "profissional"}
+                  serviceType="diarista"
+                  onVoltar={() => setVerVagas(false)}
+                  corDestaque={D_CORAL_DEEP}
+                  corHeader="#5A2420"
+                  corTexto="#FFF6F1"
+                />
               ) : verPerfilCliente ? (
                 <PerfilMae
                   perfil={meuPerfilCliente}
@@ -7425,6 +7841,7 @@ export default function App() {
                   onAtualizarFoto={atualizarFotoPerfilCliente}
                   onVerContratacoes={() => setVerHistorico("cliente")}
                   onVerBloqueados={() => setVerBloqueados(true)}
+                  onVerVagas={() => setVerVagas(true)}
                   totalBloqueados={perfisBloqueados.length}
                   onSair={async () => { await auth.logout(); setVerPerfilCliente(false); setTela("hub"); }}
                   onExcluirConta={excluirMinhaConta}
@@ -7472,6 +7889,7 @@ export default function App() {
                       onSalvarPerfil={atualizarPerfilDiarista}
                       avaliacoesExtras={avaliacoesExtras}
                       onVerAgenda={() => setVerHistorico("prestadorDiarista")}
+                      onVerVagas={() => setVerVagas(true)}
                       pendentesCount={pendentesDiarista}
                       onSair={async () => { await auth.logout(); setTela("hub"); }}
                     />
@@ -7514,7 +7932,7 @@ export default function App() {
           <ConfirmacaoEmail email={perfilMaePendente.email} onReenviar={reenviarEmailConfirmacao} />
         )}
 
-        {tela === "app" && !selecionada && !verPerfilMae && !verBloqueados && !verHistorico && (
+        {tela === "app" && !selecionada && !verPerfilMae && !verBloqueados && !verHistorico && !verVagas && (
           <>
             {modo === "baba" && tourBabaAtivo && meuPerfilBaba.statusPagamento !== "vencida" && !mostrarPagamentoBaba && (
               <TourOverlay
@@ -7643,7 +8061,18 @@ export default function App() {
           />
         )}
 
-        {tela === "app" && !verHistorico && !verBloqueados && verPerfilMae && (
+        {tela === "app" && !verHistorico && !verBloqueados && verVagas && (
+          <VagasScreen
+            papel={modo === "mae" ? "cliente" : "profissional"}
+            serviceType="baba"
+            onVoltar={() => setVerVagas(false)}
+            corDestaque={GOLD_DEEP}
+            corHeader={INK}
+            corTexto={PAPER}
+          />
+        )}
+
+        {tela === "app" && !verHistorico && !verBloqueados && !verVagas && verPerfilMae && (
           <PerfilMae
             perfil={meuPerfilMae}
             onVoltar={() => setVerPerfilMae(false)}
@@ -7651,13 +8080,14 @@ export default function App() {
             onAtualizarFoto={atualizarFotoPerfilMae}
             onVerContratacoes={() => setVerHistorico("cliente")}
             onVerBloqueados={() => setVerBloqueados(true)}
+            onVerVagas={() => setVerVagas(true)}
             totalBloqueados={perfisBloqueados.length}
             onSair={async () => { await auth.logout(); setVerPerfilMae(false); setTela("hub"); }}
             onExcluirConta={excluirMinhaConta}
           />
         )}
 
-        {tela === "app" && !verHistorico && !verBloqueados && selecionada && (
+        {tela === "app" && !verHistorico && !verBloqueados && !verVagas && selecionada && (
           <BabaDetail
             baba={selecionada}
             onBack={() => setSelecionada(null)}
@@ -7667,6 +8097,7 @@ export default function App() {
             onAgendar={agendarServico}
             avaliacoesExtras={avaliacoesExtras}
             onVerAgenda={modo === "baba" ? () => setVerHistorico("prestadorBaba") : undefined}
+            onVerVagas={modo === "baba" ? () => setVerVagas(true) : undefined}
             pendentesCount={pendentesBaba}
             onSair={modo === "baba" ? async () => { await auth.logout(); setTela("hub"); } : undefined}
             onDenunciar={modo === "mae" ? (perfil, motivo, detalhes) => enviarDenuncia(perfil, "baba", motivo, detalhes) : undefined}
