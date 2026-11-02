@@ -14,6 +14,13 @@ export const grantClientRoleBody = t.Object({
   quantidadeFilhos: t.Optional(t.Integer({ minimum: 0, maximum: 20 })),
 });
 
+export const updateClientProfileBody = t.Object({
+  bairro: t.Optional(t.String({ minLength: 2, maxLength: 100 })),
+  cidade: t.Optional(t.String({ maxLength: 100 })),
+  uf: t.Optional(t.String({ maxLength: 2 })),
+  quantidadeFilhos: t.Optional(t.Integer({ minimum: 0, maximum: 20 })),
+});
+
 export const trustedContactBody = t.Object({
   nome: t.String({ minLength: 2, maxLength: 150 }),
   telefone: t.String({ minLength: 8, maxLength: 20 }),

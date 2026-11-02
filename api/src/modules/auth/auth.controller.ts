@@ -25,7 +25,10 @@ export async function register(ctx: any) {
 
 export async function login(ctx: any) {
   const body = ctx.body as LoginInput;
-  const user = await authService.verifyCredentials(body.email, body.password);
+  const { id } = await authService.verifyCredentials(body.email, body.password);
+  // getMe (não verifyCredentials) traz o perfil completo — foto, bairro,
+  // cidade, quantidade de filhos — pro app já abrir com os dados certos.
+  const user = await authService.getMe(id);
   return issueTokens(ctx, user);
 }
 

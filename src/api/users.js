@@ -15,6 +15,26 @@ export function deleteMyAccount() {
   return request("/users/me", { method: "DELETE" });
 }
 
+export function updateClientProfile(dados) {
+  return request("/users/me/client-profile", { method: "PATCH", body: dados });
+}
+
+export function listTrustedContacts() {
+  return request("/users/me/trusted-contacts");
+}
+
+export function addTrustedContact(contato) {
+  return request("/users/me/trusted-contacts", { method: "POST", body: contato });
+}
+
+export function updateTrustedContact(id, contato) {
+  return request(`/users/me/trusted-contacts/${id}`, { method: "PATCH", body: contato });
+}
+
+export function deleteTrustedContact(id) {
+  return request(`/users/me/trusted-contacts/${id}`, { method: "DELETE" });
+}
+
 export function searchUsers(q) {
   return request(`/users/search?q=${encodeURIComponent(q)}`);
 }

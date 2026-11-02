@@ -1,12 +1,13 @@
 import { Elysia } from "elysia";
 import { authPlugin } from "../../shared/middleware/auth.middleware";
 import * as usersController from "./users.controller";
-import { updateMeBody, grantClientRoleBody, trustedContactBody, trustedContactUpdateBody, roleUpdateBody, shareProfileBody } from "./users.schema";
+import { updateMeBody, grantClientRoleBody, updateClientProfileBody, trustedContactBody, trustedContactUpdateBody, roleUpdateBody, shareProfileBody } from "./users.schema";
 
 export const usersRoutes = new Elysia({ prefix: "/users", tags: ["users"] })
   .use(authPlugin)
   .get("/me", usersController.getMe, { role: [] })
   .patch("/me", usersController.updateMe, { body: updateMeBody, role: [] })
+  .patch("/me/client-profile", usersController.updateClientProfile, { body: updateClientProfileBody, role: [] })
   .get("/search", usersController.searchUsers, { role: [] })
   .post("/share-profile", usersController.shareProfile, { body: shareProfileBody, role: [] })
   .post("/me/roles/client", usersController.grantClientRole, { body: grantClientRoleBody, role: [] })

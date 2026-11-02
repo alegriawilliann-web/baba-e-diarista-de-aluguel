@@ -1,5 +1,5 @@
 import * as usersService from "./users.service";
-import type { GrantClientRoleInput, TrustedContactInput, UpdateMeInput } from "./users.types";
+import type { GrantClientRoleInput, TrustedContactInput, UpdateClientProfileInput, UpdateMeInput } from "./users.types";
 
 export async function getMe(ctx: any) {
   return usersService.getMe(ctx.user.sub);
@@ -15,6 +15,10 @@ export async function grantClientRole(ctx: any) {
 
 export async function deleteMe(ctx: any) {
   return usersService.deleteMyAccount(ctx.user.sub);
+}
+
+export async function updateClientProfile(ctx: any) {
+  return usersService.updateClientProfile(ctx.user.sub, ctx.body as UpdateClientProfileInput);
 }
 
 export async function listTrustedContacts(ctx: any) {

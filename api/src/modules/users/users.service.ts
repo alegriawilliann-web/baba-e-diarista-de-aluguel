@@ -9,7 +9,7 @@ import { hashPassword } from "../../shared/utils/hash";
 import { NotFoundError, ForbiddenError } from "../../shared/errors";
 import { parsePagination, buildPageMeta, type PaginationQuery } from "../../shared/utils/pagination";
 import type { Role } from "../../config/constants";
-import type { GrantClientRoleInput, TrustedContactInput, UpdateMeInput } from "./users.types";
+import type { GrantClientRoleInput, TrustedContactInput, UpdateClientProfileInput, UpdateMeInput } from "./users.types";
 
 export async function getRolesForUser(userId: string): Promise<Role[]> {
   const rows = await db.query.userRoles.findMany({ where: eq(userRoles.userId, userId) });
@@ -20,7 +20,17 @@ export async function getMe(userId: string) {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) throw new NotFoundError("Usuário não encontrado");
   const roles = await getRolesForUser(userId);
-  return { id: user.id, email: user.email, name: user.name, phone: user.phone, photoUrl: user.photoUrl, roles };
+  // `clientProfiles` só existe pra quem já é cliente_baba/cliente_diarista —
+  // sem isso aqui, o app perde bairro/cidade/quantidadeFilhos de quem
+  // contratou toda vez que reabre (eram guardados só em memória no cliente).
+  const clientProfile = await db.query.clientProfiles.findFirst({ where: eq(clientProfiles.userId, userId) });
+  return {
+    id: user.id, email: user.email, name: user.name, phone: user.phone, photoUrl: user.photoUrl, roles,
+    bairro: clientProfile?.bairro ?? null,
+    cidade: clientProfile?.cidade ?? null,
+    uf: clientProfile?.uf ?? null,
+    quantidadeFilhos: clientProfile?.quantidadeFilhos ?? null,
+  };
 }
 
 // Busca pra "enviar perfil por @" — nome parcial, só dados públicos (nunca
@@ -66,6 +76,18 @@ export async function grantClientRole(userId: string, input: GrantClientRoleInpu
     }
   });
 
+  return getMe(userId);
+}
+
+// Reaproveitado pelo "editar perfil" do lado cliente (mãe/cliente-diarista)
+// — diferente de grantClientRole, não toca em roles, só no clientProfiles.
+export async function updateClientProfile(userId: string, input: UpdateClientProfileInput) {
+  const existing = await db.query.clientProfiles.findFirst({ where: eq(clientProfiles.userId, userId) });
+  if (existing) {
+    await db.update(clientProfiles).set(input).where(eq(clientProfiles.userId, userId));
+  } else {
+    await db.insert(clientProfiles).values({ userId, bairro: input.bairro || "", cidade: input.cidade, uf: input.uf, quantidadeFilhos: input.quantidadeFilhos });
+  }
   return getMe(userId);
 }
 

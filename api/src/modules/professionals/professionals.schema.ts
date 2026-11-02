@@ -30,6 +30,9 @@ export const createProfessionalBody = t.Object({
 
 export const updateProfessionalBody = t.Object({
   bio: t.Optional(t.String()),
+  idade: t.Optional(t.Number({ minimum: 16, maximum: 100 })),
+  bairro: t.Optional(t.String({ maxLength: 100 })),
+  cidade: t.Optional(t.String({ maxLength: 100 })),
   transporte: t.Optional(t.Union([t.Literal("carro"), t.Literal("moto"), t.Literal("buscada")])),
   disponibilidadeNoite: t.Optional(t.Boolean()),
   disponibilidadeFds: t.Optional(t.Boolean()),

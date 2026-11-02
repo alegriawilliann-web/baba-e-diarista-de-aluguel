@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { eq, and, isNull, gt, sql } from "drizzle-orm";
 import { db } from "../../config/database";
-import { users, userRoles, refreshTokens, authTokens } from "./auth.model";
+import { users, userRoles, refreshTokens, authTokens, clientProfiles } from "./auth.model";
 import { hashPassword, verifyPassword } from "../../shared/utils/hash";
 import { ConflictError, UnauthorizedError } from "../../shared/errors";
 import { addMinutes } from "../../shared/utils/dates";
@@ -134,6 +134,10 @@ export async function getMe(userId: string) {
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) throw new UnauthorizedError();
   const roles = await getRolesForUser(userId);
+  // `clientProfiles` só existe pra quem já é cliente_baba/cliente_diarista —
+  // sem isso aqui, o app (que usa este /auth/me pra hidratar a sessão)
+  // perdia bairro/cidade/quantidadeFilhos de quem contratou a cada reabertura.
+  const clientProfile = await db.query.clientProfiles.findFirst({ where: eq(clientProfiles.userId, userId) });
   return {
     id: user.id,
     email: user.email,
@@ -142,6 +146,10 @@ export async function getMe(userId: string) {
     roles,
     photoUrl: user.photoUrl,
     emailVerified: !!user.emailVerifiedAt,
+    bairro: clientProfile?.bairro ?? null,
+    cidade: clientProfile?.cidade ?? null,
+    uf: clientProfile?.uf ?? null,
+    quantidadeFilhos: clientProfile?.quantidadeFilhos ?? null,
   };
 }
 

@@ -20,6 +20,13 @@ export interface TrustedContactInput {
   relacao: string;
 }
 
+export interface UpdateClientProfileInput {
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  quantidadeFilhos?: number;
+}
+
 export interface UserProfileDTO {
   id: string;
   email: string;
@@ -27,4 +34,8 @@ export interface UserProfileDTO {
   phone: string | null;
   photoUrl: string | null;
   roles: Role[];
+  bairro: string | null;
+  cidade: string | null;
+  uf: string | null;
+  quantidadeFilhos: number | null;
 }

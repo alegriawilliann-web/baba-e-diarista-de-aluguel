@@ -14,7 +14,10 @@ import { Browser } from "@capacitor/browser";
 import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
-import { grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile } from "./api/users.js";
+import {
+  grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile, updateClientProfile,
+  listTrustedContacts, addTrustedContact, updateTrustedContact, deleteTrustedContact,
+} from "./api/users.js";
 import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile, listMyPortfolio, addPortfolioPost, deletePortfolioPost, reorderPortfolio } from "./api/professionals.js";
 import {
   createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
@@ -1579,6 +1582,8 @@ function BabaDetail({
   const [tourClienteAtivo, finalizarTourCliente] = usePrimeiraVez("baba_perfil_cliente");
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState("");
 
   const extras = avaliacoesExtras.filter((a) => a.prestadorId === baba.id);
   const ratingCount = baba.ratingCount + extras.length;
@@ -1615,7 +1620,7 @@ function BabaDetail({
 
   const setCampoEdit = (chave, valor) => setEdit((e) => ({ ...e, [chave]: valor }));
 
-  const salvarEdicao = () => {
+  const salvarEdicao = async () => {
     const precoHora = edit.valorCombinar ? null : (edit.valorHora ? Number(edit.valorHora) : null);
     const pacotes = edit.valorCombinar
       ? [{ label: "Hora avulsa", valor: "A combinar" }]
@@ -1625,20 +1630,28 @@ function BabaDetail({
           ...(edit.valorMensal ? [{ label: "Mensal", valor: `R$ ${edit.valorMensal}` }] : []),
         ];
     const contatosValidos = (edit.contatosConfianca || []).filter((c) => c.nome.trim() && c.telefone.trim());
-    onSalvarPerfil?.({
-      name: edit.name.trim() || baba.name,
-      bairro: edit.bairro.trim() || baba.bairro,
-      idade: Number(edit.idade) || baba.idade,
-      valorCombinar: edit.valorCombinar,
-      precoHora,
-      pacotes,
-      agenda: edit.agenda,
-      contatosConfianca: edit.contatosConfianca || [],
-    });
-    setEdit(null);
-    if (contatosValidos.length > 0) {
-      setTesteEnviado(true);
-      setTimeout(() => setTesteEnviado(false), 4000);
+    setSalvando(true);
+    setErroSalvar("");
+    try {
+      await onSalvarPerfil?.({
+        name: edit.name.trim() || baba.name,
+        bairro: edit.bairro.trim() || baba.bairro,
+        idade: Number(edit.idade) || baba.idade,
+        valorCombinar: edit.valorCombinar,
+        precoHora,
+        pacotes,
+        agenda: edit.agenda,
+        contatosConfianca: edit.contatosConfianca || [],
+      });
+      setEdit(null);
+      if (contatosValidos.length > 0) {
+        setTesteEnviado(true);
+        setTimeout(() => setTesteEnviado(false), 4000);
+      }
+    } catch (e) {
+      setErroSalvar(e.message || "Não foi possível salvar agora. Tente de novo.");
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -1712,23 +1725,29 @@ function BabaDetail({
         )}
         {editable && editando && (
           <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setEdit(null)} style={{
+            <button onClick={() => setEdit(null)} disabled={salvando} style={{
               background: "none", border: `1px solid ${PAPER}`, borderRadius: 20, padding: "6px 11px", cursor: "pointer",
             }}>
               <span style={{ fontSize: 10.5, color: PAPER, fontFamily: "Manrope, sans-serif" }}>Cancelar</span>
             </button>
-            <button onClick={salvarEdicao} style={{
+            <button onClick={salvarEdicao} disabled={salvando} style={{
               display: "flex", alignItems: "center", gap: 5, background: GOLD,
-              border: "none", borderRadius: 20, padding: "6px 11px", cursor: "pointer",
+              border: "none", borderRadius: 20, padding: "6px 11px", cursor: "pointer", opacity: salvando ? 0.7 : 1,
             }}>
               <Check size={12} color="#4A2A12" />
-              <span style={{ fontSize: 10.5, color: "#4A2A12", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Salvar</span>
+              <span style={{ fontSize: 10.5, color: "#4A2A12", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>{salvando ? "Salvando..." : "Salvar"}</span>
             </button>
           </div>
         )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 18px 146px" }}>
+        {erroSalvar && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#FBE8E6", border: `1px solid ${ERROR}`, borderRadius: 12, padding: "10px 13px", marginBottom: 14 }}>
+            <XCircle size={14} color={ERROR} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: ERROR }}>{erroSalvar}</span>
+          </div>
+        )}
         {testeEnviado && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#E4F1EC", border: `1px solid ${FOREST}`, borderRadius: 12, padding: "10px 13px", marginBottom: 14 }}>
             <CheckCircle2 size={14} color={FOREST} style={{ flexShrink: 0 }} />
@@ -2359,6 +2378,38 @@ function centavosParaValor(cents) {
   return cents != null ? `R$ ${(cents / 100).toLocaleString("pt-BR")}` : "A combinar";
 }
 
+// Inverso de centavosParaValor — só trata reais inteiros (sem centavos),
+// mesma limitação que extrairValorPacote já tem (tira tudo que não é dígito).
+function valorStringParaCentavos(valor) {
+  const digitos = String(valor ?? "").replace(/[^\d]/g, "");
+  return digitos ? Number(digitos) * 100 : null;
+}
+
+// Compara a lista de contatos de confiança editada com a que já estava
+// salva, e aplica só a diferença (criar/atualizar/excluir) nos endpoints
+// reais — a UI trabalha com um array só, mas o backend é uma entidade por
+// contato, com id próprio.
+async function sincronizarContatosConfianca(existentes, novos) {
+  const existentesPorId = new Map((existentes || []).filter((c) => c.id).map((c) => [c.id, c]));
+  const novosValidos = (novos || []).filter((c) => c.nome?.trim() && c.telefone?.trim());
+  const idsMantidos = new Set(novosValidos.filter((c) => existentesPorId.has(c.id)).map((c) => c.id));
+
+  await Promise.all(
+    (existentes || [])
+      .filter((c) => c.id && !idsMantidos.has(c.id))
+      .map((c) => deleteTrustedContact(c.id).catch(() => {}))
+  );
+
+  const resultado = [];
+  for (const c of novosValidos) {
+    const dados = { nome: c.nome.trim(), telefone: c.telefone.trim(), relacao: (c.relacao || "").trim() || "Contato" };
+    resultado.push(
+      existentesPorId.has(c.id) ? await updateTrustedContact(c.id, dados) : await addTrustedContact(dados)
+    );
+  }
+  return resultado;
+}
+
 function adaptarProfissionalBaba(dto) {
   const details = dto.details || {};
   return {
@@ -2777,6 +2828,8 @@ function DiaristaDetail({
   const [seguidores, setSeguidores] = useState(diarista.seguidores || 0);
   const [edit, setEdit] = useState(null);
   const [testeEnviado, setTesteEnviado] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState("");
   const [tourClienteAtivo, finalizarTourCliente] = usePrimeiraVez("diarista_perfil_cliente");
 
   const extras = avaliacoesExtras.filter((a) => a.prestadorId === diarista.id);
@@ -2817,7 +2870,7 @@ function DiaristaDetail({
 
   const setCampoEdit = (chave, valor) => setEdit((e) => ({ ...e, [chave]: valor }));
 
-  const salvarEdicao = () => {
+  const salvarEdicao = async () => {
     const precoHora = edit.valorCombinar ? null : (edit.valorFaxina ? Number(edit.valorFaxina) : null);
     const servicos = edit.valorCombinar
       ? [{ label: "Faxina", valor: "A combinar" }]
@@ -2830,20 +2883,28 @@ function DiaristaDetail({
           ...(edit.valorPosObraEvento ? [{ label: "Limpeza pós-obra ou pós-evento", valor: `R$ ${edit.valorPosObraEvento}` }] : []),
         ];
     const contatosValidos = (edit.contatosConfianca || []).filter((c) => c.nome.trim() && c.telefone.trim());
-    onSalvarPerfil?.({
-      name: edit.name.trim() || diarista.name,
-      bairro: edit.bairro.trim() || diarista.bairro,
-      idade: Number(edit.idade) || diarista.idade,
-      valorCombinar: edit.valorCombinar,
-      precoHora,
-      servicos,
-      agenda: edit.agenda,
-      contatosConfianca: edit.contatosConfianca || [],
-    });
-    setEdit(null);
-    if (contatosValidos.length > 0) {
-      setTesteEnviado(true);
-      setTimeout(() => setTesteEnviado(false), 4000);
+    setSalvando(true);
+    setErroSalvar("");
+    try {
+      await onSalvarPerfil?.({
+        name: edit.name.trim() || diarista.name,
+        bairro: edit.bairro.trim() || diarista.bairro,
+        idade: Number(edit.idade) || diarista.idade,
+        valorCombinar: edit.valorCombinar,
+        precoHora,
+        servicos,
+        agenda: edit.agenda,
+        contatosConfianca: edit.contatosConfianca || [],
+      });
+      setEdit(null);
+      if (contatosValidos.length > 0) {
+        setTesteEnviado(true);
+        setTimeout(() => setTesteEnviado(false), 4000);
+      }
+    } catch (e) {
+      setErroSalvar(e.message || "Não foi possível salvar agora. Tente de novo.");
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -2917,23 +2978,29 @@ function DiaristaDetail({
         )}
         {editable && editando && (
           <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setEdit(null)} style={{
+            <button onClick={() => setEdit(null)} disabled={salvando} style={{
               background: "none", border: "1px solid #FFF6F1", borderRadius: 20, padding: "6px 11px", cursor: "pointer",
             }}>
               <span style={{ fontSize: 10.5, color: "#FFF6F1", fontFamily: "Manrope, sans-serif" }}>Cancelar</span>
             </button>
-            <button onClick={salvarEdicao} style={{
+            <button onClick={salvarEdicao} disabled={salvando} style={{
               display: "flex", alignItems: "center", gap: 5, background: D_CORAL,
-              border: "none", borderRadius: 20, padding: "6px 11px", cursor: "pointer",
+              border: "none", borderRadius: 20, padding: "6px 11px", cursor: "pointer", opacity: salvando ? 0.7 : 1,
             }}>
               <Check size={12} color="#FFFFFF" />
-              <span style={{ fontSize: 10.5, color: "#FFFFFF", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Salvar</span>
+              <span style={{ fontSize: 10.5, color: "#FFFFFF", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>{salvando ? "Salvando..." : "Salvar"}</span>
             </button>
           </div>
         )}
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 18px 146px", background: "#FFF6F1" }}>
+        {erroSalvar && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#FBE8E6", border: `1px solid ${ERROR}`, borderRadius: 12, padding: "10px 13px", marginBottom: 14 }}>
+            <XCircle size={14} color={ERROR} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: ERROR }}>{erroSalvar}</span>
+          </div>
+        )}
         {testeEnviado && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#E4F1EC", border: `1px solid ${FOREST}`, borderRadius: 12, padding: "10px 13px", marginBottom: 14 }}>
             <CheckCircle2 size={14} color={FOREST} style={{ flexShrink: 0 }} />
@@ -4533,6 +4600,8 @@ function PerfilMae({
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [erroExclusao, setErroExclusao] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [erroSalvar, setErroSalvar] = useState("");
 
   const confirmarExclusao = async () => {
     setExcluindo(true);
@@ -4554,6 +4623,7 @@ function PerfilMae({
   const ehBaba = appNome === "baba";
 
   const iniciarEdicao = () => {
+    setErroSalvar("");
     setEdit({
       nome: perfil?.nome || "", email: perfil?.email || "", bairro: perfil?.bairro || "",
       quantidadeFilhos: perfil?.quantidadeFilhos ? String(perfil.quantidadeFilhos) : "",
@@ -4561,19 +4631,26 @@ function PerfilMae({
     });
   };
 
-  const salvar = () => {
+  const salvar = async () => {
     const contatosValidos = (edit.contatosConfianca || []).filter((c) => c.nome.trim() && c.telefone.trim());
-    onSalvar?.({
-      nome: edit.nome.trim() || "Sua conta",
-      email: edit.email.trim(),
-      bairro: edit.bairro.trim(),
-      quantidadeFilhos: ehBaba && edit.quantidadeFilhos ? Number(edit.quantidadeFilhos.replace("+", "")) : perfil?.quantidadeFilhos,
-      contatosConfianca: edit.contatosConfianca || [],
-    });
-    setEdit(null);
-    if (contatosValidos.length > 0) {
-      setTesteEnviado(true);
-      setTimeout(() => setTesteEnviado(false), 4000);
+    setSalvando(true);
+    setErroSalvar("");
+    try {
+      await onSalvar?.({
+        nome: edit.nome.trim() || "Sua conta",
+        bairro: edit.bairro.trim(),
+        quantidadeFilhos: ehBaba && edit.quantidadeFilhos ? Number(edit.quantidadeFilhos.replace("+", "")) : perfil?.quantidadeFilhos,
+        contatosConfianca: edit.contatosConfianca || [],
+      });
+      setEdit(null);
+      if (contatosValidos.length > 0) {
+        setTesteEnviado(true);
+        setTimeout(() => setTesteEnviado(false), 4000);
+      }
+    } catch (e) {
+      setErroSalvar(e.message || "Não foi possível salvar agora. Tente de novo.");
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -4600,17 +4677,17 @@ function PerfilMae({
           </button>
         ) : (
           <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setEdit(null)} style={{
+            <button onClick={() => setEdit(null)} disabled={salvando} style={{
               background: "none", border: `1px solid ${corTexto}`, borderRadius: 20, padding: "6px 11px", cursor: "pointer",
             }}>
               <span style={{ fontSize: 10.5, color: corTexto, fontFamily: "Manrope, sans-serif" }}>Cancelar</span>
             </button>
-            <button onClick={salvar} style={{
+            <button onClick={salvar} disabled={salvando} style={{
               display: "flex", alignItems: "center", gap: 5, background: corDestaque,
-              border: "none", borderRadius: 20, padding: "6px 11px", cursor: "pointer",
+              border: "none", borderRadius: 20, padding: "6px 11px", cursor: "pointer", opacity: salvando ? 0.7 : 1,
             }}>
               <Check size={12} color="#4A2A12" />
-              <span style={{ fontSize: 10.5, color: "#4A2A12", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>Salvar</span>
+              <span style={{ fontSize: 10.5, color: "#4A2A12", fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>{salvando ? "Salvando..." : "Salvar"}</span>
             </button>
           </div>
         )}
@@ -4621,6 +4698,12 @@ function PerfilMae({
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#E4F1EC", border: `1px solid ${FOREST}`, borderRadius: 12, padding: "10px 13px", marginBottom: 14 }}>
             <CheckCircle2 size={14} color={FOREST} style={{ flexShrink: 0 }} />
             <span style={{ fontSize: 11.5, color: FOREST }}>Mensagem de teste enviada para o(s) seu(s) contato(s) de confiança.</span>
+          </div>
+        )}
+        {erroSalvar && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#FBE8E6", border: `1px solid ${ERROR}`, borderRadius: 12, padding: "10px 13px", marginBottom: 14 }}>
+            <XCircle size={14} color={ERROR} style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: ERROR }}>{erroSalvar}</span>
           </div>
         )}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 18 }}>
@@ -4664,8 +4747,8 @@ function PerfilMae({
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {editando ? (
             <>
-              <CampoEdit label="E-mail">
-                <input style={inputStyle} type="email" value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} placeholder="seuemail@exemplo.com" />
+              <CampoEdit label="E-mail (não pode ser alterado por aqui)">
+                <input style={{ ...inputStyle, opacity: 0.6 }} type="email" value={edit.email} disabled />
               </CampoEdit>
               <CampoEdit label="Bairro">
                 <input style={inputStyle} value={edit.bairro} onChange={(e) => setEdit({ ...edit, bairro: e.target.value })} placeholder="Seu bairro" />
@@ -5729,6 +5812,7 @@ function FotoCameraStep({ foto, setFoto, permitirGaleria = false, avisoFixo }) {
   // "user" = frontal, "environment" = traseira — a pessoa escolhe com o
   // botão de virar, começa na frontal pra manter o comportamento de antes.
   const [facingMode, setFacingMode] = useState("user");
+  const [tentativa, setTentativa] = useState(0);
 
   useEffect(() => {
     if (foto) return; // já tem foto, não precisa da câmera ligada
@@ -5746,14 +5830,18 @@ function FotoCameraStep({ foto, setFoto, permitirGaleria = false, avisoFixo }) {
         setCarregando(false);
       })
       .catch(() => {
-        setErroCamera("Não conseguimos acessar sua câmera. Verifique as permissões do navegador e tente novamente.");
+        // Se a pessoa pulou a foto no cadastro recusando (ou fechando) o
+        // pedido de permissão, o Android guarda essa decisão e não pergunta
+        // de novo sozinho — getUserMedia só volta a funcionar depois que ela
+        // libera manualmente a câmera pra esse app nas configurações.
+        setErroCamera("Não conseguimos acessar sua câmera. Se você recusou a permissão antes, vá em Configurações do celular → Apps → Babá de Aluguel (ou Diarista de Aluguel) → Permissões → Câmera, permita o acesso e volte aqui pra tentar de novo.");
         setCarregando(false);
       });
     return () => {
       cancelado = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [foto, facingMode]);
+  }, [foto, facingMode, tentativa]);
 
   const virarCamera = () => setFacingMode((f) => (f === "user" ? "environment" : "user"));
 
@@ -5821,10 +5909,16 @@ function FotoCameraStep({ foto, setFoto, permitirGaleria = false, avisoFixo }) {
             )}
             {erroCamera && (
               <div style={{
-                position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                padding: 18, textAlign: "center", color: "#E8C9C9", fontFamily: "Manrope, sans-serif", fontSize: 12,
+                position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                padding: 18, textAlign: "center", gap: 10,
               }}>
-                {erroCamera}
+                <span style={{ color: "#E8C9C9", fontFamily: "Manrope, sans-serif", fontSize: 12 }}>{erroCamera}</span>
+                <button onClick={() => setTentativa((t) => t + 1)} style={{
+                  background: "rgba(255,255,255,0.14)", border: "1px solid #E8C9C9", borderRadius: 20,
+                  padding: "6px 14px", color: "#E8C9C9", fontFamily: "Manrope, sans-serif", fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                }}>
+                  Tentar de novo
+                </button>
               </div>
             )}
           </>
@@ -7214,6 +7308,43 @@ export default function App() {
     return () => { cancelado = true; };
   }, [auth.status]);
 
+  // Mesmo gap do efeito acima, mas do lado cliente (mãe/cliente-diarista):
+  // sem isso, `meuPerfilMae`/`meuPerfilCliente` ficavam presos no mock ou em
+  // `null` depois de reabrir o app numa sessão que não passou pelo cadastro
+  // agora mesmo — nome, foto, bairro e quantidade de filhos "desapareciam".
+  useEffect(() => {
+    if (auth.status !== "authenticated" || !auth.user) return;
+    const roles = auth.user.roles || [];
+    const base = {
+      nome: auth.user.name, email: auth.user.email, fotoUrl: auth.user.photoUrl,
+      bairro: auth.user.bairro || "", cidade: auth.user.cidade || "",
+      quantidadeFilhos: auth.user.quantidadeFilhos ?? undefined,
+    };
+    if (roles.includes("cliente_baba")) {
+      setMeuPerfilMae((p) => ({ seguidores: 0, seguindo: 0, contatosConfianca: [], ...(p || {}), ...base }));
+    }
+    if (roles.includes("cliente_diarista")) {
+      setMeuPerfilCliente((p) => ({ seguidores: 0, seguindo: 0, contatosConfianca: [], ...(p || {}), ...base }));
+    }
+  }, [auth.status]);
+
+  // Contatos de confiança são por conta (não por vertical/papel) — carrega
+  // uma vez e aplica em todos os perfis locais que existirem.
+  useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    let cancelado = false;
+    listTrustedContacts()
+      .then((lista) => {
+        if (cancelado) return;
+        setMeuPerfilBaba((p) => ({ ...p, contatosConfianca: lista }));
+        setMeuPerfilDiarista((p) => ({ ...p, contatosConfianca: lista }));
+        setMeuPerfilMae((p) => (p ? { ...p, contatosConfianca: lista } : p));
+        setMeuPerfilCliente((p) => (p ? { ...p, contatosConfianca: lista } : p));
+      })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [auth.status]);
+
   const excluirMinhaConta = async () => {
     await deleteMyAccount();
     await auth.logout();
@@ -7426,13 +7557,29 @@ export default function App() {
     setSelecionada((s) => (s ? { ...s, fotoUrl } : s));
   };
 
-  const atualizarPerfilBaba = (dados) => {
-    setMeuPerfilBaba((p) => ({ ...p, ...dados }));
-    setSelecionada((s) => (s ? { ...s, ...dados } : s));
+  const atualizarPerfilBaba = async (dados) => {
+    await updateMe({ name: dados.name });
+    await updateMyProfessionalProfile("baba", {
+      idade: dados.idade,
+      bairro: dados.bairro,
+      valorCombinar: dados.valorCombinar,
+      precoHoraCents: dados.precoHora != null ? Math.round(dados.precoHora * 100) : null,
+      agenda: dados.agenda,
+      details: { pacotes: (dados.pacotes || []).map((p) => ({ label: p.label, valorCents: p.valor === "A combinar" ? null : valorStringParaCentavos(p.valor) })) },
+    });
+    const contatosConfianca = await sincronizarContatosConfianca(meuPerfilBaba.contatosConfianca, dados.contatosConfianca);
+    setMeuPerfilBaba((p) => ({ ...p, ...dados, contatosConfianca }));
+    setSelecionada((s) => (s ? { ...s, ...dados, contatosConfianca } : s));
   };
 
-  const atualizarPerfilMae = (dados) => {
-    setMeuPerfilMae((p) => ({ ...(p || {}), ...dados }));
+  const atualizarPerfilMae = async (dados) => {
+    await updateMe({ name: dados.nome });
+    const patch = {};
+    if (dados.bairro) patch.bairro = dados.bairro;
+    if (dados.quantidadeFilhos != null) patch.quantidadeFilhos = dados.quantidadeFilhos;
+    if (Object.keys(patch).length > 0) await updateClientProfile(patch);
+    const contatosConfianca = await sincronizarContatosConfianca(meuPerfilMae?.contatosConfianca, dados.contatosConfianca);
+    setMeuPerfilMae((p) => ({ ...(p || {}), ...dados, contatosConfianca }));
   };
 
   const atualizarFotoPerfilMae = async (fotoUrl) => {
@@ -7727,13 +7874,29 @@ export default function App() {
     }
   };
 
-  const atualizarPerfilDiarista = (dados) => {
-    setMeuPerfilDiarista((p) => ({ ...p, ...dados }));
-    setSelecionadaDiarista((s) => (s ? { ...s, ...dados } : s));
+  const atualizarPerfilDiarista = async (dados) => {
+    await updateMe({ name: dados.name });
+    await updateMyProfessionalProfile("diarista", {
+      idade: dados.idade,
+      bairro: dados.bairro,
+      valorCombinar: dados.valorCombinar,
+      precoHoraCents: dados.precoHora != null ? Math.round(dados.precoHora * 100) : null,
+      agenda: dados.agenda,
+      details: { servicos: (dados.servicos || []).map((s) => ({ label: s.label, valorCents: s.valor === "A combinar" ? null : valorStringParaCentavos(s.valor) })) },
+    });
+    const contatosConfianca = await sincronizarContatosConfianca(meuPerfilDiarista.contatosConfianca, dados.contatosConfianca);
+    setMeuPerfilDiarista((p) => ({ ...p, ...dados, contatosConfianca }));
+    setSelecionadaDiarista((s) => (s ? { ...s, ...dados, contatosConfianca } : s));
   };
 
-  const atualizarPerfilCliente = (dados) => {
-    setMeuPerfilCliente((p) => ({ ...(p || {}), ...dados }));
+  const atualizarPerfilCliente = async (dados) => {
+    await updateMe({ name: dados.nome });
+    const patch = {};
+    if (dados.bairro) patch.bairro = dados.bairro;
+    if (dados.quantidadeFilhos != null) patch.quantidadeFilhos = dados.quantidadeFilhos;
+    if (Object.keys(patch).length > 0) await updateClientProfile(patch);
+    const contatosConfianca = await sincronizarContatosConfianca(meuPerfilCliente?.contatosConfianca, dados.contatosConfianca);
+    setMeuPerfilCliente((p) => ({ ...(p || {}), ...dados, contatosConfianca }));
   };
 
   const atualizarFotoPerfilCliente = async (fotoUrl) => {
@@ -8185,14 +8348,15 @@ export default function App() {
                     <BabaCard baba={meuPerfilBaba} onClick={() => setSelecionada(meuPerfilBaba)} destaque={boosts.destaque?.ativo} />
                   </div>
                   {!meuPerfilBaba.fotoUrl && (
-                    <div style={{
+                    <button onClick={() => setSelecionada(meuPerfilBaba)} style={{
                       display: "flex", alignItems: "center", gap: 6, marginTop: 10, justifyContent: "center",
+                      width: "100%", background: "none", border: "none", cursor: "pointer",
                     }}>
                       <Camera size={12} color={GOLD_DEEP} />
                       <span style={{ fontSize: 11, color: GOLD_DEEP, fontFamily: "Manrope, sans-serif", fontWeight: 700 }}>
                         Não esqueça de adicionar sua foto de perfil
                       </span>
-                    </div>
+                    </button>
                   )}
                   <p style={{ fontSize: 11.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 10, textAlign: "center" }}>
                     Toque no seu cartão para ver e editar seu perfil público.

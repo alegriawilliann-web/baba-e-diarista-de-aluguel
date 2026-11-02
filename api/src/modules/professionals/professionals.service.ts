@@ -262,10 +262,32 @@ async function loadOwnProfileByServiceType(userId: string, serviceType: "baba" |
 
 export async function updateMyProfile(userId: string, serviceType: "baba" | "diarista", input: Record<string, unknown>) {
   const profile = await loadOwnProfileByServiceType(userId, serviceType);
+  const { bairro, cidade, details, ...resto } = input as { bairro?: string; cidade?: string; details?: Record<string, unknown> };
+
+  // `bairro`/`cidade` vivem em `addresses`, não em `professional_profiles` —
+  // sem isso, editar o bairro pelo app nunca persistia (só mudava na tela).
+  if (bairro !== undefined || cidade !== undefined) {
+    const patch = { ...(bairro !== undefined ? { neighborhood: bairro } : {}), ...(cidade !== undefined ? { city: cidade } : {}) };
+    if (profile.addressId) {
+      await db.update(addresses).set(patch).where(eq(addresses.id, profile.addressId));
+    } else {
+      const [address] = await db.insert(addresses).values({ userId, postalCode: "", street: "", city: cidade || "", neighborhood: bairro }).returning();
+      await db.update(professionalProfiles).set({ addressId: address!.id }).where(eq(professionalProfiles.id, profile.id));
+    }
+  }
+
   await db
     .update(professionalProfiles)
-    .set({ ...input, updatedAt: new Date() } as never)
+    .set({
+      ...resto,
+      // Mescla em vez de substituir — `details` guarda campos que divergem
+      // entre baba/diarista (ver professionals.types.ts) e a edição manda só
+      // o que mudou, nunca o objeto inteiro.
+      ...(details ? { details: { ...(profile.details as Record<string, unknown>), ...details } } : {}),
+      updatedAt: new Date(),
+    } as never)
     .where(eq(professionalProfiles.id, profile.id));
+
   const row = await fetchProfileRow(eq(professionalProfiles.id, profile.id));
   const equipeMap = await fetchApprovedEquipe([profile.id]);
   return shapeProfile(row!, equipeMap.get(profile.id) ?? []);
