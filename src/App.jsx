@@ -28,7 +28,7 @@ import { blockProfessional, unblockProfessional, listMyBlocks, reportProfessiona
 import { getMyBoosts } from "./api/boosts.js";
 import { submitVerification, listMyVerifications, listVerificationQueue, reviewVerification } from "./api/verifications.js";
 import { submitTeamMember, listMyTeamMembers, listTeamMemberQueue, reviewTeamMember } from "./api/teamMembers.js";
-import { listNotifications, markAllNotificationsRead as apiMarkAllNotificationsRead } from "./api/notifications.js";
+import { listNotifications, markAllNotificationsRead as apiMarkAllNotificationsRead, markNotificationRead } from "./api/notifications.js";
 import {
   createJobPost, listMyJobPosts, closeJobPost, listOpenJobs, applyToJob, listMyApplications,
   getJobPostApplications, updateApplicationStatus,
@@ -3498,7 +3498,7 @@ const editPillDiarista = {
   borderRadius: 20, padding: "3px 10px", cursor: "pointer",
 };
 
-function NotificacoesScreen({ notificacoes, onVoltar, onLerTodas }) {
+function NotificacoesScreen({ notificacoes, onVoltar, onLerTodas, onAbrirNotificacao }) {
   return (
     <div style={{ position: "absolute", inset: 0, background: PAPER, zIndex: 32, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px", background: INK }}>
@@ -3517,11 +3517,20 @@ function NotificacoesScreen({ notificacoes, onVoltar, onLerTodas }) {
           <p style={{ textAlign: "center", color: "#8B6A52", marginTop: 40, fontSize: 12.5 }}>Nenhuma notificação por aqui.</p>
         )}
         {notificacoes.map((n) => (
-          <div key={n.id} style={{ display: "flex", gap: 10, padding: "13px 4px", borderBottom: `1px solid ${LINE}`, opacity: n.lida ? 0.6 : 1 }}>
+          <button
+            key={n.id}
+            onClick={() => onAbrirNotificacao?.(n)}
+            disabled={!n.link}
+            style={{
+              display: "flex", gap: 10, padding: "13px 4px", borderBottom: `1px solid ${LINE}`, opacity: n.lida ? 0.6 : 1,
+              width: "100%", background: "none", border: "none", borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: LINE,
+              textAlign: "left", cursor: n.link ? "pointer" : "default",
+            }}
+          >
             <Bell size={15} color={GOLD_DEEP} style={{ marginTop: 2, flexShrink: 0 }} />
             <p style={{ fontSize: 12.5, color: INK, margin: 0, lineHeight: 1.5, flex: 1 }}>{n.texto}</p>
             {!n.lida && <span style={{ width: 7, height: 7, borderRadius: "50%", background: GOLD_DEEP, flexShrink: 0, marginTop: 5 }} />}
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -4338,8 +4347,8 @@ const STATUS_CANDIDATURA = {
   recusada: { texto: "Recusada", cor: ERROR },
 };
 
-function VagasScreen({ papel, serviceType, onVoltar, corDestaque = GOLD_DEEP, corHeader = INK, corTexto = PAPER }) {
-  const [aba, setAba] = useState(papel === "profissional" ? "disponiveis" : "minhas");
+function VagasScreen({ papel, serviceType, abaInicial, onVoltar, corDestaque = GOLD_DEEP, corHeader = INK, corTexto = PAPER }) {
+  const [aba, setAba] = useState(abaInicial || (papel === "profissional" ? "disponiveis" : "minhas"));
   const [vagas, setVagas] = useState([]);
   const [minhasCandidaturas, setMinhasCandidaturas] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -7188,7 +7197,7 @@ export default function App() {
           const idsLocais = new Set(atuais.map((n) => n.id));
           const doServidor = (rows || [])
             .filter((r) => !idsLocais.has(r.id))
-            .map((r) => ({ id: r.id, texto: r.texto, lida: r.lida }));
+            .map((r) => ({ id: r.id, texto: r.texto, lida: r.lida, tipo: r.tipo, link: r.link }));
           return [...doServidor, ...atuais];
         });
       })
@@ -7200,6 +7209,64 @@ export default function App() {
     const nomes = (contatos || []).map((c) => c.nome).filter(Boolean).join(", ");
     if (!nomes) return;
     adicionarNotificacao(`Avisamos ${nomes}: "${mensagem}"`);
+  };
+
+  // Fecha todas as telas secundárias antes de abrir a que a notificação
+  // aponta — evita duas sobrepostas (ex: agenda e vagas abertas juntas).
+  const fecharTelasSecundarias = () => {
+    setVerHistorico(null);
+    setVerVagas(false);
+    setVerBloqueados(false);
+    setVerPerfilMae(false);
+    setVerPerfilCliente(false);
+    setSelecionada(null);
+    setSelecionadaDiarista(null);
+  };
+
+  const abrirNotificacao = async (n) => {
+    setVerNotificacoes(false);
+    if (!n.lida) {
+      setNotificacoes((ns) => ns.map((x) => (x.id === n.id ? { ...x, lida: true } : x)));
+      markNotificationRead(n.id).catch(() => {});
+    }
+    if (!n.link) return;
+
+    if (n.tipo === "nova_mensagem") {
+      const lista = await listConversations().catch(() => []);
+      const conversa = lista.find((c) => c.id === n.link);
+      const nome = conversa?.outro?.nome || "Conversa";
+      setConversaAberta({ conversationId: n.link, nome, iniciais: iniciaisDoNome(nome), fotoUrl: conversa?.outro?.fotoUrl });
+      return;
+    }
+
+    if (n.tipo === "novo_agendamento") {
+      fecharTelasSecundarias();
+      if (n.link === "baba") { setTela("app"); setModo("baba"); setVerHistorico("prestadorBaba"); }
+      else { setTela("diaristaApp"); setModoDiarista("diarista"); setVerHistorico("prestadorDiarista"); }
+      return;
+    }
+    if (n.tipo === "agendamento_confirmado" || n.tipo === "agendamento_recusado") {
+      fecharTelasSecundarias();
+      if (n.link === "baba") { setTela("app"); setModo("mae"); setVerHistorico("cliente"); }
+      else { setTela("diaristaApp"); setModoDiarista("cliente"); setVerHistorico("cliente"); }
+      return;
+    }
+    if (n.tipo === "nova_candidatura") {
+      const [serviceType] = n.link.split(":");
+      fecharTelasSecundarias();
+      setVagasAbaInicial("minhas");
+      if (serviceType === "baba") { setTela("app"); setModo("mae"); } else { setTela("diaristaApp"); setModoDiarista("cliente"); }
+      setVerVagas(true);
+      return;
+    }
+    if (n.tipo === "candidatura_aceita") {
+      const [serviceType] = n.link.split(":");
+      fecharTelasSecundarias();
+      setVagasAbaInicial("minhas");
+      if (serviceType === "baba") { setTela("app"); setModo("baba"); } else { setTela("diaristaApp"); setModoDiarista("diarista"); }
+      setVerVagas(true);
+      return;
+    }
   };
 
   const [tipoLoginDiarista, setTipoLoginDiarista] = useState("cliente");
@@ -7217,6 +7284,7 @@ export default function App() {
   const [denuncias, setDenuncias] = useState([]);
   const [verBloqueados, setVerBloqueados] = useState(false);
   const [verVagas, setVerVagas] = useState(false);
+  const [vagasAbaInicial, setVagasAbaInicial] = useState(null);
   const [verConversas, setVerConversas] = useState(false);
   const [conversaAberta, setConversaAberta] = useState(null); // { conversationId, nome, iniciais, fotoUrl }
 
@@ -7239,7 +7307,7 @@ export default function App() {
       if (verNotificacoes) return setVerNotificacoes(false);
       if (conversaAberta) return setConversaAberta(null);
       if (verConversas) return setVerConversas(false);
-      if (verVagas) return setVerVagas(false);
+      if (verVagas) { setVerVagas(false); setVagasAbaInicial(null); return; }
       if (verBloqueados) return setVerBloqueados(false);
       if (verHistorico) return setVerHistorico(null);
       if (verPerfilMae) return setVerPerfilMae(false);
@@ -8163,7 +8231,8 @@ export default function App() {
                 <VagasScreen
                   papel={modoDiarista === "cliente" ? "cliente" : "profissional"}
                   serviceType="diarista"
-                  onVoltar={() => setVerVagas(false)}
+                  abaInicial={vagasAbaInicial}
+                  onVoltar={() => { setVerVagas(false); setVagasAbaInicial(null); }}
                   corDestaque={D_CORAL_DEEP}
                   corHeader="#5A2420"
                   corTexto="#FFF6F1"
@@ -8418,7 +8487,8 @@ export default function App() {
           <VagasScreen
             papel={modo === "mae" ? "cliente" : "profissional"}
             serviceType="baba"
-            onVoltar={() => setVerVagas(false)}
+            abaInicial={vagasAbaInicial}
+            onVoltar={() => { setVerVagas(false); setVagasAbaInicial(null); }}
             corDestaque={GOLD_DEEP}
             corHeader={INK}
             corTexto={PAPER}
@@ -8476,6 +8546,7 @@ export default function App() {
         <NotificacoesScreen
           notificacoes={notificacoes}
           onVoltar={() => setVerNotificacoes(false)}
+          onAbrirNotificacao={abrirNotificacao}
           onLerTodas={() => {
             setNotificacoes((n) => n.map((x) => ({ ...x, lida: true })));
             apiMarkAllNotificationsRead().catch(() => {});

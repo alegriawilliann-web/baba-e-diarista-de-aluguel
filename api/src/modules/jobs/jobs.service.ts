@@ -86,7 +86,10 @@ export async function applyToJob(userId: string, jobId: string, mensagem: string
 
   const [row] = await db.insert(jobApplications).values({ jobPostId: jobId, professionalId: profile.id, mensagem }).returning();
 
-  await notify({ userId: job.clientId, tipo: "nova_candidatura", texto: "Você recebeu uma nova candidatura para sua vaga", link: `/jobs/${jobId}` });
+  // `link` não é uma URL — é "serviceType:jobId", o suficiente pra tela de
+  // notificações abrir a aba de vagas certa (vertical + papel) sem precisar
+  // de uma rota de verdade (o app não tem roteador).
+  await notify({ userId: job.clientId, tipo: "nova_candidatura", texto: "Você recebeu uma nova candidatura para sua vaga", link: `${job.serviceType}:${jobId}` });
 
   return row;
 }
@@ -141,7 +144,7 @@ export async function updateApplicationStatus(clientId: string, jobId: string, a
   if (status === "aceita") {
     const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.id, application.professionalId) });
     if (profile) {
-      await notify({ userId: profile.userId, tipo: "candidatura_aceita", texto: "Sua candidatura foi aceita! A contratante pode te procurar pra combinar os detalhes.", link: `/jobs/${jobId}` });
+      await notify({ userId: profile.userId, tipo: "candidatura_aceita", texto: "Sua candidatura foi aceita! A contratante pode te procurar pra combinar os detalhes.", link: `${profile.serviceType}:${jobId}` });
     }
   }
 

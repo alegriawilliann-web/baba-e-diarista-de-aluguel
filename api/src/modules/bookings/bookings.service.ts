@@ -60,7 +60,10 @@ export async function createBooking(clientId: string, input: CreateBookingInput)
     })
     .returning();
 
-  await notify({ userId: professional.userId, tipo: "novo_agendamento", texto: "Você recebeu um novo pedido de agendamento", link: "/bookings" });
+  // `link` aqui não é uma URL de verdade (não existe rota no app) — é só o
+  // serviceType, pra tela de notificações saber pra qual vertical/agenda
+  // navegar quando a pessoa toca na notificação.
+  await notify({ userId: professional.userId, tipo: "novo_agendamento", texto: "Você recebeu um novo pedido de agendamento", link: professional.serviceType });
 
   return shape(row!);
 }
@@ -113,7 +116,7 @@ export async function accept(userId: string, bookingId: string) {
   const { booking, isProfessional } = await loadForParticipant(userId, bookingId);
   if (!isProfessional) throw new ForbiddenError();
   assertStatus(booking.status, ["pendente"]);
-  await notify({ userId: booking.clientId, tipo: "agendamento_confirmado", texto: "Seu agendamento foi confirmado", link: "/bookings" });
+  await notify({ userId: booking.clientId, tipo: "agendamento_confirmado", texto: "Seu agendamento foi confirmado", link: booking.serviceType });
   return transition(bookingId, { status: "agendado" });
 }
 
@@ -121,7 +124,7 @@ export async function reject(userId: string, bookingId: string) {
   const { booking, isProfessional } = await loadForParticipant(userId, bookingId);
   if (!isProfessional) throw new ForbiddenError();
   assertStatus(booking.status, ["pendente"]);
-  await notify({ userId: booking.clientId, tipo: "agendamento_recusado", texto: "Seu pedido de agendamento foi recusado", link: "/bookings" });
+  await notify({ userId: booking.clientId, tipo: "agendamento_recusado", texto: "Seu pedido de agendamento foi recusado", link: booking.serviceType });
   return transition(bookingId, { status: "recusado" });
 }
 
