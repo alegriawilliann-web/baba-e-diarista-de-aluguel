@@ -31,4 +31,10 @@ export const env = {
   DEFAULT_CURRENCY: process.env.DEFAULT_CURRENCY ?? "BRL",
 
   APP_BASE_URL: process.env.APP_BASE_URL ?? "http://localhost:3000",
+
+  // JSON inteiro da service account do Firebase (gerado em Configurações
+  // do projeto > Contas de serviço). Vazio = push notification desligado
+  // (não falha o boot, só o envio real some), já que nem todo ambiente
+  // (dev local) precisa disso configurado.
+  FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ?? "",
 };

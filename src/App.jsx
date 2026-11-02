@@ -14,6 +14,7 @@ import { Browser } from "@capacitor/browser";
 import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
+import { usePush } from "./hooks/usePush.js";
 import {
   grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile, updateClientProfile,
   listTrustedContacts, addTrustedContact, updateTrustedContact, deleteTrustedContact,
@@ -7268,6 +7269,11 @@ export default function App() {
       return;
     }
   };
+
+  // Notificação de verdade (push), que aparece no celular mesmo com o app
+  // fechado — toca nela chama o mesmo abrirNotificacao da lista de dentro
+  // do app, então o roteamento (agenda, vagas, chat) é idêntico.
+  usePush(auth.status === "authenticated", abrirNotificacao);
 
   const [tipoLoginDiarista, setTipoLoginDiarista] = useState("cliente");
   const [modoDiarista, setModoDiarista] = useState(() => {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "442590867833",
+    "project_id": "baba-de-aluguel-342b3",
+    "storage_bucket": "baba-de-aluguel-342b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:442590867833:android:bf242d006950c9159fffa8",
+        "android_client_info": {
+          "package_name": "com.babadealuguel.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLX07RYsKv_VW-TEMSYltrTU8HopDkQyo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

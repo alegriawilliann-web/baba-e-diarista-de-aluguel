@@ -15,3 +15,4 @@ export * from "../modules/trust-safety/trust-safety.model";
 export * from "../modules/messages/messages.model";
 export * from "../modules/verifications/verifications.model";
 export * from "../modules/jobs/jobs.model";
+export * from "../modules/push/push.model";

@@ -18,6 +18,7 @@ import { trustSafetyRoutes } from "./modules/trust-safety/trust-safety.routes";
 import { messagesRoutes } from "./modules/messages/messages.routes";
 import { verificationsRoutes } from "./modules/verifications/verifications.routes";
 import { jobsRoutes } from "./modules/jobs/jobs.routes";
+import { pushRoutes } from "./modules/push/push.routes";
 
 // Lida uma vez, no boot, e servida como texto estático — é a mesma página
 // referenciada tanto no campo "Política de Privacidade" quanto no campo de
@@ -57,5 +58,6 @@ export const app = new Elysia()
       .use(messagesRoutes)
       .use(verificationsRoutes)
       .use(jobsRoutes)
+      .use(pushRoutes)
   );
 // Each checkpoint adds `.use(xModuleRoutes)` inside the group above.
