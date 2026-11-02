@@ -1,5 +1,6 @@
 export interface CreateConversationInput {
-  participantId: string;
+  participantId?: string;
+  professionalId?: string;
   bookingId?: string;
 }
 

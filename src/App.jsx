@@ -30,6 +30,7 @@ import {
   createJobPost, listMyJobPosts, closeJobPost, listOpenJobs, applyToJob, listMyApplications,
   getJobPostApplications, updateApplicationStatus,
 } from "./api/jobs.js";
+import { listConversations, startConversation, listMessages, sendMessage } from "./api/messages.js";
 import { respostasParaCreateProfessionalInput, respostasParaAgenda } from "./mappers.js";
 
 // ---- paleta ----
@@ -927,31 +928,67 @@ function TrabalhoModal({ onClose, onSalvar, corDestaque = D_CORAL_DEEP }) {
   );
 }
 
-function ChatScreen({ nome, iniciais, cor, fotoUrl, corDestaque = GOLD_DEEP, onClose, meuContato, onConfigurarContato, onAvisoSilencioso }) {
-  const [mensagens, setMensagens] = useState([
-    { id: 1, autor: "outro", texto: `Oi! Vi que você entrou em contato. Como posso ajudar?`, hora: "09:14" },
-  ]);
+function ChatScreen({
+  conversationId, professionalId, meuUserId, nome, iniciais, cor, fotoUrl, corDestaque = GOLD_DEEP,
+  onClose, meuContato, onConfigurarContato, onAvisoSilencioso,
+}) {
+  const [conversaId, setConversaId] = useState(conversationId || null);
+  const [mensagens, setMensagens] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
   const [texto, setTexto] = useState("");
+  const [enviando, setEnviando] = useState(false);
   const [showEmergencia, setShowEmergencia] = useState(false);
   const fimRef = useRef(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        let id = conversationId;
+        if (!id) {
+          const conversa = await startConversation({ professionalId });
+          id = conversa.id;
+        }
+        if (cancelado) return;
+        setConversaId(id);
+        const lista = await listMessages(id);
+        if (!cancelado) setMensagens(lista || []);
+      } catch (e) {
+        if (!cancelado) setErro(e.message || "Não foi possível abrir essa conversa.");
+      } finally {
+        if (!cancelado) setCarregando(false);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!conversaId) return;
+    const intervalo = setInterval(() => {
+      listMessages(conversaId).then((lista) => setMensagens(lista || [])).catch(() => {});
+    }, 4000);
+    return () => clearInterval(intervalo);
+  }, [conversaId]);
 
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens]);
 
-  const horaAgora = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-
-  const enviar = () => {
-    if (!texto.trim()) return;
-    const minhaMsg = { id: Date.now(), autor: "eu", texto: texto.trim(), hora: horaAgora() };
-    setMensagens((m) => [...m, minhaMsg]);
+  const enviar = async () => {
+    const valor = texto.trim();
+    if (!valor || !conversaId || enviando) return;
     setTexto("");
-    setTimeout(() => {
-      setMensagens((m) => [...m, {
-        id: Date.now() + 1, autor: "outro",
-        texto: "Combinado! Qualquer coisa é só chamar por aqui mesmo.", hora: horaAgora(),
-      }]);
-    }, 1100);
+    setEnviando(true);
+    setErro("");
+    try {
+      const nova = await sendMessage(conversaId, valor);
+      setMensagens((m) => [...m, nova]);
+    } catch (e) {
+      setErro(e.message || "Não foi possível enviar. Tente de novo.");
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -982,36 +1019,48 @@ function ChatScreen({ nome, iniciais, cor, fotoUrl, corDestaque = GOLD_DEEP, onC
         <p style={{ textAlign: "center", fontSize: 10, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>
           Essa conversa acontece dentro do app, sem precisar trocar número.
         </p>
-        {mensagens.map((m) => (
-          <div key={m.id} style={{ display: "flex", flexDirection: "column", alignSelf: m.autor === "eu" ? "flex-end" : "flex-start", maxWidth: "78%" }}>
-            <div style={{
-              background: m.autor === "eu" ? corDestaque : CARD,
-              color: m.autor === "eu" ? "#FFFFFF" : INK,
-              borderRadius: m.autor === "eu" ? "14px 14px 3px 14px" : "14px 14px 14px 3px",
-              padding: "9px 13px", boxShadow: "0 1px 4px rgba(22,64,60,0.08)",
-            }}>
-              <p style={{ fontSize: 13, fontFamily: "Manrope, sans-serif", margin: 0, lineHeight: 1.45 }}>{m.texto}</p>
-            </div>
-            <span style={{ fontSize: 9, color: "#8B6A52", marginTop: 3, alignSelf: m.autor === "eu" ? "flex-end" : "flex-start" }}>{m.hora}</span>
-          </div>
-        ))}
+        {carregando ? (
+          <p style={{ textAlign: "center", fontSize: 12, color: "#8B6A52" }}>Carregando...</p>
+        ) : (
+          mensagens.map((m) => {
+            const minhaMsg = m.senderId === meuUserId;
+            return (
+              <div key={m.id} style={{ display: "flex", flexDirection: "column", alignSelf: minhaMsg ? "flex-end" : "flex-start", maxWidth: "78%" }}>
+                <div style={{
+                  background: minhaMsg ? corDestaque : CARD,
+                  color: minhaMsg ? "#FFFFFF" : INK,
+                  borderRadius: minhaMsg ? "14px 14px 3px 14px" : "14px 14px 14px 3px",
+                  padding: "9px 13px", boxShadow: "0 1px 4px rgba(22,64,60,0.08)",
+                }}>
+                  <p style={{ fontSize: 13, fontFamily: "Manrope, sans-serif", margin: 0, lineHeight: 1.45 }}>{m.texto}</p>
+                </div>
+                <span style={{ fontSize: 9, color: "#8B6A52", marginTop: 3, alignSelf: minhaMsg ? "flex-end" : "flex-start" }}>
+                  {new Date(m.criadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            );
+          })
+        )}
         <div ref={fimRef} />
       </div>
 
+      {erro && <p style={{ fontSize: 11, color: ERROR, textAlign: "center", padding: "0 14px 6px" }}>{erro}</p>}
       <div style={{ display: "flex", gap: 8, padding: "10px 12px", borderTop: `1px solid ${LINE}`, background: CARD }}>
         <input
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviar()}
           placeholder="Escreva uma mensagem..."
+          disabled={carregando}
           style={{
             flex: 1, border: `1px solid ${LINE}`, borderRadius: 20, padding: "10px 16px", fontSize: 13,
             fontFamily: "Manrope, sans-serif", outline: "none", background: PAPER, color: INK,
           }}
         />
-        <button onClick={enviar} style={{
+        <button onClick={enviar} disabled={carregando || enviando} style={{
           width: 38, height: 38, borderRadius: "50%", background: corDestaque, border: "none",
           display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+          opacity: carregando || enviando ? 0.6 : 1,
         }}>
           <Send size={15} color="#FFFFFF" />
         </button>
@@ -1026,6 +1075,66 @@ function ChatScreen({ nome, iniciais, cor, fotoUrl, corDestaque = GOLD_DEEP, onC
           onClose={() => setShowEmergencia(false)}
         />
       )}
+    </div>
+  );
+}
+
+function ConversasScreen({ meuUserId, onVoltar, onAbrirConversa, corDestaque = GOLD_DEEP, corHeader = INK, corTexto = PAPER }) {
+  const [conversas, setConversas] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
+
+  useEffect(() => {
+    listConversations()
+      .then((lista) => setConversas(lista || []))
+      .catch((e) => setErro(e.message || "Não foi possível carregar suas conversas."))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: PAPER, zIndex: 32, display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 16px", background: corHeader }}>
+        <button onClick={onVoltar} style={{ background: "none", border: "none", cursor: "pointer" }}>
+          <ChevronLeft size={20} color={corTexto} />
+        </button>
+        <span style={{ color: corTexto, fontFamily: "Manrope, sans-serif", fontSize: 13.5 }}>Mensagens</span>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px", fontFamily: "Manrope, sans-serif" }}>
+        {erro && <p style={{ fontSize: 11.5, color: ERROR, marginBottom: 12 }}>{erro}</p>}
+        {carregando ? (
+          <p style={{ fontSize: 12.5, color: "#8B6A52", textAlign: "center", marginTop: 30 }}>Carregando...</p>
+        ) : conversas.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 10px" }}>
+            <MessageCircle size={28} color="#C7B8A3" style={{ marginBottom: 10 }} />
+            <p style={{ fontSize: 12.5, color: "#8B6A52" }}>Nenhuma conversa ainda.</p>
+          </div>
+        ) : (
+          conversas.map((c) => {
+            const nome = c.outro?.nome || "Usuário";
+            const iniciais = nome.trim().split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
+            return (
+              <button
+                key={c.id}
+                onClick={() => onAbrirConversa({ conversationId: c.id, nome, iniciais, fotoUrl: c.outro?.fotoUrl })}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", background: CARD, border: `1px solid ${LINE}`,
+                  borderRadius: 14, padding: "12px 14px", marginBottom: 10, cursor: "pointer", textAlign: "left",
+                }}
+              >
+                <Avatar initials={iniciais} color={corDestaque} fotoUrl={c.outro?.fotoUrl} size={38} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, color: INK, fontWeight: 700, margin: 0 }}>{nome}</p>
+                  {c.ultimaMensagem && (
+                    <p style={{ fontSize: 11.5, color: "#8B6A52", margin: "2px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {c.ultimaMensagem.deMim ? "Você: " : ""}{c.ultimaMensagem.texto}
+                    </p>
+                  )}
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -1455,7 +1564,7 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
 }
 
 function BabaDetail({
-  baba, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAgendar, avaliacoesExtras = [],
+  baba, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAgendar, avaliacoesExtras = [], meuUserId,
   onVerAgenda, onVerVagas, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
@@ -1960,6 +2069,7 @@ function BabaDetail({
       )}
       {showChat && (
         <ChatScreen
+          professionalId={baba.id} meuUserId={meuUserId}
           nome={baba.name} iniciais={baba.initials} cor={baba.color} fotoUrl={baba.fotoUrl}
           corDestaque={GOLD_DEEP} onClose={() => setShowChat(false)}
           meuContato={meuContato} onConfigurarContato={onConfigurarContato} onAvisoSilencioso={onAvisoSilencioso}
@@ -2652,7 +2762,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [], cidade }) {
 }
 
 function DiaristaDetail({
-  diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onRemoverTrabalho, onMoverTrabalho, onAgendar, avaliacoesExtras = [],
+  diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onRemoverTrabalho, onMoverTrabalho, onAgendar, avaliacoesExtras = [], meuUserId,
   onVerAgenda, onVerVagas, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
@@ -3268,6 +3378,7 @@ function DiaristaDetail({
       )}
       {showChat && (
         <ChatScreen
+          professionalId={diarista.id} meuUserId={meuUserId}
           nome={diarista.name} iniciais={diarista.initials} cor={diarista.color} fotoUrl={diarista.fotoUrl}
           corDestaque={D_CORAL_DEEP} onClose={() => setShowChat(false)}
           meuContato={meuContato} onConfigurarContato={onConfigurarContato} onAvisoSilencioso={onAvisoSilencioso}
@@ -6988,6 +7099,8 @@ export default function App() {
   const [denuncias, setDenuncias] = useState([]);
   const [verBloqueados, setVerBloqueados] = useState(false);
   const [verVagas, setVerVagas] = useState(false);
+  const [verConversas, setVerConversas] = useState(false);
+  const [conversaAberta, setConversaAberta] = useState(null); // { conversationId, nome, iniciais, fotoUrl }
 
   // Histórico de telas pra permitir que o botão físico de voltar do Android
   // navegue passo a passo pelo app (hub -> login -> app -> perfil, etc.) em
@@ -7006,6 +7119,8 @@ export default function App() {
     let handle;
     CapacitorApp.addListener("backButton", () => {
       if (verNotificacoes) return setVerNotificacoes(false);
+      if (conversaAberta) return setConversaAberta(null);
+      if (verConversas) return setVerConversas(false);
       if (verVagas) return setVerVagas(false);
       if (verBloqueados) return setVerBloqueados(false);
       if (verHistorico) return setVerHistorico(null);
@@ -7025,7 +7140,7 @@ export default function App() {
       }
     }).then((h) => { handle = h; });
     return () => { handle?.remove(); };
-  }, [verNotificacoes, verVagas, verBloqueados, verHistorico, verPerfilMae, verPerfilCliente, avaliando, selecionada, selecionadaDiarista]);
+  }, [verNotificacoes, conversaAberta, verConversas, verVagas, verBloqueados, verHistorico, verPerfilMae, verPerfilCliente, avaliando, selecionada, selecionadaDiarista]);
 
   // Se a sessão não existir mais (nunca existiu, expirou, ou foi encerrada em
   // outro lugar), desfaz o chute otimista da tela inicial e limpa a marcação
@@ -7770,6 +7885,12 @@ export default function App() {
                       <span style={{ position: "absolute", top: 3, right: 4, width: 6, height: 6, borderRadius: "50%", background: "#FFD166" }} />
                     )}
                   </button>
+                  <button onClick={() => setVerConversas(true)} style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
+                    borderRadius: "50%", background: "rgba(226,122,109,0.22)", border: `1px solid ${D_CORAL}`, cursor: "pointer",
+                  }} title="Mensagens">
+                    <MessageCircle size={13} color={D_CORAL} />
+                  </button>
                   {modoDiarista === "cliente" && (
                     <button data-tour="meu-perfil-header" onClick={() => setVerPerfilCliente(true)} style={{
                       display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
@@ -7856,6 +7977,7 @@ export default function App() {
                   diarista={selecionadaDiarista}
                   onBack={() => setSelecionadaDiarista(null)}
                   editable={false}
+                  meuUserId={auth.user?.id}
                   onAgendar={agendarServico}
                   avaliacoesExtras={avaliacoesExtras}
                   onDenunciar={(perfil, motivo, detalhes) => enviarDenuncia(perfil, "diarista", motivo, detalhes)}
@@ -7961,6 +8083,12 @@ export default function App() {
                     {notificacoes.some((n) => !n.lida) && (
                       <span style={{ position: "absolute", top: 3, right: 4, width: 6, height: 6, borderRadius: "50%", background: "#D64545" }} />
                     )}
+                  </button>
+                  <button onClick={() => setVerConversas(true)} style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28,
+                    borderRadius: "50%", background: "rgba(201,138,86,0.16)", border: `1px solid ${GOLD}`, cursor: "pointer",
+                  }} title="Mensagens">
+                    <MessageCircle size={13} color={GOLD} />
                   </button>
                   {modo === "mae" && (
                     <button data-tour="meu-perfil-header" onClick={() => setVerPerfilMae(true)} style={{
@@ -8092,6 +8220,7 @@ export default function App() {
             baba={selecionada}
             onBack={() => setSelecionada(null)}
             editable={modo === "baba"}
+            meuUserId={auth.user?.id}
             onAtualizarFoto={modo === "baba" ? atualizarFotoPerfil : undefined}
             onSalvarPerfil={modo === "baba" ? atualizarPerfilBaba : undefined}
             onAgendar={agendarServico}
@@ -8126,6 +8255,30 @@ export default function App() {
             setNotificacoes((n) => n.map((x) => ({ ...x, lida: true })));
             apiMarkAllNotificationsRead().catch(() => {});
           }}
+        />
+      )}
+
+      {verConversas && !conversaAberta && (
+        <ConversasScreen
+          meuUserId={auth.user?.id}
+          onVoltar={() => setVerConversas(false)}
+          onAbrirConversa={setConversaAberta}
+          corDestaque={tela === "diaristaApp" ? D_CORAL_DEEP : GOLD_DEEP}
+          corHeader={tela === "diaristaApp" ? "#5A2420" : INK}
+          corTexto={tela === "diaristaApp" ? "#FFF6F1" : PAPER}
+        />
+      )}
+
+      {conversaAberta && (
+        <ChatScreen
+          conversationId={conversaAberta.conversationId}
+          meuUserId={auth.user?.id}
+          nome={conversaAberta.nome} iniciais={conversaAberta.iniciais} fotoUrl={conversaAberta.fotoUrl}
+          corDestaque={tela === "diaristaApp" ? D_CORAL_DEEP : GOLD_DEEP}
+          onClose={() => setConversaAberta(null)}
+          meuContato={tela === "diaristaApp" ? meuPerfilCliente : meuPerfilMae}
+          onConfigurarContato={() => setConversaAberta(null)}
+          onAvisoSilencioso={notificarContatosConfianca}
         />
       )}
     </div>

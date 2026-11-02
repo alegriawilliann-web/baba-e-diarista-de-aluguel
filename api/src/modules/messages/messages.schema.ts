@@ -1,7 +1,8 @@
 import { t } from "elysia";
 
 export const createConversationBody = t.Object({
-  participantId: t.String({ format: "uuid" }),
+  participantId: t.Optional(t.String({ format: "uuid" })),
+  professionalId: t.Optional(t.String({ format: "uuid" })),
   bookingId: t.Optional(t.String({ format: "uuid" })),
 });
 
