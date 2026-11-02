@@ -1384,6 +1384,19 @@ function AvaliarModal({ nome, onClose, onEnviar, corDestaque = GOLD_DEEP }) {
   const [estrelas, setEstrelas] = useState(0);
   const [hover, setHover] = useState(0);
   const [comentario, setComentario] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const enviar = async () => {
+    setEnviando(true);
+    setErro("");
+    try {
+      await onEnviar({ estrelas, comentario: comentario.trim() });
+    } catch (e) {
+      setErro(e.message || "Não foi possível publicar agora. Tente de novo.");
+      setEnviando(false);
+    }
+  };
 
   return (
     <div style={{ position: "absolute", inset: 0, background: "rgba(22,64,60,0.6)", display: "flex", alignItems: "flex-end", zIndex: 30 }} onClick={onClose}>
@@ -1414,13 +1427,14 @@ function AvaliarModal({ nome, onClose, onEnviar, corDestaque = GOLD_DEEP }) {
             background: PAPER, color: INK, outline: "none", marginBottom: 16,
           }}
         />
+        {erro && <p style={{ fontSize: 11.5, color: ERROR, margin: "0 0 10px" }}>{erro}</p>}
         <button
           className="shine-cta"
-          disabled={estrelas === 0}
-          onClick={() => onEnviar({ estrelas, comentario: comentario.trim() })}
-          style={{ ...btnPrimary, background: corDestaque, width: "100%", opacity: estrelas === 0 ? 0.5 : 1 }}
+          disabled={estrelas === 0 || enviando}
+          onClick={enviar}
+          style={{ ...btnPrimary, background: corDestaque, width: "100%", opacity: (estrelas === 0 || enviando) ? 0.5 : 1 }}
         >
-          Enviar avaliação
+          {enviando ? "Enviando..." : "Enviar avaliação"}
         </button>
       </div>
     </div>
@@ -3558,7 +3572,20 @@ function CheckinModal({ contratacao, papel, meuContato, onConfirmarOk, onPedirAj
   const contatos = meuContato?.contatosConfianca || [];
   const [restante, setRestante] = useState(contatos.length > 0 ? 10 : 0);
   const [avisado, setAvisado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
   const outroNome = papel === "cliente" ? contratacao.prestadorNome.split(" ")[0] : contratacao.clienteNome.split(" ")[0];
+
+  const confirmar = async () => {
+    setEnviando(true);
+    setErro("");
+    try {
+      await onConfirmarOk();
+    } catch (e) {
+      setErro(e.message || "Não foi possível concluir agora. Tente de novo.");
+      setEnviando(false);
+    }
+  };
 
   useEffect(() => {
     if (restante <= 0) {
@@ -3597,14 +3624,15 @@ function CheckinModal({ contratacao, papel, meuContato, onConfirmarOk, onPedirAj
           </div>
         )}
 
+        {erro && <p style={{ fontSize: 11.5, color: ERROR, marginBottom: 10 }}>{erro}</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={onConfirmarOk} style={{ ...btnPrimary, background: FOREST, width: "100%" }}>
-            <CheckCircle2 size={16} /> Sim, tudo certo
+          <button onClick={confirmar} disabled={enviando} style={{ ...btnPrimary, background: FOREST, width: "100%", opacity: enviando ? 0.7 : 1, cursor: enviando ? "default" : "pointer" }}>
+            <CheckCircle2 size={16} /> {enviando ? "Concluindo..." : "Sim, tudo certo"}
           </button>
-          <button onClick={onPedirAjuda} style={{ ...btnSecondary, width: "100%", border: `1.5px solid ${corDestaque}`, color: corDestaque }}>
+          <button onClick={onPedirAjuda} disabled={enviando} style={{ ...btnSecondary, width: "100%", border: `1.5px solid ${corDestaque}`, color: corDestaque }}>
             <Siren size={16} /> Preciso de ajuda
           </button>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#8B6A52", fontSize: 11.5, cursor: "pointer", marginTop: 2 }}>
+          <button onClick={onClose} disabled={enviando} style={{ background: "none", border: "none", color: "#8B6A52", fontSize: 11.5, cursor: "pointer", marginTop: 2 }}>
             Responder mais tarde
           </button>
         </div>
@@ -3836,7 +3864,7 @@ function HistoricoScreen({
           papel={papel}
           meuContato={meuContato}
           onAvisoAutomatico={onAvisoContato}
-          onConfirmarOk={() => { onConcluir(checkinAlvo.id); setCheckinAlvo(null); }}
+          onConfirmarOk={async () => { await onConcluir(checkinAlvo.id); setCheckinAlvo(null); }}
           onPedirAjuda={() => { setEmergenciaCtx(checkinAlvo); setCheckinAlvo(null); }}
           onClose={() => setCheckinAlvo(null)}
           corDestaque={ERROR}
@@ -7493,7 +7521,7 @@ export default function App() {
             status: b.status,
             checkin: formatarHoraISO(b.checkin),
             checkout: formatarHoraISO(b.checkout),
-            avaliado: false,
+            avaliado: !!b.avaliado,
           };
         }));
         if (!cancelado) setContratacoes(enriquecidos);
@@ -7774,6 +7802,7 @@ export default function App() {
       setContratacoes((c) => c.map((x) => (x.id === id ? { ...x, status: atualizado.status } : x)));
     } catch (e) {
       adicionarNotificacao(e.message || "Não foi possível concluir esse atendimento agora.");
+      throw e;
     }
   };
 
@@ -7798,10 +7827,10 @@ export default function App() {
         estrelas, comentario, autor: avaliando.clienteNome,
       }]);
       adicionarNotificacao(`Sua avaliação para ${avaliando.prestadorNome.split(" ")[0]} foi publicada.`);
+      setAvaliando(null);
     } catch (e) {
       adicionarNotificacao(e.message || "Não foi possível publicar sua avaliação agora.");
-    } finally {
-      setAvaliando(null);
+      throw e;
     }
   };
 

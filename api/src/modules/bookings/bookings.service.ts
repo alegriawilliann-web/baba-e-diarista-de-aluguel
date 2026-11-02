@@ -3,6 +3,7 @@ import { db } from "../../config/database";
 import { bookings } from "./bookings.model";
 import { professionalProfiles } from "../professionals/professionals.model";
 import { users, clientProfiles } from "../users/users.model";
+import { reviews } from "../reviews/reviews.model";
 import { NotFoundError, ForbiddenError, ConflictError } from "../../shared/errors";
 import { notify } from "../notifications/notifications.service";
 import type { CreateBookingInput } from "./bookings.types";
@@ -24,6 +25,10 @@ async function fetchClienteInfo(clientId: string) {
 
 async function shape(row: typeof bookings.$inferSelect) {
   const cliente = await fetchClienteInfo(row.clientId);
+  // Deriva do banco, não assume — sem isso o app achava que toda contratação
+  // concluída ainda não tinha avaliação, mesmo depois de reabrir numa sessão
+  // onde a avaliação já tinha sido enviada antes.
+  const avaliacao = row.status === "concluido" ? await db.query.reviews.findFirst({ where: eq(reviews.bookingId, row.id) }) : null;
   return {
     id: row.id,
     clientId: row.clientId,
@@ -37,6 +42,7 @@ async function shape(row: typeof bookings.$inferSelect) {
     status: row.status,
     checkin: row.checkinAt,
     checkout: row.checkoutAt,
+    avaliado: !!avaliacao,
     cliente: cliente ? { nome: cliente.nome, fotoUrl: cliente.fotoUrl, bairro: cliente.bairro, cidade: cliente.cidade } : null,
   };
 }
