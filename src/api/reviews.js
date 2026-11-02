@@ -1,9 +1,9 @@
 import { request } from "./client.js";
 
-export function createReview({ bookingId, estrelas, comentario }) {
+export function createReview({ professionalId, bookingId, estrelas, comentario }) {
   return request("/reviews", {
     method: "POST",
-    body: { bookingId, estrelas, comentario: comentario || undefined },
+    body: { professionalId, bookingId: bookingId || undefined, estrelas, comentario: comentario || undefined },
   });
 }
 

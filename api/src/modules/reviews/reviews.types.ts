@@ -1,5 +1,6 @@
 export interface CreateReviewInput {
-  bookingId: string;
+  professionalId: string;
+  bookingId?: string;
   estrelas: number;
   comentario?: string;
 }

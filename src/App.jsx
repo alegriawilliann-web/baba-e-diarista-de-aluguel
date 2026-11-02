@@ -24,7 +24,7 @@ import {
   createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
   checkinBooking, checkoutBooking, completeBooking,
 } from "./api/bookings.js";
-import { createReview } from "./api/reviews.js";
+import { createReview, listReviewsForProfessional } from "./api/reviews.js";
 import { blockProfessional, unblockProfessional, listMyBlocks, reportProfessional } from "./api/trustSafety.js";
 import { getMyBoosts } from "./api/boosts.js";
 import { submitVerification, listMyVerifications, listVerificationQueue, reviewVerification } from "./api/verifications.js";
@@ -1583,7 +1583,7 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
 
 function BabaDetail({
   baba, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAgendar, avaliacoesExtras = [], meuUserId,
-  onVerAgenda, onVerVagas, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
+  onVerAgenda, onVerVagas, onAvaliarPerfil, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
@@ -1594,8 +1594,22 @@ function BabaDetail({
   const [showDenunciar, setShowDenunciar] = useState(false);
   const [seguindo, setSeguindo] = useState(false);
   const [seguidores, setSeguidores] = useState(baba.seguidores || 0);
+  const [depoimentosReais, setDepoimentosReais] = useState([]);
   const [tourClienteAtivo, finalizarTourCliente] = usePrimeiraVez("baba_perfil_cliente");
   const [edit, setEdit] = useState(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    listReviewsForProfessional(baba.id)
+      .then((r) => {
+        if (cancelado) return;
+        setDepoimentosReais((r.data || []).map((rv) => ({
+          author: rv.autor, relacao: new Date(rv.createdAt).toLocaleDateString("pt-BR"), texto: rv.comentario || "Sem comentário, só a nota.",
+        })));
+      })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [baba.id]);
   const [testeEnviado, setTesteEnviado] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erroSalvar, setErroSalvar] = useState("");
@@ -1607,6 +1621,7 @@ function BabaDetail({
   extras.forEach((a) => { breakdown[a.estrelas] = (breakdown[a.estrelas] || 0) + 1; });
   const depoimentos = [
     ...extras.filter((a) => a.comentario).map((a) => ({ author: a.autor || "Cliente", relacao: "avaliação recente", texto: a.comentario })),
+    ...depoimentosReais,
     ...(baba.depoimentos || []),
   ];
   const tabs = ["Sobre", "Depoimentos", "Avaliações", "Valores & agenda"];
@@ -1917,6 +1932,15 @@ function BabaDetail({
 
           {tab === "Depoimentos" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {!editable && onAvaliarPerfil && (
+                <button onClick={() => onAvaliarPerfil(baba)} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
+                  fontSize: 12, fontWeight: 700, padding: "10px 0", borderRadius: 10, cursor: "pointer",
+                  border: `1.5px solid ${GOLD_DEEP}`, background: "none", color: GOLD_DEEP,
+                }}>
+                  <Star size={14} /> Deixar um depoimento
+                </button>
+              )}
               {depoimentos.length === 0 && (
                 <p style={{ fontSize: 12.5, color: "#8B6A52", textAlign: "center", padding: "20px 0" }}>
                   {editable ? "Você ainda não recebeu depoimentos." : "Essa babá ainda não recebeu depoimentos."}
@@ -2829,7 +2853,7 @@ function DiaristaSearchView({ onSelect, bloqueados = [], cidade }) {
 
 function DiaristaDetail({
   diarista, onBack, editable, onAtualizarFoto, onSalvarPerfil, onAdicionarTrabalho, onRemoverTrabalho, onMoverTrabalho, onAgendar, avaliacoesExtras = [], meuUserId,
-  onVerAgenda, onVerVagas, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
+  onVerAgenda, onVerVagas, onAvaliarPerfil, pendentesCount = 0, onDenunciar, onBloquear, meuContato, onConfigurarContato, onAvisoSilencioso, onSair,
 }) {
   const [tab, setTab] = useState("Sobre");
   const [showCall, setShowCall] = useState(false);
@@ -2841,7 +2865,21 @@ function DiaristaDetail({
   const [showDenunciar, setShowDenunciar] = useState(false);
   const [seguindo, setSeguindo] = useState(false);
   const [seguidores, setSeguidores] = useState(diarista.seguidores || 0);
+  const [depoimentosReais, setDepoimentosReais] = useState([]);
   const [edit, setEdit] = useState(null);
+
+  useEffect(() => {
+    let cancelado = false;
+    listReviewsForProfessional(diarista.id)
+      .then((r) => {
+        if (cancelado) return;
+        setDepoimentosReais((r.data || []).map((rv) => ({
+          author: rv.autor, relacao: new Date(rv.createdAt).toLocaleDateString("pt-BR"), texto: rv.comentario || "Sem comentário, só a nota.",
+        })));
+      })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [diarista.id]);
   const [testeEnviado, setTesteEnviado] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erroSalvar, setErroSalvar] = useState("");
@@ -2854,6 +2892,7 @@ function DiaristaDetail({
   extras.forEach((a) => { breakdown[a.estrelas] = (breakdown[a.estrelas] || 0) + 1; });
   const depoimentos = [
     ...extras.filter((a) => a.comentario).map((a) => ({ author: a.autor || "Cliente", relacao: "avaliação recente", texto: a.comentario })),
+    ...depoimentosReais,
     ...(diarista.depoimentos || []),
   ];
   const tabs = ["Sobre", "Trabalhos", "Depoimentos", "Avaliações", "Valores & agenda"];
@@ -3251,6 +3290,15 @@ function DiaristaDetail({
 
           {tab === "Depoimentos" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {!editable && onAvaliarPerfil && (
+                <button onClick={() => onAvaliarPerfil(diarista)} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
+                  fontSize: 12, fontWeight: 700, padding: "10px 0", borderRadius: 10, cursor: "pointer",
+                  border: `1.5px solid ${D_CORAL_DEEP}`, background: "none", color: D_CORAL_DEEP,
+                }}>
+                  <Star size={14} /> Deixar um depoimento
+                </button>
+              )}
               {depoimentos.length === 0 && (
                 <p style={{ fontSize: 12.5, color: "#8B6A52", textAlign: "center", padding: "20px 0" }}>
                   {editable ? "Você ainda não recebeu depoimentos." : "Essa diarista ainda não recebeu depoimentos."}
@@ -7817,11 +7865,24 @@ export default function App() {
 
   const abrirAvaliacao = (contratacao) => setAvaliando(contratacao);
 
+  // Avaliar direto do perfil — sem precisar de uma contratação concluída
+  // (pedido explícito: deixar qualquer contratante dar depoimento, pra
+  // incentivar quem já conhece a profissional na vida real a trazê-la pro app).
+  const abrirAvaliacaoDireta = (profissional, tipoPrestador) => {
+    setAvaliando({
+      id: null,
+      prestadorId: profissional.id,
+      prestadorNome: profissional.name,
+      prestadorTipo: tipoPrestador,
+      clienteNome: (tipoPrestador === "baba" ? meuPerfilMae?.nome : meuPerfilCliente?.nome) || "Você",
+    });
+  };
+
   const enviarAvaliacao = async ({ estrelas, comentario }) => {
     if (!avaliando) return;
     try {
-      await createReview({ bookingId: avaliando.id, estrelas, comentario: comentario || undefined });
-      setContratacoes((c) => c.map((x) => (x.id === avaliando.id ? { ...x, avaliado: true } : x)));
+      await createReview({ professionalId: avaliando.prestadorId, bookingId: avaliando.id || undefined, estrelas, comentario: comentario || undefined });
+      if (avaliando.id) setContratacoes((c) => c.map((x) => (x.id === avaliando.id ? { ...x, avaliado: true } : x)));
       setAvaliacoesExtras((a) => [...a, {
         prestadorId: avaliando.prestadorId, prestadorTipo: avaliando.prestadorTipo,
         estrelas, comentario, autor: avaliando.clienteNome,
@@ -8298,6 +8359,7 @@ export default function App() {
                   meuUserId={auth.user?.id}
                   onAgendar={agendarServico}
                   avaliacoesExtras={avaliacoesExtras}
+                  onAvaliarPerfil={(p) => abrirAvaliacaoDireta(p, "diarista")}
                   onDenunciar={(perfil, motivo, detalhes) => enviarDenuncia(perfil, "diarista", motivo, detalhes)}
                   onBloquear={(perfil) => bloquearPerfil(perfil, "diarista")}
                   meuContato={meuPerfilCliente}
@@ -8557,6 +8619,7 @@ export default function App() {
             avaliacoesExtras={avaliacoesExtras}
             onVerAgenda={modo === "baba" ? () => setVerHistorico("prestadorBaba") : undefined}
             onVerVagas={modo === "baba" ? () => setVerVagas(true) : undefined}
+            onAvaliarPerfil={modo === "mae" ? (p) => abrirAvaliacaoDireta(p, "baba") : undefined}
             pendentesCount={pendentesBaba}
             onSair={modo === "baba" ? async () => { await auth.logout(); setTela("hub"); } : undefined}
             onDenunciar={modo === "mae" ? (perfil, motivo, detalhes) => enviarDenuncia(perfil, "baba", motivo, detalhes) : undefined}
