@@ -929,7 +929,7 @@ function TrabalhoModal({ onClose, onSalvar, corDestaque = D_CORAL_DEEP }) {
 }
 
 function ChatScreen({
-  conversationId, professionalId, meuUserId, nome, iniciais, cor, fotoUrl, corDestaque = GOLD_DEEP,
+  conversationId, professionalId, participantId, meuUserId, nome, iniciais, cor, fotoUrl, corDestaque = GOLD_DEEP,
   onClose, meuContato, onConfigurarContato, onAvisoSilencioso,
 }) {
   const [conversaId, setConversaId] = useState(conversationId || null);
@@ -947,7 +947,7 @@ function ChatScreen({
       try {
         let id = conversationId;
         if (!id) {
-          const conversa = await startConversation({ professionalId });
+          const conversa = await startConversation({ professionalId, participantId });
           id = conversa.id;
         }
         if (cancelado) return;
@@ -3538,26 +3538,45 @@ function CheckinModal({ contratacao, papel, meuContato, onConfirmarOk, onPedirAj
 
 function HistoricoItem({
   c, papel, ehPrestador, onAceitar, onRecusar, onCheckin, onCheckout, onConcluir, onCancelar,
-  onEmergencia, onIniciarCheckin, onAvaliar, onAvisoContato, meuContato, corDestaque,
+  onEmergencia, onIniciarCheckin, onAvaliar, onAvisoContato, onAbrirChat, meuContato, corDestaque,
 }) {
+  const outroNome = papel === "cliente" ? c.prestadorNome : c.clienteNome;
+  const outroIniciais = papel === "cliente" ? c.prestadorIniciais : c.clienteIniciais;
+  const outroCor = papel === "cliente" ? c.prestadorCor : c.clienteCor;
+  const outroFoto = papel === "cliente" ? c.prestadorFoto : c.clienteFoto;
+  const podeConversar = onAbrirChat && (c.status === "pendente" || c.status === "agendado");
+
   return (
     <div style={{ background: CARD, border: `1px solid ${LINE}`, borderRadius: 14, padding: "13px 14px", marginBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Avatar initials={c.prestadorIniciais} color={c.prestadorCor} fotoUrl={c.prestadorFoto} size={34} />
+          <Avatar initials={outroIniciais} color={outroCor} fotoUrl={outroFoto} size={34} />
           <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: INK, margin: 0 }}>
-              {papel === "cliente" ? c.prestadorNome : c.clienteNome}
-            </p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: INK, margin: 0 }}>{outroNome}</p>
             <p style={{ fontSize: 10.5, color: "#8B6A52", margin: 0 }}>{c.servico}</p>
+            {ehPrestador && (c.clienteBairro || c.clienteCidade) && (
+              <p style={{ fontSize: 10, color: "#8B6A52", margin: "2px 0 0", display: "flex", alignItems: "center", gap: 3 }}>
+                <MapPin size={10} /> {[c.clienteBairro, c.clienteCidade].filter(Boolean).join(", ")}
+              </p>
+            )}
           </div>
         </div>
         <StatusBadge status={c.status} />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: INK_SOFT, marginBottom: c.status !== "cancelado" ? 8 : 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: INK_SOFT, marginBottom: (c.status !== "cancelado" || podeConversar) ? 8 : 0 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}><CalendarClock size={12} /> {c.data} às {c.horario}</span>
         <span style={{ fontWeight: 700, color: INK }}>{c.valor}</span>
       </div>
+
+      {podeConversar && (
+        <button onClick={() => onAbrirChat(c, ehPrestador)} style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", marginBottom: 8,
+          fontSize: 11, fontWeight: 700, padding: "8px 0", borderRadius: 9, cursor: "pointer",
+          border: `1px solid ${corDestaque}`, background: "none", color: corDestaque,
+        }}>
+          <MessageCircle size={12} /> {c.valor === "A combinar" ? `Conversar sobre o valor com ${outroNome.split(" ")[0]}` : `Conversar com ${outroNome.split(" ")[0]}`}
+        </button>
+      )}
 
       {ehPrestador && c.status === "pendente" && (
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
@@ -3669,7 +3688,7 @@ function HistoricoItem({
 
 function HistoricoScreen({
   contratacoes, papel, onVoltar, onAvaliar, onConcluir, onCancelar, onAceitar, onRecusar,
-  onCheckin, onCheckout, onAvisoContato,
+  onCheckin, onCheckout, onAvisoContato, onAbrirChat,
   corDestaque = GOLD_DEEP, corHeader = INK, corTexto = PAPER, meuContato = null,
 }) {
   const ehPrestador = papel !== "cliente";
@@ -3681,7 +3700,7 @@ function HistoricoScreen({
 
   const itemProps = {
     papel, ehPrestador, onAceitar, onRecusar, onCheckin, onCheckout, onConcluir, onCancelar,
-    onEmergencia: setEmergenciaCtx, onIniciarCheckin: setCheckinAlvo, onAvaliar, onAvisoContato, meuContato, corDestaque,
+    onEmergencia: setEmergenciaCtx, onIniciarCheckin: setCheckinAlvo, onAvaliar, onAvisoContato, onAbrirChat, meuContato, corDestaque,
   };
 
   return (
@@ -7212,10 +7231,9 @@ export default function App() {
   };
 
   // Carrega as contratações reais (como cliente e como profissional) assim que
-  // a sessão é confirmada. O DTO do backend não traz nome/foto de quem está do
-  // outro lado — enriquecemos com o perfil profissional já disponível via API;
-  // do lado do profissional não existe hoje um jeito de buscar o nome do
-  // cliente (gap do backend), então usamos um rótulo genérico nesse caso.
+  // a sessão é confirmada. O DTO do backend já traz o perfil da contratante
+  // (nome, foto, bairro, cidade) dentro de `cliente` — enriquecemos só o lado
+  // do profissional (nome/foto/cor), que o DTO não traz, via GET /professionals/:id.
   useEffect(() => {
     if (auth.status !== "authenticated") return;
     let cancelado = false;
@@ -7234,7 +7252,7 @@ export default function App() {
           try { prof = await getProfessionalById(b.professionalId); } catch {}
           const clienteNome = b._comoCliente
             ? (b.serviceType === "baba" ? (meuPerfilMae?.nome || "Você") : (meuPerfilCliente?.nome || "Você"))
-            : "Cliente";
+            : (b.cliente?.nome || "Cliente");
           return {
             id: b.id,
             prestadorId: b.professionalId,
@@ -7243,7 +7261,13 @@ export default function App() {
             prestadorIniciais: prof ? iniciaisDoNome(prof.name) : "?",
             prestadorCor: corPorId(b.professionalId, b.serviceType === "baba" ? [FOREST, WINE, GOLD_DEEP] : [D_CORAL, D_CORAL_DEEP, D_CORAL_LIGHT]),
             prestadorFoto: prof?.fotoUrl || null,
+            clienteId: b.clientId,
             clienteNome,
+            clienteIniciais: iniciaisDoNome(clienteNome),
+            clienteCor: corPorId(b.clientId, [WINE, FOREST, GOLD_DEEP]),
+            clienteFoto: b.cliente?.fotoUrl || null,
+            clienteBairro: b.cliente?.bairro || null,
+            clienteCidade: b.cliente?.cidade || null,
             data: b.data,
             horario: (b.horario || "").slice(0, 5),
             servico: b.servico,
@@ -7439,6 +7463,18 @@ export default function App() {
     } catch (e) {
       adicionarNotificacao(e.message || "Não foi possível enviar o pedido agora. Tente novamente.");
       throw e;
+    }
+  };
+
+  // Abre o chat a partir de um item de contratação/agenda — do lado da
+  // profissional, conversa direto com a contratante (participantId, já que
+  // ela não tem perfil profissional); do lado da contratante, com a
+  // profissional (professionalId, resolvido pro userId dela no backend).
+  const abrirChatDaContratacao = (c, ehPrestador) => {
+    if (ehPrestador) {
+      setConversaAberta({ participantId: c.clienteId, nome: c.clienteNome, iniciais: c.clienteIniciais, fotoUrl: c.clienteFoto });
+    } else {
+      setConversaAberta({ professionalId: c.prestadorId, nome: c.prestadorNome, iniciais: c.prestadorIniciais, fotoUrl: c.prestadorFoto });
     }
   };
 
@@ -7915,6 +7951,7 @@ export default function App() {
                   onConcluir={concluirContratacao}
                   onCancelar={cancelarContratacao}
                   onAvisoContato={notificarContatosConfianca}
+                  onAbrirChat={abrirChatDaContratacao}
                   corDestaque={D_CORAL}
                   corHeader="#5A2420"
                   corTexto="#FFF6F1"
@@ -7931,6 +7968,7 @@ export default function App() {
                   onCheckin={registrarCheckin}
                   onCheckout={registrarCheckout}
                   onAvisoContato={notificarContatosConfianca}
+                  onAbrirChat={abrirChatDaContratacao}
                   corDestaque={D_CORAL}
                   corHeader="#5A2420"
                   corTexto="#FFF6F1"
@@ -8153,6 +8191,7 @@ export default function App() {
             onConcluir={concluirContratacao}
             onCancelar={cancelarContratacao}
             onAvisoContato={notificarContatosConfianca}
+            onAbrirChat={abrirChatDaContratacao}
             corDestaque={GOLD_DEEP}
             corHeader={INK}
             corTexto={PAPER}
@@ -8171,6 +8210,7 @@ export default function App() {
             onCheckin={registrarCheckin}
             onCheckout={registrarCheckout}
             onAvisoContato={notificarContatosConfianca}
+            onAbrirChat={abrirChatDaContratacao}
             corDestaque={GOLD_DEEP}
             corHeader={INK}
             corTexto={PAPER}
@@ -8272,11 +8312,13 @@ export default function App() {
       {conversaAberta && (
         <ChatScreen
           conversationId={conversaAberta.conversationId}
+          professionalId={conversaAberta.professionalId}
+          participantId={conversaAberta.participantId}
           meuUserId={auth.user?.id}
           nome={conversaAberta.nome} iniciais={conversaAberta.iniciais} fotoUrl={conversaAberta.fotoUrl}
           corDestaque={tela === "diaristaApp" ? D_CORAL_DEEP : GOLD_DEEP}
           onClose={() => setConversaAberta(null)}
-          meuContato={tela === "diaristaApp" ? meuPerfilCliente : meuPerfilMae}
+          meuContato={tela === "diaristaApp" ? (modoDiarista === "cliente" ? meuPerfilCliente : meuPerfilDiarista) : (modo === "mae" ? meuPerfilMae : meuPerfilBaba)}
           onConfigurarContato={() => setConversaAberta(null)}
           onAvisoSilencioso={notificarContatosConfianca}
         />
