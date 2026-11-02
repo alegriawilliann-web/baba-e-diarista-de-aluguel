@@ -7057,6 +7057,10 @@ export default function App() {
   });
   const [selecionada, setSelecionada] = useState(null);
   const [meuPerfilBaba, setMeuPerfilBaba] = useState(minhaBaba);
+  // Fica true enquanto o perfil real ainda não voltou da API (ex: logo depois
+  // de reabrir o app) — evita mostrar a tela de pagamento por engano usando
+  // o statusPagamento do mock (minhaBaba) antes do perfil de verdade chegar.
+  const [carregandoPerfilBaba, setCarregandoPerfilBaba] = useState(true);
   const [meuPerfilMae, setMeuPerfilMae] = useState(null);
   const [verPerfilMae, setVerPerfilMae] = useState(false);
   const [perfilPendente, setPerfilPendente] = useState(null);
@@ -7109,6 +7113,7 @@ export default function App() {
     try { return localStorage.getItem("lastModoDiarista") || "cliente"; } catch { return "cliente"; }
   });
   const [meuPerfilDiarista, setMeuPerfilDiarista] = useState(minhaDiarista);
+  const [carregandoPerfilDiarista, setCarregandoPerfilDiarista] = useState(true);
   const [selecionadaDiarista, setSelecionadaDiarista] = useState(null);
   const [perfilDiaristaPendente, setPerfilDiaristaPendente] = useState(null);
   const [perfilClienteDiaristaPendente, setPerfilClienteDiaristaPendente] = useState(null);
@@ -7182,12 +7187,17 @@ export default function App() {
   useEffect(() => {
     if (auth.status !== "authenticated") return;
     let cancelado = false;
+    setCarregandoPerfilBaba(true);
+    setCarregandoPerfilDiarista(true);
     (async () => {
       if (auth.roles.includes("profissional_baba")) {
         try {
           const dto = await getMyProfessionalProfile("baba");
           if (!cancelado) setMeuPerfilBaba(adaptarProfissionalBaba(dto));
         } catch {}
+        if (!cancelado) setCarregandoPerfilBaba(false);
+      } else if (!cancelado) {
+        setCarregandoPerfilBaba(false);
       }
       if (auth.roles.includes("profissional_diarista")) {
         try {
@@ -7196,6 +7206,9 @@ export default function App() {
           const trabalhos = await listMyPortfolio().catch(() => []);
           if (!cancelado) setMeuPerfilDiarista((p) => ({ ...p, trabalhos }));
         } catch {}
+        if (!cancelado) setCarregandoPerfilDiarista(false);
+      } else if (!cancelado) {
+        setCarregandoPerfilDiarista(false);
       }
     })();
     return () => { cancelado = true; };
@@ -8026,6 +8039,10 @@ export default function App() {
                 />
               ) : modoDiarista === "cliente" ? (
                 <DiaristaSearchView onSelect={setSelecionadaDiarista} bloqueados={idsBloqueadosDiarista} cidade={meuPerfilCliente?.cidade} />
+              ) : carregandoPerfilDiarista ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                  <p style={{ fontSize: 12.5, color: "#E4C3BC", fontFamily: "Manrope, sans-serif" }}>Carregando seu perfil...</p>
+                </div>
               ) : meuPerfilDiarista.statusPagamento === "vencida" ? (
                 <MensalidadeBloqueada perfil={meuPerfilDiarista} serviceType="diarista" corDestaque={D_CORAL_DEEP} onPago={recarregarPerfilDiarista} />
               ) : mostrarPagamentoDiarista || meuPerfilDiarista.statusPagamento !== "liberado" ? (
@@ -8151,6 +8168,10 @@ export default function App() {
                   bloqueados={idsBloqueadosBaba}
                   cidade={meuPerfilMae?.cidade}
                 />
+              ) : carregandoPerfilBaba ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                  <p style={{ fontSize: 12.5, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Carregando seu perfil...</p>
+                </div>
               ) : meuPerfilBaba.statusPagamento === "vencida" ? (
                 <MensalidadeBloqueada perfil={meuPerfilBaba} serviceType="baba" corDestaque={GOLD_DEEP} onPago={recarregarPerfilBaba} />
               ) : mostrarPagamentoBaba || meuPerfilBaba.statusPagamento !== "liberado" ? (
