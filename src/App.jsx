@@ -943,6 +943,14 @@ function ChatScreen({
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [showEmergencia, setShowEmergencia] = useState(false);
+  // Quando abre direto de uma notificação push (app recém-aberto do zero,
+  // API do Render podendo estar "dormindo"), quem chamou pode não ter
+  // conseguido resolver nome/foto a tempo — tenta de novo aqui, junto com
+  // a busca das mensagens, em vez de ficar preso no "Conversa" genérico.
+  const [infoOutro, setInfoOutro] = useState(null);
+  const nomeExibido = nome || infoOutro?.nome || "Conversa";
+  const iniciaisExibidas = nome ? iniciais : (infoOutro ? iniciaisDoNome(infoOutro.nome) : iniciais);
+  const fotoExibida = nome ? fotoUrl : (infoOutro ? infoOutro.fotoUrl : fotoUrl);
   const fimRef = useRef(null);
 
   useEffect(() => {
@@ -956,7 +964,17 @@ function ChatScreen({
         }
         if (cancelado) return;
         setConversaId(id);
-        const lista = await listMessages(id);
+
+        const buscaNome = !nome
+          ? listConversations()
+              .then((lista) => {
+                const c = lista.find((x) => x.id === id);
+                if (c?.outro && !cancelado) setInfoOutro(c.outro);
+              })
+              .catch(() => {})
+          : Promise.resolve();
+
+        const [lista] = await Promise.all([listMessages(id), buscaNome]);
         if (!cancelado) setMensagens(lista || []);
       } catch (e) {
         if (!cancelado) setErro(e.message || "Não foi possível abrir essa conversa.");
@@ -1001,9 +1019,9 @@ function ChatScreen({
         <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer" }}>
           <ChevronLeft size={20} color={PAPER} />
         </button>
-        <Avatar initials={iniciais} color={cor} fotoUrl={fotoUrl} size={34} />
+        <Avatar initials={iniciaisExibidas} color={cor} fotoUrl={fotoExibida} size={34} />
         <div style={{ flex: 1 }}>
-          <p style={{ color: PAPER, fontFamily: "Manrope, sans-serif", fontSize: 13.5, fontWeight: 700, margin: 0 }}>{nome}</p>
+          <p style={{ color: PAPER, fontFamily: "Manrope, sans-serif", fontSize: 13.5, fontWeight: 700, margin: 0 }}>{nomeExibido}</p>
           <p style={{ color: "rgba(251,243,231,0.65)", fontFamily: "Manrope, sans-serif", fontSize: 10.5, margin: 0 }}>Conversa privada</p>
         </div>
         <button onClick={() => setShowEmergencia(true)} title="Emergência" style={{
@@ -1015,7 +1033,7 @@ function ChatScreen({
       </div>
       {meuContato?.contatosConfianca?.length > 0 && (
         <div style={{ display: "flex", justifyContent: "flex-end", padding: "6px 14px", background: INK }}>
-          <AvisoSilenciosoButton meuContato={meuContato} contexto={`chat com ${nome}`} onAcionar={onAvisoSilencioso} />
+          <AvisoSilenciosoButton meuContato={meuContato} contexto={`chat com ${nomeExibido}`} onAcionar={onAvisoSilencioso} />
         </div>
       )}
 
@@ -1071,8 +1089,8 @@ function ChatScreen({
       </div>
       {showEmergencia && (
         <EmergenciaModal
-          nome={nome}
-          contexto={`chat com ${nome}`}
+          nome={nomeExibido}
+          contexto={`chat com ${nomeExibido}`}
           meuContato={meuContato}
           onConfigurarContato={onConfigurarContato}
           onAvisar={onAvisoSilencioso}
@@ -7309,10 +7327,12 @@ export default function App() {
     if (!n.link) return;
 
     if (n.tipo === "nova_mensagem") {
-      const lista = await listConversations().catch(() => []);
-      const conversa = lista.find((c) => c.id === n.link);
-      const nome = conversa?.outro?.nome || "Conversa";
-      setConversaAberta({ conversationId: n.link, nome, iniciais: iniciaisDoNome(nome), fotoUrl: conversa?.outro?.fotoUrl });
+      // Sem nome/foto aqui de propósito — o ChatScreen resolve isso sozinho
+      // ao abrir (ver useEffect lá), junto com a busca das mensagens. Tentar
+      // resolver aqui também só duplicava a chamada e, se a API estivesse
+      // "dormindo" bem na hora que a notificação chegou, ficava preso no
+      // nome genérico "Conversa" pra sempre, mesmo a tela abrindo certa.
+      setConversaAberta({ conversationId: n.link });
       return;
     }
 
