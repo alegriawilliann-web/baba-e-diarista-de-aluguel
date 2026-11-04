@@ -174,7 +174,7 @@ export async function deleteMyAccount(userId: string) {
   return { ok: true };
 }
 
-export async function shareProfile(callerId: string, targetUserId: string, nomePerfil: string) {
+export async function shareProfile(callerId: string, targetUserId: string, nomePerfil: string, professionalId?: string) {
   if (targetUserId === callerId) throw new ForbiddenError("Você não pode enviar um perfil pra si mesmo");
 
   const [caller, target] = await Promise.all([
@@ -188,6 +188,9 @@ export async function shareProfile(callerId: string, targetUserId: string, nomeP
     userId: targetUserId,
     tipo: "perfil_compartilhado",
     texto: `${caller?.name ?? "Alguém"} compartilhou o perfil de ${nomePerfil} com você.`,
+    // `link` = id do perfil profissional (não uma URL) — sem ele, a
+    // notificação não tinha pra onde levar quando a pessoa tocava nela.
+    link: professionalId,
   });
 
   return { ok: true };

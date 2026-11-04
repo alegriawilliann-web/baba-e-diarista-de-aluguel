@@ -83,7 +83,10 @@ export async function sendMessage(userId: string, conversationId: string, texto:
   const participantes = await db.query.conversationParticipants.findMany({ where: eq(conversationParticipants.conversationId, conversationId) });
   const destinatarioId = participantes.map((p) => p.userId).find((id) => id !== userId);
   if (destinatarioId) {
-    await notify({ userId: destinatarioId, tipo: "nova_mensagem", texto: "Você recebeu uma nova mensagem", link: `/conversations/${conversationId}` });
+    // `link` guarda só o id da conversa (não uma URL) — o app não tem
+    // roteador de verdade, então quem lê isso é o próprio frontend, que
+    // espera o id puro pra abrir o chat direto nele.
+    await notify({ userId: destinatarioId, tipo: "nova_mensagem", texto: "Você recebeu uma nova mensagem", link: conversationId });
   }
 
   return row;

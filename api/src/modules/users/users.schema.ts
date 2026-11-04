@@ -40,4 +40,5 @@ export const roleUpdateBody = t.Object({
 export const shareProfileBody = t.Object({
   targetUserId: t.String({ format: "uuid" }),
   nome: t.String({ minLength: 1, maxLength: 150 }),
+  professionalId: t.Optional(t.String({ format: "uuid" })),
 });

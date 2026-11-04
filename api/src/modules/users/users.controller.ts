@@ -43,8 +43,8 @@ export async function searchUsers(ctx: any) {
 }
 
 export async function shareProfile(ctx: any) {
-  const { targetUserId, nome } = ctx.body as { targetUserId: string; nome: string };
-  return usersService.shareProfile(ctx.user.sub, targetUserId, nome);
+  const { targetUserId, nome, professionalId } = ctx.body as { targetUserId: string; nome: string; professionalId?: string };
+  return usersService.shareProfile(ctx.user.sub, targetUserId, nome, professionalId);
 }
 
 export async function listUsers(ctx: any) {

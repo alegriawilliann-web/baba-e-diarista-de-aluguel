@@ -1459,7 +1459,7 @@ function AvaliarModal({ nome, onClose, onEnviar, corDestaque = GOLD_DEEP }) {
   );
 }
 
-function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }) {
+function ShareModal({ nome, professionalId, appNome = "baba", corDestaque = GOLD_DEEP, onClose }) {
   const [copiado, setCopiado] = useState(false);
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState([]);
@@ -1509,7 +1509,7 @@ function ShareModal({ nome, appNome = "baba", corDestaque = GOLD_DEEP, onClose }
     setEnviando(true);
     setErro("");
     try {
-      await shareProfile({ targetUserId: selecionado.id, nome });
+      await shareProfile({ targetUserId: selecionado.id, nome, professionalId });
       setEnviado(true);
     } catch (e) {
       setErro(e.message || "N\u00e3o foi poss\u00edvel enviar agora. Tente de novo.");
@@ -2169,7 +2169,7 @@ function BabaDetail({
           }}
         />
       )}
-      {showShare && <ShareModal nome={baba.name} appNome="baba" corDestaque={GOLD_DEEP} onClose={() => setShowShare(false)} />}
+      {showShare && <ShareModal nome={baba.name} professionalId={baba.id} appNome="baba" corDestaque={GOLD_DEEP} onClose={() => setShowShare(false)} />}
       {showAgendar && (
         <AgendarModal
           prestador={baba}
@@ -3550,7 +3550,7 @@ function DiaristaDetail({
           }}
         />
       )}
-      {showShare && <ShareModal nome={diarista.name} appNome="diarista" corDestaque={D_CORAL_DEEP} onClose={() => setShowShare(false)} />}
+      {showShare && <ShareModal nome={diarista.name} professionalId={diarista.id} appNome="diarista" corDestaque={D_CORAL_DEEP} onClose={() => setShowShare(false)} />}
       {showAgendar && (
         <AgendarModal
           prestador={diarista}
@@ -7332,7 +7332,9 @@ export default function App() {
       // resolver aqui também só duplicava a chamada e, se a API estivesse
       // "dormindo" bem na hora que a notificação chegou, ficava preso no
       // nome genérico "Conversa" pra sempre, mesmo a tela abrindo certa.
-      setConversaAberta({ conversationId: n.link });
+      // Notificações antigas (de antes dessa correção) guardaram o link como
+      // "/conversations/<id>" em vez do id puro — aceita os dois formatos.
+      setConversaAberta({ conversationId: n.link.replace(/^\/conversations\//, "") });
       return;
     }
 
@@ -7362,6 +7364,20 @@ export default function App() {
       setVagasAbaInicial("minhas");
       if (serviceType === "baba") { setTela("app"); setModo("baba"); } else { setTela("diaristaApp"); setModoDiarista("diarista"); }
       setVerVagas(true);
+      return;
+    }
+    if (n.tipo === "perfil_compartilhado") {
+      try {
+        const profissional = await getProfessionalById(n.link);
+        fecharTelasSecundarias();
+        if (profissional.serviceType === "baba") {
+          setTela("app"); setModo("mae"); setSelecionada(profissional);
+        } else {
+          setTela("diaristaApp"); setModoDiarista("cliente"); setSelecionadaDiarista(profissional);
+        }
+      } catch {
+        adicionarNotificacao("Esse perfil não está mais disponível.");
+      }
       return;
     }
   };

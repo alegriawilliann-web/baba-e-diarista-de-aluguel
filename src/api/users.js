@@ -39,6 +39,6 @@ export function searchUsers(q) {
   return request(`/users/search?q=${encodeURIComponent(q)}`);
 }
 
-export function shareProfile({ targetUserId, nome }) {
-  return request("/users/share-profile", { method: "POST", body: { targetUserId, nome } });
+export function shareProfile({ targetUserId, nome, professionalId }) {
+  return request("/users/share-profile", { method: "POST", body: { targetUserId, nome, professionalId } });
 }
