@@ -43,6 +43,13 @@ export const app = new Elysia()
   .get("/", () => ({ ok: true, docs: "/docs" }))
   .get("/privacy-policy", () => new Response(privacyPolicyHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   .get("/terms-of-use", () => new Response(termsOfUseHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
+  // Link curto e fácil de divulgar (bio do Instagram, WhatsApp, etc.) —
+  // redireciona pra ficha real na Play Store, em vez de expor a URL longa.
+  .get("/baixar", ({ set }) => {
+    set.status = 302;
+    set.headers.location = "https://play.google.com/store/apps/details?id=com.babadealuguel.app";
+    return "";
+  })
   .group("/api", (api) =>
     api
       .use(authRoutes)
