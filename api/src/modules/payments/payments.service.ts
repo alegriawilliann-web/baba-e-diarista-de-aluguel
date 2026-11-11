@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, and, isNull, or, gt } from "drizzle-orm";
 import { db } from "../../config/database";
-import { payments, paymentEvents } from "./payments.model";
+import { payments, paymentEvents, mensalidadeDiscounts } from "./payments.model";
 import { professionalProfiles } from "../professionals/professionals.model";
 import { users } from "../users/users.model";
 import { mercadoPagoProvider } from "./providers/mercadopago";
@@ -64,6 +64,24 @@ async function applyApprovedSideEffects(payment: typeof payments.$inferSelect) {
   }
 }
 
+// Pega o melhor desconto ainda não usado e não vencido pra essa pessoa, e
+// já marca como consumido — gerar o Pix com desconto conta como usar,
+// mesmo que esse Pix específico nunca seja pago.
+async function aplicarDescontoMensalidade(userId: string): Promise<number> {
+  const desconto = await db.query.mensalidadeDiscounts.findFirst({
+    where: and(
+      eq(mensalidadeDiscounts.userId, userId),
+      isNull(mensalidadeDiscounts.usedAt),
+      or(isNull(mensalidadeDiscounts.expiresAt), gt(mensalidadeDiscounts.expiresAt, new Date()))
+    ),
+    orderBy: (d, { desc }) => [desc(d.percentOff)],
+  });
+  if (!desconto) return MENSALIDADE_CENTS;
+
+  await db.update(mensalidadeDiscounts).set({ usedAt: new Date() }).where(eq(mensalidadeDiscounts.id, desconto.id));
+  return Math.round((MENSALIDADE_CENTS * (100 - desconto.percentOff)) / 100);
+}
+
 // Resolve o professional_profiles do PRÓPRIO usuário logado a partir do
 // serviceType informado — nunca aceita um professionalId vindo do cliente,
 // pra ninguém conseguir pagar a mensalidade de outra pessoa.
@@ -80,6 +98,8 @@ export async function createMensalidadePix(userId: string, serviceType: "baba" |
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   const email = user!.email;
   const nome = user!.name;
+  const valor = await aplicarDescontoMensalidade(userId);
+  const descricao = valor < MENSALIDADE_CENTS ? "Mensalidade da plataforma (com desconto)" : "Mensalidade da plataforma";
 
   const [payment] = await db
     .insert(payments)
@@ -88,8 +108,8 @@ export async function createMensalidadePix(userId: string, serviceType: "baba" |
       purpose: "mensalidade",
       referenceId: profile.id,
       method: "pix",
-      amountCents: MENSALIDADE_CENTS,
-      description: "Mensalidade da plataforma",
+      amountCents: valor,
+      description: descricao,
       payerEmail: email,
       payerName: nome,
     })
@@ -97,8 +117,8 @@ export async function createMensalidadePix(userId: string, serviceType: "baba" |
 
   const provider = getProviderForCountry();
   const result = await provider.createPixPayment({
-    valorCentavos: MENSALIDADE_CENTS,
-    descricao: "Mensalidade da plataforma",
+    valorCentavos: valor,
+    descricao,
     email,
     nome,
     referenciaExterna: payment!.id,
@@ -120,6 +140,8 @@ export async function createMensalidadeCard(
   const profile = await resolveOwnProfessional(userId, serviceType);
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   const email = user!.email;
+  const valor = await aplicarDescontoMensalidade(userId);
+  const descricao = valor < MENSALIDADE_CENTS ? "Mensalidade da plataforma (com desconto)" : "Mensalidade da plataforma";
 
   const [payment] = await db
     .insert(payments)
@@ -128,16 +150,16 @@ export async function createMensalidadeCard(
       purpose: "mensalidade",
       referenceId: profile.id,
       method: "credito",
-      amountCents: MENSALIDADE_CENTS,
-      description: "Mensalidade da plataforma",
+      amountCents: valor,
+      description: descricao,
       payerEmail: email,
     })
     .returning();
 
   const provider = getProviderForCountry();
   const result = await provider.createCardPayment({
-    valorCentavos: MENSALIDADE_CENTS,
-    descricao: "Mensalidade da plataforma",
+    valorCentavos: valor,
+    descricao,
     email,
     token: input.token,
     parcelas: input.parcelas,

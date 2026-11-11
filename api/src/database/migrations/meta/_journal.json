@@ -141,6 +141,13 @@
       "when": 1793658430247,
       "tag": "0019_long_captain_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794357301360,
+      "tag": "0020_nifty_roulette",
+      "breakpoints": true
     }
   ]
 }

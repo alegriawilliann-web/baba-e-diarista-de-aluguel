@@ -35,6 +35,25 @@ export const payments = pgTable(
   ]
 );
 
+// Desconto pontual na mensalidade, concedido manualmente (ex: campanha de
+// reativação pra quem gerou o Pix e não pagou) — não é um sistema de cupom
+// público, só uma linha por pessoa. `usedAt` marca consumido assim que um
+// pagamento é gerado com ele (mesmo que esse Pix específico nunca seja
+// pago), pra não dar pra gerar vários Pix com desconto repetidamente.
+export const mensalidadeDiscounts = pgTable(
+  "mensalidade_discounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    percentOff: integer("percent_off").notNull(),
+    motivo: varchar("motivo", { length: 150 }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("mensalidade_discounts_user_id_idx").on(t.userId)]
+);
+
 export const paymentEvents = pgTable(
   "payment_events",
   {
