@@ -459,13 +459,95 @@ function CameraModal({ onClose, onUsarFoto, corDestaque = GOLD_DEEP }) {
 
 // Modal simples pra ver em tela cheia uma foto de certidão anexada (CN da
 // profissional ou de alguém da equipe) — toque fora fecha.
+const clampZoom = (v, min, max) => Math.min(max, Math.max(min, v));
+
+// Zoom por pinça (dois dedos), arrastar quando ampliado e toque duplo pra
+// ampliar/reduzir — o print da certidão às vezes vem com letra miúda, e o
+// WebView do Capacitor não dá zoom nativo por padrão, então isso precisa
+// ser feito na mão aqui dentro do modal.
 function FotoCertidaoModal({ src, onClose }) {
+  const [scale, setScale] = useState(1);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const pointers = useRef(new Map());
+  const pinchStart = useRef(null);
+  const dragStart = useRef(null);
+  const lastTap = useRef(0);
+  const interagindo = useRef(false);
+
+  const resetZoom = () => { setScale(1); setPos({ x: 0, y: 0 }); };
+
+  const handlePointerDown = (e) => {
+    e.stopPropagation();
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinchStart.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), scale };
+      dragStart.current = null;
+    } else if (pointers.current.size === 1) {
+      if (scale > 1) dragStart.current = { x: e.clientX, y: e.clientY, posX: pos.x, posY: pos.y };
+      const agora = Date.now();
+      if (agora - lastTap.current < 300) {
+        if (scale > 1) resetZoom(); else { setScale(2.5); dragStart.current = null; }
+      }
+      lastTap.current = agora;
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2 && pinchStart.current) {
+      interagindo.current = true;
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      setScale(clampZoom((dist / pinchStart.current.dist) * pinchStart.current.scale, 1, 4));
+    } else if (pointers.current.size === 1 && dragStart.current) {
+      interagindo.current = true;
+      setPos({ x: dragStart.current.posX + (e.clientX - dragStart.current.x), y: dragStart.current.posY + (e.clientY - dragStart.current.y) });
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinchStart.current = null;
+    if (pointers.current.size === 0) dragStart.current = null;
+    setScale((s) => (s <= 1.05 ? (setPos({ x: 0, y: 0 }), 1) : s));
+    setTimeout(() => { interagindo.current = false; }, 0);
+  };
+
+  const handleWheel = (e) => {
+    e.stopPropagation();
+    const next = clampZoom(scale - e.deltaY * 0.0015 * scale, 1, 4);
+    setScale(next);
+    if (next <= 1.02) setPos({ x: 0, y: 0 });
+  };
+
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 300,
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 24, overflow: "hidden",
     }}>
-      <img src={src} alt="Certidão Negativa" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 10 }} />
+      <img
+        src={src}
+        alt="Certidão Negativa"
+        onClick={(e) => { if (interagindo.current) e.stopPropagation(); }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
+        style={{
+          maxWidth: "100%", maxHeight: "100%", borderRadius: 10, touchAction: "none",
+          transform: `translate(${pos.x}px, ${pos.y}px) scale(${scale})`,
+          transition: pinchStart.current || dragStart.current ? "none" : "transform 0.15s ease-out",
+          cursor: scale > 1 ? "grab" : "zoom-in",
+        }}
+      />
+      {scale <= 1 && (
+        <p style={{ position: "absolute", bottom: 18, left: 0, right: 0, textAlign: "center", color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Manrope, sans-serif" }}>
+          Toque duas vezes ou belisque pra ampliar
+        </p>
+      )}
       <button onClick={onClose} style={{
         position: "absolute", top: 18, right: 18, background: "rgba(255,255,255,0.15)", border: "none",
         borderRadius: "50%", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
