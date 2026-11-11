@@ -4,6 +4,10 @@ export function getPublicKey() {
   return request("/payments/config/public-key", { auth: false }).then((r) => r.publicKey);
 }
 
+export function previewMensalidadePrice(serviceType) {
+  return request(`/payments/mensalidade/preco?serviceType=${serviceType}`);
+}
+
 export function createMensalidadePix(serviceType) {
   return request("/payments/mensalidade/pix", { method: "POST", body: { serviceType } });
 }

@@ -148,6 +148,13 @@
       "when": 1794357301360,
       "tag": "0020_nifty_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794357905973,
+      "tag": "0021_ancient_morg",
+      "breakpoints": true
     }
   ]
 }

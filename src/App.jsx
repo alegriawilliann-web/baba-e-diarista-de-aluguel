@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
-import { getPublicKey, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
+import { getPublicKey, previewMensalidadePrice, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { usePush } from "./hooks/usePush.js";
@@ -6294,7 +6294,7 @@ function CartaoStep({ respostas, setCampo }) {
         />
       </div>
       <p style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginTop: 4 }}>
-        Você será cobrado(a) R$ 29,90/mês pelo uso da plataforma. Pagamento processado com segurança.
+        Primeira mensalidade com 50% de desconto (R$ 14,95). Depois, R$ 29,90/mês. Pagamento processado com segurança.
       </p>
     </div>
   );
@@ -6469,7 +6469,7 @@ const perguntasBaba = [
   { key: "disponibilidadeSemana", pergunta: "Em quais dias da semana você costuma ter disponibilidade?", tipo: "chips", opcoes: diasSemana },
   { key: "formaPagamento", pergunta: "Como você prefere pagar a mensalidade do aplicativo?", tipo: "escolha",
     opcoes: ["Pix", "Cartão de crédito", "Cartão de débito"],
-    ajuda: "A mensalidade da plataforma é de R$ 29,90. Pix e cartão liberam seu perfil na hora." },
+    ajuda: "Primeira mensalidade com 50% de desconto (R$ 14,95). Depois, R$ 29,90/mês. Pix e cartão liberam seu perfil na hora." },
   { key: "dadosCartao", pergunta: "Dados do cartão", tipo: "cartao",
     condicao: (r) => r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito" },
   { key: "aceitouTermos", pergunta: "Só falta aceitar os termos", tipo: "termos" },
@@ -6523,7 +6523,7 @@ const perguntasDiarista = [
   { key: "disponibilidadeSemana", pergunta: "Em quais dias da semana você costuma ter disponibilidade?", tipo: "chips", opcoes: diasSemana },
   { key: "formaPagamento", pergunta: "Como você prefere pagar a mensalidade do aplicativo?", tipo: "escolha",
     opcoes: ["Pix", "Cartão de crédito", "Cartão de débito"],
-    ajuda: "A mensalidade da plataforma é de R$ 29,90. Pix e cartão liberam seu perfil na hora." },
+    ajuda: "Primeira mensalidade com 50% de desconto (R$ 14,95). Depois, R$ 29,90/mês. Pix e cartão liberam seu perfil na hora." },
   { key: "dadosCartao", pergunta: "Dados do cartão", tipo: "cartao",
     condicao: (r) => r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito" },
   { key: "aceitouTermos", pergunta: "Só falta aceitar os termos", tipo: "termos" },
@@ -6873,12 +6873,21 @@ function PagamentoReal({ perfil, serviceType, corDestaque = GOLD_DEEP, onSucesso
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const [pix, setPix] = useState(null);
+  const [preco, setPreco] = useState(null);
 
   const [numero, setNumero] = useState("");
   const [validade, setValidade] = useState("");
   const [cvv, setCvv] = useState("");
   const [nomeCartao, setNomeCartao] = useState(perfil.name || "");
   const [parcelas, setParcelas] = useState(1);
+
+  useEffect(() => {
+    previewMensalidadePrice(serviceType).then(setPreco).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const valorFormatado = (cents) => `R$ ${(cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  const temDesconto = preco && preco.amountCents < preco.originalAmountCents;
 
   useEffect(() => {
     if (metodoInicial !== "pix" || pix) return;
@@ -6973,9 +6982,24 @@ function PagamentoReal({ perfil, serviceType, corDestaque = GOLD_DEEP, onSucesso
       <p style={{ fontFamily: "Fraunces, serif", fontSize: 19, color: INK, fontWeight: 600, textAlign: "center", marginBottom: 6 }}>
         Pagamento da mensalidade
       </p>
-      <p style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif", textAlign: "center", marginBottom: 22 }}>
-        R$ 29,90 · {PAGAMENTO_LABELS[perfil.formaPagamento] || perfil.formaPagamento}
-      </p>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 7, marginBottom: temDesconto ? 2 : 22 }}>
+        {temDesconto && (
+          <span style={{ fontSize: 12, color: "#8B6A52", fontFamily: "Manrope, sans-serif", textDecoration: "line-through" }}>
+            {valorFormatado(preco.originalAmountCents)}
+          </span>
+        )}
+        <span style={{ fontSize: 12, color: temDesconto ? FOREST : "#8B6A52", fontFamily: "Manrope, sans-serif", fontWeight: temDesconto ? 700 : 400 }}>
+          {preco ? valorFormatado(preco.amountCents) : "R$ 29,90"} · {PAGAMENTO_LABELS[perfil.formaPagamento] || perfil.formaPagamento}
+        </span>
+      </div>
+      {temDesconto && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 0, marginBottom: 22 }}>
+          <Sparkles size={12} color={FOREST} />
+          <p style={{ fontSize: 11, color: FOREST, fontFamily: "Manrope, sans-serif", fontWeight: 700, margin: 0 }}>
+            {preco.percentOff}% de desconto na primeira mensalidade — depois, R$ 29,90/mês
+          </p>
+        </div>
+      )}
 
       {erro && (
         <div style={{ background: "#FBEAEA", border: "1px solid #E3B3B3", borderRadius: 12, padding: "10px 12px", marginBottom: 16 }}>
@@ -7090,7 +7114,7 @@ function PagamentoReal({ perfil, serviceType, corDestaque = GOLD_DEEP, onSucesso
           </div>
 
           <button type="submit" disabled={carregando} className="shine-cta" style={{ ...btnPrimary, width: "100%", marginTop: 6, opacity: carregando ? 0.7 : 1 }}>
-            {carregando ? "Processando..." : "Pagar R$ 29,90"}
+            {carregando ? "Processando..." : `Pagar ${preco ? valorFormatado(preco.amountCents) : "R$ 29,90"}`}
           </button>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 2 }}>
             <Lock size={11} color="#8B6A52" />

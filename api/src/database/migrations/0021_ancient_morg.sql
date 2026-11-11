@@ -1,0 +1,2 @@
+ALTER TABLE "mensalidade_discounts" ADD COLUMN "professional_id" uuid;--> statement-breakpoint
+ALTER TABLE "mensalidade_discounts" ADD CONSTRAINT "mensalidade_discounts_professional_id_professional_profiles_id_fk" FOREIGN KEY ("professional_id") REFERENCES "public"."professional_profiles"("id") ON DELETE cascade ON UPDATE no action;

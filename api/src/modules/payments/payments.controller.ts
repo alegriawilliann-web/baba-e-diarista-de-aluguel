@@ -4,6 +4,11 @@ export async function publicKey() {
   return { publicKey: await paymentsService.getPublicKey() };
 }
 
+export async function previewMensalidadePrice(ctx: any) {
+  const { serviceType } = ctx.query as { serviceType: "baba" | "diarista" };
+  return paymentsService.previewMensalidadePrice(ctx.user.sub, serviceType);
+}
+
 export async function createMensalidadePix(ctx: any) {
   const { serviceType } = ctx.body as { serviceType: "baba" | "diarista" };
   return paymentsService.createMensalidadePix(ctx.user.sub, serviceType);

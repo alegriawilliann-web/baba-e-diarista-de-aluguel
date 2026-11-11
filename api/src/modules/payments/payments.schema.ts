@@ -1,5 +1,9 @@
 import { t } from "elysia";
 
+export const previewMensalidadePriceQuery = t.Object({
+  serviceType: t.Union([t.Literal("baba"), t.Literal("diarista")]),
+});
+
 export const createMensalidadePixBody = t.Object({
   serviceType: t.Union([t.Literal("baba"), t.Literal("diarista")]),
 });

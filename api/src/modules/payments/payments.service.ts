@@ -64,22 +64,40 @@ async function applyApprovedSideEffects(payment: typeof payments.$inferSelect) {
   }
 }
 
-// Pega o melhor desconto ainda não usado e não vencido pra essa pessoa, e
-// já marca como consumido — gerar o Pix com desconto conta como usar,
-// mesmo que esse Pix específico nunca seja pago.
-async function aplicarDescontoMensalidade(userId: string): Promise<number> {
-  const desconto = await db.query.mensalidadeDiscounts.findFirst({
+// Acha o melhor desconto ainda não usado e não vencido pra essa pessoa —
+// um desconto com professionalId preenchido só vale pra ESSE perfil (ex:
+// boas-vindas da primeira mensalidade de um cadastro específico); com
+// professionalId null, vale pra qualquer perfil dela (campanha manual).
+async function buscarDescontoAtivo(userId: string, professionalId: string) {
+  return db.query.mensalidadeDiscounts.findFirst({
     where: and(
       eq(mensalidadeDiscounts.userId, userId),
       isNull(mensalidadeDiscounts.usedAt),
-      or(isNull(mensalidadeDiscounts.expiresAt), gt(mensalidadeDiscounts.expiresAt, new Date()))
+      or(isNull(mensalidadeDiscounts.expiresAt), gt(mensalidadeDiscounts.expiresAt, new Date())),
+      or(isNull(mensalidadeDiscounts.professionalId), eq(mensalidadeDiscounts.professionalId, professionalId))
     ),
     orderBy: (d, { desc }) => [desc(d.percentOff)],
   });
+}
+
+// Marca o desconto como consumido assim que um pagamento é gerado com ele
+// (mesmo que esse Pix específico nunca seja pago), pra não dar pra gerar
+// vários Pix com desconto repetidamente.
+async function consumirDescontoMensalidade(userId: string, professionalId: string): Promise<number> {
+  const desconto = await buscarDescontoAtivo(userId, professionalId);
   if (!desconto) return MENSALIDADE_CENTS;
 
   await db.update(mensalidadeDiscounts).set({ usedAt: new Date() }).where(eq(mensalidadeDiscounts.id, desconto.id));
   return Math.round((MENSALIDADE_CENTS * (100 - desconto.percentOff)) / 100);
+}
+
+// Só pra mostrar o valor real na tela antes de gerar o pagamento — nunca
+// consome o desconto (abrir a tela de pagamento não pode "gastar" o cupom).
+export async function previewMensalidadePrice(userId: string, serviceType: "baba" | "diarista") {
+  const profile = await resolveOwnProfessional(userId, serviceType);
+  const desconto = await buscarDescontoAtivo(userId, profile.id);
+  const amountCents = desconto ? Math.round((MENSALIDADE_CENTS * (100 - desconto.percentOff)) / 100) : MENSALIDADE_CENTS;
+  return { amountCents, originalAmountCents: MENSALIDADE_CENTS, percentOff: desconto?.percentOff ?? 0 };
 }
 
 // Resolve o professional_profiles do PRÓPRIO usuário logado a partir do
@@ -98,7 +116,7 @@ export async function createMensalidadePix(userId: string, serviceType: "baba" |
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   const email = user!.email;
   const nome = user!.name;
-  const valor = await aplicarDescontoMensalidade(userId);
+  const valor = await consumirDescontoMensalidade(userId, profile.id);
   const descricao = valor < MENSALIDADE_CENTS ? "Mensalidade da plataforma (com desconto)" : "Mensalidade da plataforma";
 
   const [payment] = await db
@@ -129,7 +147,7 @@ export async function createMensalidadePix(userId: string, serviceType: "baba" |
     .set({ providerPaymentId: result.providerPaymentId, status: mapProviderStatus(result.status), updatedAt: new Date() })
     .where(eq(payments.id, payment!.id));
 
-  return { id: payment!.id, status: mapProviderStatus(result.status), qrCodeBase64: result.qrCodeBase64, qrCodeCopiaECola: result.qrCodeCopiaECola, expiraEm: result.expiraEm };
+  return { id: payment!.id, status: mapProviderStatus(result.status), qrCodeBase64: result.qrCodeBase64, qrCodeCopiaECola: result.qrCodeCopiaECola, expiraEm: result.expiraEm, amountCents: valor, originalAmountCents: MENSALIDADE_CENTS };
 }
 
 export async function createMensalidadeCard(
@@ -140,7 +158,7 @@ export async function createMensalidadeCard(
   const profile = await resolveOwnProfessional(userId, serviceType);
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
   const email = user!.email;
-  const valor = await aplicarDescontoMensalidade(userId);
+  const valor = await consumirDescontoMensalidade(userId, profile.id);
   const descricao = valor < MENSALIDADE_CENTS ? "Mensalidade da plataforma (com desconto)" : "Mensalidade da plataforma";
 
   const [payment] = await db
@@ -177,7 +195,7 @@ export async function createMensalidadeCard(
 
   if (status === "aprovado") await applyApprovedSideEffects(updated!);
 
-  return { id: payment!.id, status, statusDetail: result.statusDetail };
+  return { id: payment!.id, status, statusDetail: result.statusDetail, amountCents: valor, originalAmountCents: MENSALIDADE_CENTS };
 }
 
 export async function getPaymentStatus(userId: string, paymentId: string) {

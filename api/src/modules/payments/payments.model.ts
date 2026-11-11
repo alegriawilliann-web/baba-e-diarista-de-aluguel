@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, integer, char, timestamp, pgEnum, jsonb, index } from "drizzle-orm/pg-core";
 import { PAYMENT_PROVIDERS, PAYMENT_PURPOSES, PAYMENT_STATUSES } from "../../config/constants";
 import { users } from "../users/users.model";
-import { paymentMethodEnum } from "../professionals/professionals.model";
+import { paymentMethodEnum, professionalProfiles } from "../professionals/professionals.model";
 
 export const paymentProviderEnum = pgEnum("payment_provider", [...PAYMENT_PROVIDERS]);
 export const paymentPurposeEnum = pgEnum("payment_purpose", [...PAYMENT_PURPOSES]);
@@ -45,6 +45,11 @@ export const mensalidadeDiscounts = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    // null = vale pra qualquer perfil profissional dessa pessoa (campanha
+    // manual); preenchido = só pro perfil específico (ex: boas-vindas da
+    // primeira mensalidade de UM cadastro — se a pessoa também for babá E
+    // diarista, cada cadastro ganha o seu próprio desconto).
+    professionalId: uuid("professional_id").references(() => professionalProfiles.id, { onDelete: "cascade" }),
     percentOff: integer("percent_off").notNull(),
     motivo: varchar("motivo", { length: 150 }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),

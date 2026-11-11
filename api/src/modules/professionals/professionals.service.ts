@@ -3,6 +3,7 @@ import { db } from "../../config/database";
 import { professionalProfiles, portfolioPosts, teamMembers } from "./professionals.model";
 import { users, addresses } from "../users/users.model";
 import { userRoles } from "../users/users.model";
+import { mensalidadeDiscounts } from "../payments/payments.model";
 import { NotFoundError, ForbiddenError, ValidationError, ConflictError } from "../../shared/errors";
 import { parsePagination, buildPageMeta } from "../../shared/utils/pagination";
 import { MENSALIDADE_GRACE_DAYS, CERTIDAO_VALIDADE_DIAS } from "../../config/constants";
@@ -183,6 +184,19 @@ export async function createProfessionalProfile(userId: string, input: CreatePro
     if (!existingRole) await tx.insert(userRoles).values({ userId, role });
 
     return profile!.id;
+  });
+
+  // Boas-vindas: 50% de desconto na primeira mensalidade desse cadastro —
+  // vale só pra esse perfil específico (ver professionalId em
+  // mensalidade_discounts), então alguém que se cadastra como baba E
+  // diarista ganha o desconto nas duas. Validade de 30 dias pra não ficar
+  // pendurado pra sempre.
+  await db.insert(mensalidadeDiscounts).values({
+    userId,
+    professionalId: profileId,
+    percentOff: 50,
+    motivo: "boas_vindas_primeira_mensalidade",
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
   });
 
   const row = await fetchProfileRow(eq(professionalProfiles.id, profileId));

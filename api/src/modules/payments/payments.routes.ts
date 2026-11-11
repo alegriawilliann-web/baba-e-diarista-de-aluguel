@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { authPlugin } from "../../shared/middleware/auth.middleware";
 import { rateLimitPlugin } from "../../shared/plugins/rate-limit.plugin";
 import * as paymentsController from "./payments.controller";
-import { createMensalidadePixBody, createMensalidadeCardBody } from "./payments.schema";
+import { previewMensalidadePriceQuery, createMensalidadePixBody, createMensalidadeCardBody } from "./payments.schema";
 
 const PROFISSIONAL_ROLES = ["profissional_baba", "profissional_diarista"] as const;
 const CLIENTE_ROLES = ["cliente_baba", "cliente_diarista"] as const;
@@ -12,6 +12,7 @@ export const paymentsRoutes = new Elysia({ prefix: "/payments", tags: ["payments
   .use(authPlugin)
   .use(rateLimitPlugin)
   .get("/config/public-key", paymentsController.publicKey)
+  .get("/mensalidade/preco", paymentsController.previewMensalidadePrice, { query: previewMensalidadePriceQuery, role: [...PROFISSIONAL_ROLES] })
   .post("/mensalidade/pix", paymentsController.createMensalidadePix, {
     body: createMensalidadePixBody, role: [...PROFISSIONAL_ROLES],
     rateLimit: { scope: "mensalidade-pix", limit: 10, windowMs: FIFTEEN_MIN },
