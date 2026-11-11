@@ -1,4 +1,4 @@
-import { eq, and, isNull, or, gt } from "drizzle-orm";
+import { eq, and, isNull, or, gt, lt } from "drizzle-orm";
 import { db } from "../../config/database";
 import { payments, paymentEvents, mensalidadeDiscounts } from "./payments.model";
 import { professionalProfiles } from "../professionals/professionals.model";
@@ -7,6 +7,7 @@ import { mercadoPagoProvider } from "./providers/mercadopago";
 import { COUNTRY_DEFAULTS, DEFAULT_COUNTRY_CODE, MENSALIDADE_CENTS } from "../../config/constants";
 import { addDays, addMonths } from "../../shared/utils/dates";
 import { env } from "../../config/env";
+import { notify } from "../notifications/notifications.service";
 import { NotFoundError, ForbiddenError, ValidationError } from "../../shared/errors";
 import type { PaymentProviderAdapter, StatusResult } from "./payments.types";
 import type { PaymentMethod, PaymentStatus } from "../../config/constants";
@@ -246,6 +247,39 @@ export async function handleMercadoPagoWebhook(query: Record<string, string>, bo
 export async function getPublicKey() {
   if (!env.MP_PUBLIC_KEY) throw new ValidationError("MP_PUBLIC_KEY não configurada no servidor");
   return env.MP_PUBLIC_KEY;
+}
+
+// Roda periodicamente (ver server.ts) — lembra quem gerou o Pix da
+// mensalidade e ainda não pagou depois de 6h, já que o Pix do Mercado
+// Pago expira. `reminderSentAt` garante um único lembrete por Pix gerado,
+// mesmo com o job rodando a cada 30min.
+export async function enviarLembretesPagamentoPendente() {
+  const seisHorasAtras = new Date(Date.now() - 6 * 60 * 60 * 1000);
+  const pendentes = await db.query.payments.findMany({
+    where: and(
+      eq(payments.purpose, "mensalidade"),
+      eq(payments.method, "pix"),
+      eq(payments.status, "processando"),
+      isNull(payments.reminderSentAt),
+      lt(payments.createdAt, seisHorasAtras)
+    ),
+  });
+
+  for (const pagamento of pendentes) {
+    const perfil = pagamento.referenceId ? await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.id, pagamento.referenceId) }) : undefined;
+    const valorFormatado = (pagamento.amountCents / 100).toFixed(2).replace(".", ",");
+    const atividade = perfil?.serviceType === "diarista" ? "diarista" : "babá";
+
+    await notify({
+      userId: pagamento.userId,
+      tipo: "lembrete_pagamento",
+      texto: `O Pix da sua mensalidade de ${atividade} (R$ ${valorFormatado}) ainda não foi pago e pode expirar em breve. Finalize agora pra liberar seu perfil e começar a receber contratações!`,
+    });
+
+    await db.update(payments).set({ reminderSentAt: new Date() }).where(eq(payments.id, pagamento.id));
+  }
+
+  return { lembretesEnviados: pendentes.length };
 }
 
 // Usado pelo módulo boosts (checkpoint seguinte) para não duplicar a lógica

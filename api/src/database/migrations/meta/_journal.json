@@ -155,6 +155,13 @@
       "when": 1794357905973,
       "tag": "0021_ancient_morg",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794433161253,
+      "tag": "0022_tan_power_pack",
+      "breakpoints": true
     }
   ]
 }

@@ -25,6 +25,10 @@ export const payments = pgTable(
     payerName: varchar("payer_name", { length: 150 }),
     externalReference: varchar("external_reference", { length: 100 }),
     rawProviderPayload: jsonb("raw_provider_payload"),
+    // Marca quando o lembrete de "Pix pendente" foi enviado pra esse
+    // pagamento específico — garante que cada Pix gerado só recebe um
+    // lembrete, mesmo com o job rodando a cada 30min.
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
