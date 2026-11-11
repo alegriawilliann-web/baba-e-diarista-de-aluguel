@@ -19,6 +19,7 @@ import { messagesRoutes } from "./modules/messages/messages.routes";
 import { verificationsRoutes } from "./modules/verifications/verifications.routes";
 import { jobsRoutes } from "./modules/jobs/jobs.routes";
 import { pushRoutes } from "./modules/push/push.routes";
+import { registrarCliqueDownload } from "./modules/analytics/analytics.service";
 
 // Lida uma vez, no boot, e servida como texto estático — é a mesma página
 // referenciada tanto no campo "Política de Privacidade" quanto no campo de
@@ -45,7 +46,8 @@ export const app = new Elysia()
   .get("/terms-of-use", () => new Response(termsOfUseHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   // Link curto e fácil de divulgar (bio do Instagram, WhatsApp, etc.) —
   // redireciona pra ficha real na Play Store, em vez de expor a URL longa.
-  .get("/baixar", ({ set }) => {
+  .get("/baixar", ({ set, request }) => {
+    registrarCliqueDownload(request.headers.get("user-agent")).catch(() => {});
     set.status = 302;
     set.headers.location = "https://play.google.com/store/apps/details?id=com.babadealuguel.app";
     return "";
