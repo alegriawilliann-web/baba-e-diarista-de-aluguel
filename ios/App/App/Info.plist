@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>O app usa a câmera para você tirar sua foto de perfil e fotografar documentos, como a certidão negativa, e fotos dos trabalhos realizados.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O app acessa suas fotos para você escolher sua foto de perfil, documentos e fotos dos trabalhos realizados.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
