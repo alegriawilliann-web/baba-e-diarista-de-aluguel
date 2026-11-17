@@ -19,7 +19,7 @@ import {
   grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile, updateClientProfile,
   listTrustedContacts, addTrustedContact, updateTrustedContact, deleteTrustedContact,
 } from "./api/users.js";
-import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile, listMyPortfolio, addPortfolioPost, deletePortfolioPost, reorderPortfolio } from "./api/professionals.js";
+import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile, listMyPortfolio, addPortfolioPost, deletePortfolioPost, reorderPortfolio, followProfessional, unfollowProfessional } from "./api/professionals.js";
 import {
   createBooking, listMyBookings, acceptBooking, rejectBooking, cancelBooking,
   checkinBooking, checkoutBooking, completeBooking,
@@ -1692,8 +1692,18 @@ function BabaDetail({
   const [showFotoModal, setShowFotoModal] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showDenunciar, setShowDenunciar] = useState(false);
-  const [seguindo, setSeguindo] = useState(false);
+  const [seguindo, setSeguindo] = useState(baba.seguindo || false);
   const [seguidores, setSeguidores] = useState(baba.seguidores || 0);
+  const toggleSeguir = () => {
+    const vaiSeguir = !seguindo;
+    setSeguindo(vaiSeguir);
+    setSeguidores((n) => n + (vaiSeguir ? 1 : -1));
+    const chamada = vaiSeguir ? followProfessional(baba.id) : unfollowProfessional(baba.id);
+    chamada.catch(() => {
+      setSeguindo(!vaiSeguir);
+      setSeguidores((n) => n + (vaiSeguir ? -1 : 1));
+    });
+  };
   const [depoimentosReais, setDepoimentosReais] = useState([]);
   const [tourClienteAtivo, finalizarTourCliente] = usePrimeiraVez("baba_perfil_cliente");
   const [edit, setEdit] = useState(null);
@@ -1980,7 +1990,7 @@ function BabaDetail({
               </span>
             </div>
             {!editable && (
-              <button onClick={() => { setSeguindo((s) => !s); setSeguidores((n) => n + (seguindo ? -1 : 1)); }} style={{
+              <button onClick={toggleSeguir} style={{
                 display: "flex", alignItems: "center", gap: 5, cursor: "pointer", borderRadius: 20, padding: "5px 12px",
                 border: `1px solid ${seguindo ? LINE : GOLD_DEEP}`,
                 background: seguindo ? "transparent" : GOLD,
@@ -2963,8 +2973,18 @@ function DiaristaDetail({
   const [showTrabalhoModal, setShowTrabalhoModal] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showDenunciar, setShowDenunciar] = useState(false);
-  const [seguindo, setSeguindo] = useState(false);
+  const [seguindo, setSeguindo] = useState(diarista.seguindo || false);
   const [seguidores, setSeguidores] = useState(diarista.seguidores || 0);
+  const toggleSeguir = () => {
+    const vaiSeguir = !seguindo;
+    setSeguindo(vaiSeguir);
+    setSeguidores((n) => n + (vaiSeguir ? 1 : -1));
+    const chamada = vaiSeguir ? followProfessional(diarista.id) : unfollowProfessional(diarista.id);
+    chamada.catch(() => {
+      setSeguindo(!vaiSeguir);
+      setSeguidores((n) => n + (vaiSeguir ? -1 : 1));
+    });
+  };
   const [depoimentosReais, setDepoimentosReais] = useState([]);
   const [edit, setEdit] = useState(null);
 
@@ -3258,7 +3278,7 @@ function DiaristaDetail({
               </span>
             </div>
             {!editable && (
-              <button onClick={() => { setSeguindo((s) => !s); setSeguidores((n) => n + (seguindo ? -1 : 1)); }} style={{
+              <button onClick={toggleSeguir} style={{
                 display: "flex", alignItems: "center", gap: 5, cursor: "pointer", borderRadius: 20, padding: "5px 12px",
                 border: `1px solid ${seguindo ? "#F3D9D5" : D_CORAL_DEEP}`,
                 background: seguindo ? "transparent" : D_CORAL,

@@ -1,6 +1,6 @@
 import { eq, and, gte, lte, ilike, or, isNull, sql, count, notInArray, inArray } from "drizzle-orm";
 import { db } from "../../config/database";
-import { professionalProfiles, portfolioPosts, teamMembers } from "./professionals.model";
+import { professionalProfiles, portfolioPosts, teamMembers, follows } from "./professionals.model";
 import { users, addresses } from "../users/users.model";
 import { userRoles } from "../users/users.model";
 import { mensalidadeDiscounts } from "../payments/payments.model";
@@ -60,7 +60,8 @@ function shapeProfile(
     user: { name: string; email: string; photoUrl: string | null } | null;
     address: { neighborhood: string | null; city: string | null } | null;
   },
-  equipe: { id: string; nome: string; certidaoNegativaUrl: string | null }[] = []
+  equipe: { id: string; nome: string; certidaoNegativaUrl: string | null }[] = [],
+  seguindo = false
 ) {
   const { profile, user, address } = row;
   return {
@@ -91,6 +92,7 @@ function shapeProfile(
     // automático (0 é o último dia de tolerância).
     diasParaBloquear: diasParaBloquear(profile.statusPagamento, profile.subscriptionExpiresAt),
     seguidores: profile.seguidoresCount,
+    seguindo,
     serviceType: profile.serviceType,
     details: profile.details,
   };
@@ -248,14 +250,65 @@ export async function searchProfessionals(query: SearchProfessionalsQuery, calle
   ]);
 
   const equipeMap = await fetchApprovedEquipe(rows.map((r) => r.profile.id));
-  return { data: rows.map((r) => shapeProfile(r, equipeMap.get(r.profile.id) ?? [])), meta: buildPageMeta(total, page, limit) };
+
+  let seguindoIds = new Set<string>();
+  if (callerUserId && rows.length > 0) {
+    const minhasSeguidas = await db.query.follows.findMany({
+      where: and(eq(follows.followerUserId, callerUserId), inArray(follows.followeeProfessionalId, rows.map((r) => r.profile.id))),
+    });
+    seguindoIds = new Set(minhasSeguidas.map((f) => f.followeeProfessionalId));
+  }
+
+  return {
+    data: rows.map((r) => shapeProfile(r, equipeMap.get(r.profile.id) ?? [], seguindoIds.has(r.profile.id))),
+    meta: buildPageMeta(total, page, limit),
+  };
 }
 
-export async function getProfessionalById(id: string) {
+export async function getProfessionalById(id: string, callerUserId?: string) {
   const row = await fetchProfileRow(eq(professionalProfiles.id, id));
   if (!row) throw new NotFoundError("Profissional não encontrado");
   const equipeMap = await fetchApprovedEquipe([row.profile.id]);
-  return shapeProfile(row, equipeMap.get(row.profile.id) ?? []);
+  let seguindo = false;
+  if (callerUserId) {
+    const existente = await db.query.follows.findFirst({
+      where: and(eq(follows.followerUserId, callerUserId), eq(follows.followeeProfessionalId, id)),
+    });
+    seguindo = !!existente;
+  }
+  return shapeProfile(row, equipeMap.get(row.profile.id) ?? [], seguindo);
+}
+
+// Composto por (followerUserId, followeeProfessionalId) — inserir/apagar de
+// novo não quebra nada (onConflictDoNothing / delete sem match), por isso só
+// ajusta o contador denormalizado quando a linha realmente muda.
+export async function followProfessional(userId: string, professionalId: string) {
+  const profile = await db.query.professionalProfiles.findFirst({ where: eq(professionalProfiles.id, professionalId) });
+  if (!profile) throw new NotFoundError("Profissional não encontrado");
+  if (profile.userId === userId) throw new ValidationError("Você não pode seguir seu próprio perfil");
+
+  const inserted = await db.insert(follows).values({ followerUserId: userId, followeeProfessionalId: professionalId }).onConflictDoNothing().returning();
+  if (inserted.length > 0) {
+    await db
+      .update(professionalProfiles)
+      .set({ seguidoresCount: sql`${professionalProfiles.seguidoresCount} + 1` })
+      .where(eq(professionalProfiles.id, professionalId));
+  }
+  return { seguindo: true };
+}
+
+export async function unfollowProfessional(userId: string, professionalId: string) {
+  const deleted = await db
+    .delete(follows)
+    .where(and(eq(follows.followerUserId, userId), eq(follows.followeeProfessionalId, professionalId)))
+    .returning();
+  if (deleted.length > 0) {
+    await db
+      .update(professionalProfiles)
+      .set({ seguidoresCount: sql`greatest(${professionalProfiles.seguidoresCount} - 1, 0)` })
+      .where(eq(professionalProfiles.id, professionalId));
+  }
+  return { seguindo: false };
 }
 
 export async function getMyProfile(userId: string, serviceType: "baba" | "diarista") {

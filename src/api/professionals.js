@@ -13,7 +13,15 @@ export function updateMyProfessionalProfile(serviceType, payload) {
 }
 
 export function getProfessionalById(id) {
-  return request(`/professionals/${id}`, { auth: false });
+  return request(`/professionals/${id}`);
+}
+
+export function followProfessional(id) {
+  return request(`/professionals/${id}/follow`, { method: "POST" });
+}
+
+export function unfollowProfessional(id) {
+  return request(`/professionals/${id}/follow`, { method: "DELETE" });
 }
 
 export function listMyPortfolio() {

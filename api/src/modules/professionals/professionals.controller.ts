@@ -11,7 +11,15 @@ export async function search(ctx: any) {
 }
 
 export async function getById(ctx: any) {
-  return professionalsService.getProfessionalById(ctx.params.id);
+  return professionalsService.getProfessionalById(ctx.params.id, ctx.user?.sub);
+}
+
+export async function follow(ctx: any) {
+  return professionalsService.followProfessional(ctx.user.sub, ctx.params.id);
+}
+
+export async function unfollow(ctx: any) {
+  return professionalsService.unfollowProfessional(ctx.user.sub, ctx.params.id);
 }
 
 export async function getMe(ctx: any) {

@@ -22,4 +22,6 @@ export const professionalsRoutes = new Elysia({ prefix: "/professionals", tags: 
   .get("/equipe/queue", teamMembersController.listQueue, { role: ["admin"] })
   .patch("/equipe/:id", teamMembersController.review, { body: reviewTeamMemberBody, role: ["admin"] })
   .post("/", professionalsController.create, { body: createProfessionalBody, role: [] })
+  .post("/:id/follow", professionalsController.follow, { role: [] })
+  .delete("/:id/follow", professionalsController.unfollow, { role: [] })
   .get("/:id", professionalsController.getById);
