@@ -51,6 +51,10 @@ export async function listUsers(ctx: any) {
   return usersService.listUsers(ctx.query);
 }
 
+export async function getStats() {
+  return usersService.getStats();
+}
+
 export async function updateUserRoles(ctx: any) {
   const { roles } = ctx.body as { roles: string[] };
   return usersService.updateUserRoles(ctx.params.id, roles as never);

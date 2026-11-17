@@ -16,5 +16,6 @@ export const usersRoutes = new Elysia({ prefix: "/users", tags: ["users"] })
   .post("/me/trusted-contacts", usersController.addTrustedContact, { body: trustedContactBody, role: [] })
   .patch("/me/trusted-contacts/:id", usersController.updateTrustedContact, { body: trustedContactUpdateBody, role: [] })
   .delete("/me/trusted-contacts/:id", usersController.deleteTrustedContact, { role: [] })
+  .get("/stats", usersController.getStats, { role: ["admin"] })
   .get("/", usersController.listUsers, { role: ["admin"] })
   .patch("/:id/roles", usersController.updateUserRoles, { body: roleUpdateBody, role: ["admin"] });

@@ -42,3 +42,8 @@ export function searchUsers(q) {
 export function shareProfile({ targetUserId, nome, professionalId }) {
   return request("/users/share-profile", { method: "POST", body: { targetUserId, nome, professionalId } });
 }
+
+// Só admin: total de contas, novas no período e quantas por tipo.
+export function getUserStats() {
+  return request("/users/stats");
+}

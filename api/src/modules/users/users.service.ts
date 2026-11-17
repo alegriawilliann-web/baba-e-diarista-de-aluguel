@@ -1,4 +1,4 @@
-import { eq, and, count, ilike, ne } from "drizzle-orm";
+import { eq, and, count, ilike, ne, gte, isNotNull, type SQL } from "drizzle-orm";
 import { db } from "../../config/database";
 import { users, userRoles, clientProfiles, trustedContacts, addresses, authTokens, refreshTokens, roleEnum } from "./users.model";
 import { professionalProfiles, portfolioPosts, follows, teamMembers } from "../professionals/professionals.model";
@@ -203,6 +203,31 @@ export async function listUsers(query: PaginationQuery) {
     db.select({ total: count() }).from(users),
   ]);
   return { data: rows, meta: buildPageMeta(total, page, limit) };
+}
+
+// Painel do admin: quantas contas existem, por tipo, e quantas são novas.
+// Uma mesma pessoa pode ter mais de um papel (ex.: cliente de babá e de
+// diarista), por isso a soma dos papéis pode passar do total de contas.
+export async function getStats() {
+  const dia = 24 * 60 * 60 * 1000;
+  const desde = (dias: number) => new Date(Date.now() - dias * dia);
+  const contar = async (where?: SQL) => (await db.select({ n: count() }).from(users).where(where))[0]?.n ?? 0;
+  const [total, hoje, semana, mes, verificados, porPapel] = await Promise.all([
+    contar(),
+    contar(gte(users.createdAt, desde(1))),
+    contar(gte(users.createdAt, desde(7))),
+    contar(gte(users.createdAt, desde(30))),
+    contar(isNotNull(users.emailVerifiedAt)),
+    db.select({ role: userRoles.role, total: count() }).from(userRoles).groupBy(userRoles.role),
+  ]);
+  const papeis: Record<string, number> = {};
+  for (const r of porPapel) papeis[r.role] = r.total;
+  return {
+    totalUsuarios: total,
+    novos: { ultimas24h: hoje, ultimos7dias: semana, ultimos30dias: mes },
+    emailsVerificados: verificados,
+    porPapel: papeis,
+  };
 }
 
 export async function updateUserRoles(targetUserId: string, roles: Role[]) {

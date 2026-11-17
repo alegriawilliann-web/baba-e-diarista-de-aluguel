@@ -17,7 +17,7 @@ import { useAuth } from "./hooks/useAuth.js";
 import { usePush } from "./hooks/usePush.js";
 import {
   grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile, updateClientProfile,
-  listTrustedContacts, addTrustedContact, updateTrustedContact, deleteTrustedContact,
+  listTrustedContacts, addTrustedContact, updateTrustedContact, deleteTrustedContact, getUserStats,
 } from "./api/users.js";
 import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile, listMyPortfolio, addPortfolioPost, deletePortfolioPost, reorderPortfolio } from "./api/professionals.js";
 import {
@@ -5253,8 +5253,77 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
 
 const DOCUMENT_TYPE_LABEL = { rg: "RG", cnh: "CNH", cpf: "CPF", selfie: "Selfie", certidao_negativa: "Certidão Negativa" };
 
+// Aba "Cadastros" do painel admin: números gerais de contas do app.
+const PAPEL_LABEL = [
+  ["cliente_baba", "Mães / famílias (Babá)"],
+  ["profissional_baba", "Babás"],
+  ["cliente_diarista", "Clientes (Diarista)"],
+  ["profissional_diarista", "Diaristas"],
+  ["admin", "Administradores"],
+];
+
+function AdminCadastros() {
+  const [stats, setStats] = useState(null);
+  const [erro, setErro] = useState("");
+
+  const buscar = () =>
+    getUserStats()
+      .then(setStats)
+      .catch((e) => setErro(e.message || "Não foi possível carregar os números."));
+  const carregar = () => {
+    setErro("");
+    setStats(null);
+    buscar();
+  };
+  useEffect(() => { buscar(); }, []);
+
+  if (erro) {
+    return (
+      <div style={{ textAlign: "center", marginTop: 20 }}>
+        <p style={{ fontSize: 12, color: ERROR, fontFamily: "Manrope, sans-serif" }}>{erro}</p>
+        <button onClick={carregar} style={{ background: "none", border: `1px solid ${LINE}`, borderRadius: 10, padding: "6px 14px", fontSize: 11.5, color: INK, cursor: "pointer" }}>
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
+  if (!stats) {
+    return <p style={{ textAlign: "center", color: INK_SOFT, fontSize: 12.5, marginTop: 20 }}>Carregando...</p>;
+  }
+
+  const caixa = { background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, marginTop: 10, fontFamily: "Manrope, sans-serif" };
+  const linha = { display: "flex", justifyContent: "space-between", fontSize: 12.5, color: INK, padding: "5px 0" };
+
+  return (
+    <>
+      <div style={{ ...caixa, textAlign: "center" }}>
+        <div style={{ fontSize: 11.5, color: INK_SOFT }}>Pessoas cadastradas</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color: INK, lineHeight: 1.2 }}>{stats.totalUsuarios}</div>
+        <div style={{ fontSize: 11, color: INK_SOFT }}>{stats.emailsVerificados} com e-mail confirmado</div>
+      </div>
+
+      <div style={caixa}>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: INK_SOFT, marginBottom: 4 }}>Novos cadastros</div>
+        <div style={linha}><span>Últimas 24 horas</span><b>{stats.novos.ultimas24h}</b></div>
+        <div style={linha}><span>Últimos 7 dias</span><b>{stats.novos.ultimos7dias}</b></div>
+        <div style={linha}><span>Últimos 30 dias</span><b>{stats.novos.ultimos30dias}</b></div>
+      </div>
+
+      <div style={caixa}>
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: INK_SOFT, marginBottom: 4 }}>Por tipo de conta</div>
+        {PAPEL_LABEL.map(([key, label]) => (
+          <div key={key} style={linha}><span>{label}</span><b>{stats.porPapel[key] || 0}</b></div>
+        ))}
+        <p style={{ fontSize: 10.5, color: INK_SOFT, margin: "6px 0 0" }}>
+          Uma pessoa pode ter mais de um tipo de conta, então a soma pode passar do total.
+        </p>
+      </div>
+    </>
+  );
+}
+
 function AdminVerificacoesScreen({ onVoltar }) {
-  const [fonte, setFonte] = useState("verificacoes"); // "verificacoes" | "equipe"
+  const [fonte, setFonte] = useState("verificacoes"); // "verificacoes" | "equipe" | "cadastros"
   const [status, setStatus] = useState("pending");
   const [lista, setLista] = useState([]);
   const [carregando, setCarregando] = useState(true);
@@ -5263,6 +5332,7 @@ function AdminVerificacoesScreen({ onVoltar }) {
   const [fotoAberta, setFotoAberta] = useState(null);
 
   useEffect(() => {
+    if (fonte === "cadastros") return;
     let cancelado = false;
     setCarregando(true);
     setErro("");
@@ -5294,11 +5364,11 @@ function AdminVerificacoesScreen({ onVoltar }) {
         <button onClick={onVoltar} style={{ background: "none", border: "none", cursor: "pointer" }}>
           <ChevronLeft size={20} color={PAPER} />
         </button>
-        <span style={{ color: PAPER, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, flex: 1 }}>Verificações</span>
+        <span style={{ color: PAPER, fontFamily: "Manrope, sans-serif", fontSize: 14, fontWeight: 700, flex: 1 }}>Administração</span>
       </div>
 
       <div style={{ display: "flex", gap: 8, padding: "12px 16px 0" }}>
-        {[["verificacoes", "Profissionais"], ["equipe", "Equipe"]].map(([key, label]) => (
+        {[["verificacoes", "Profissionais"], ["equipe", "Equipe"], ["cadastros", "Cadastros"]].map(([key, label]) => (
           <button key={key} onClick={() => setFonte(key)} style={{
             flex: 1, padding: "8px 0", borderRadius: 10, border: `1.5px solid ${fonte === key ? INK : LINE}`,
             background: fonte === key ? INK : "transparent", color: fonte === key ? "#fff" : INK_SOFT,
@@ -5309,6 +5379,11 @@ function AdminVerificacoesScreen({ onVoltar }) {
         ))}
       </div>
 
+      {fonte === "cadastros" ? (
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 16px" }}>
+          <AdminCadastros />
+        </div>
+      ) : (<>
       <div style={{ display: "flex", gap: 8, padding: "12px 16px" }}>
         {[["pending", "Pendentes"], ["approved", "Aprovadas"], ["rejected", "Rejeitadas"]].map(([key, label]) => (
           <button key={key} onClick={() => setStatus(key)} style={{
@@ -5387,6 +5462,7 @@ function AdminVerificacoesScreen({ onVoltar }) {
           ))
         )}
       </div>
+      </>)}
       {fotoAberta && <FotoCertidaoModal src={fotoAberta} onClose={() => setFotoAberta(null)} />}
     </div>
   );
@@ -5429,7 +5505,7 @@ function HubScreen({ onEscolherBaba, onEscolherDiarista, onAdmin }) {
           display: "flex", alignItems: "center", gap: 5,
         }}>
           <ShieldQuestion size={12} color="#8B6A52" />
-          <span style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Verificações pendentes</span>
+          <span style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif" }}>Painel do administrador</span>
         </button>
       )}
     </div>
