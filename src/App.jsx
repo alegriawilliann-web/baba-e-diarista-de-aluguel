@@ -11,7 +11,10 @@ import {
 } from "lucide-react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
-import { getPublicKey, previewMensalidadePrice, createMensalidadePix, createMensalidadeCard, getPaymentStatus } from "./api/payments.js";
+import { Capacitor } from "@capacitor/core";
+import { Preferences } from "@capacitor/preferences";
+import { NativePurchases, PURCHASE_TYPE } from "@capgo/native-purchases";
+import { getPublicKey, previewMensalidadePrice, createMensalidadePix, createMensalidadeCard, getPaymentStatus, confirmMensalidadeApple } from "./api/payments.js";
 import { forgotPassword, resetPassword } from "./api/auth.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { usePush } from "./hooks/usePush.js";
@@ -6310,7 +6313,7 @@ function TermosModal({ onClose, corDestaque = GOLD_DEEP, appNome = "Babá de Alu
           </p>
           <p style={{ fontWeight: 700, color: INK, marginBottom: 4 }}>Pagamentos</p>
           <p style={{ marginBottom: 12 }}>
-            Só processamos, via Mercado Pago, a mensalidade da profissional e o impulsionamento de perfil. O pagamento
+            Só processamos a mensalidade da profissional{EH_IOS ? ", como assinatura pela App Store" : ", via Mercado Pago"}. O pagamento
             pelo serviço de babá ou diarista contratado é combinado e realizado <b>diretamente entre as partes</b>,
             fora do app — não temos nenhuma responsabilidade sobre esse valor, forma de pagamento ou eventual disputa.
           </p>
@@ -6626,10 +6629,11 @@ const perguntasBaba = [
     condicao: (r) => r.modoValor === "Definir agora" },
   { key: "disponibilidadeSemana", pergunta: "Em quais dias da semana você costuma ter disponibilidade?", tipo: "chips", opcoes: diasSemana },
   { key: "formaPagamento", pergunta: "Como você prefere pagar a mensalidade do aplicativo?", tipo: "escolha",
+    condicao: () => !EH_IOS, // iPhone: assinatura da App Store depois do cadastro
     opcoes: ["Pix", "Cartão de crédito", "Cartão de débito"],
     ajuda: "Primeira mensalidade com 50% de desconto (R$ 14,95). Depois, R$ 29,90/mês. Pix e cartão liberam seu perfil na hora." },
   { key: "dadosCartao", pergunta: "Dados do cartão", tipo: "cartao",
-    condicao: (r) => r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito" },
+    condicao: (r) => !EH_IOS && (r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito") },
   { key: "aceitouTermos", pergunta: "Só falta aceitar os termos", tipo: "termos" },
 ];
 
@@ -6680,10 +6684,11 @@ const perguntasDiarista = [
     condicao: (r) => r.modoValor === "Definir agora" },
   { key: "disponibilidadeSemana", pergunta: "Em quais dias da semana você costuma ter disponibilidade?", tipo: "chips", opcoes: diasSemana },
   { key: "formaPagamento", pergunta: "Como você prefere pagar a mensalidade do aplicativo?", tipo: "escolha",
+    condicao: () => !EH_IOS, // iPhone: assinatura da App Store depois do cadastro
     opcoes: ["Pix", "Cartão de crédito", "Cartão de débito"],
     ajuda: "Primeira mensalidade com 50% de desconto (R$ 14,95). Depois, R$ 29,90/mês. Pix e cartão liberam seu perfil na hora." },
   { key: "dadosCartao", pergunta: "Dados do cartão", tipo: "cartao",
-    condicao: (r) => r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito" },
+    condicao: (r) => !EH_IOS && (r.formaPagamento === "Cartão de crédito" || r.formaPagamento === "Cartão de débito") },
   { key: "aceitouTermos", pergunta: "Só falta aceitar os termos", tipo: "termos" },
 ];
 
@@ -7026,7 +7031,174 @@ function MensalidadeBloqueada({ perfil, serviceType, corDestaque = GOLD_DEEP, on
   );
 }
 
-function PagamentoReal({ perfil, serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
+// No iPhone a mensalidade é uma assinatura da App Store (regra da Apple
+// pra recurso digital do app); no Android e na web segue Pix/cartão pelo
+// Mercado Pago. Todas as telas que cobram passam por aqui.
+const EH_IOS = Capacitor.getPlatform() === "ios";
+
+const APPLE_PRODUTO_MENSALIDADE = {
+  baba: "com.babadealuguel.app.mensalidade.baba",
+  diarista: "com.babadealuguel.app.mensalidade.diarista",
+};
+
+// Termos de uso padrão da Apple para assinaturas (EULA), exigido junto com a
+// política de privacidade na tela de compra.
+const APPLE_EULA_URL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/";
+
+function PagamentoReal(props) {
+  return EH_IOS ? <PagamentoApple {...props} /> : <PagamentoMercadoPago {...props} />;
+}
+
+async function idUsuarioLogado() {
+  try {
+    const { value } = await Preferences.get({ key: "auth.user" });
+    return value ? JSON.parse(value)?.id ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
+function PagamentoApple({ serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
+  const productId = APPLE_PRODUTO_MENSALIDADE[serviceType];
+  const [produto, setProduto] = useState(null);
+  const [estado, setEstado] = useState("carregando"); // carregando | pronto | comprando | restaurando | indisponivel
+  const [erro, setErro] = useState("");
+  const [showTermos, setShowTermos] = useState(false);
+
+  useEffect(() => {
+    let cancelado = false;
+    NativePurchases.getProducts({ productIdentifiers: [productId], productType: PURCHASE_TYPE.SUBS })
+      .then(({ products }) => {
+        if (cancelado) return;
+        const p = products?.find((x) => x.identifier === productId) || products?.[0];
+        setProduto(p || null);
+        setEstado(p ? "pronto" : "indisponivel");
+      })
+      .catch(() => { if (!cancelado) setEstado("indisponivel"); });
+    return () => { cancelado = true; };
+  }, [productId]);
+
+  const confirmarNoServidor = async (jws) => {
+    const res = await confirmMensalidadeApple(serviceType, jws);
+    onSucesso(res?.statusPagamento || "liberado");
+  };
+
+  const assinar = async () => {
+    setErro("");
+    setEstado("comprando");
+    try {
+      const userId = await idUsuarioLogado();
+      if (!userId) throw new Error("Entre na sua conta novamente para assinar.");
+      const transacao = await NativePurchases.purchaseProduct({
+        productIdentifier: productId,
+        productType: PURCHASE_TYPE.SUBS,
+        appAccountToken: userId,
+      });
+      if (!transacao?.jwsRepresentation) throw new Error("A App Store não confirmou a compra. Tente novamente.");
+      await confirmarNoServidor(transacao.jwsRepresentation);
+    } catch (e) {
+      const msg = String(e?.message || "");
+      // Fechar a janela da Apple sem comprar não é erro pra mostrar.
+      if (!/cancel/i.test(msg)) setErro(msg || "Não foi possível concluir a assinatura agora.");
+      setEstado("pronto");
+    }
+  };
+
+  const restaurar = async () => {
+    setErro("");
+    setEstado("restaurando");
+    try {
+      await NativePurchases.restorePurchases();
+      const { purchases } = await NativePurchases.getPurchases({ productType: PURCHASE_TYPE.SUBS, onlyCurrentEntitlements: true });
+      const ativa = (purchases || []).find((t) => t.productIdentifier === productId && t.jwsRepresentation);
+      if (!ativa) throw new Error("Nenhuma assinatura ativa encontrada nesta conta da Apple.");
+      await confirmarNoServidor(ativa.jwsRepresentation);
+    } catch (e) {
+      setErro(e?.message || "Não foi possível restaurar agora.");
+      setEstado("pronto");
+    }
+  };
+
+  const ocupado = estado === "comprando" || estado === "restaurando";
+  const intro = produto?.introductoryPrice;
+  // introEligibility: 2 = elegível; sem a informação, mostra a oferta (a
+  // própria janela da Apple confirma o valor real antes de cobrar).
+  const mostrarIntro = intro && produto?.introEligibility !== 1;
+  const txt = { fontFamily: "Manrope, sans-serif" };
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "28px 26px", background: PAPER }}>
+      <p style={{ fontFamily: "Fraunces, serif", fontSize: 19, color: INK, fontWeight: 600, textAlign: "center", marginBottom: 6 }}>
+        Assinatura da mensalidade
+      </p>
+      <p style={{ ...txt, fontSize: 12.5, color: INK_SOFT, textAlign: "center", lineHeight: 1.5, marginBottom: 20 }}>
+        A assinatura mantém seu perfil ativo nas buscas e liberado para receber contratações.
+      </p>
+
+      {estado === "carregando" && <p style={{ ...txt, textAlign: "center", color: INK_SOFT, fontSize: 12.5 }}>Carregando…</p>}
+
+      {estado === "indisponivel" && (
+        <p style={{ ...txt, textAlign: "center", color: ERROR, fontSize: 12.5, lineHeight: 1.5 }}>
+          A assinatura não está disponível no momento. Verifique sua conexão e tente novamente mais tarde.
+        </p>
+      )}
+
+      {produto && (
+        <>
+          <div style={{ background: CARD, border: `1.5px solid ${LINE}`, borderRadius: 16, padding: "18px 16px", textAlign: "center", marginBottom: 18 }}>
+            {mostrarIntro ? (
+              <>
+                <div style={{ ...txt, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: FOREST, fontWeight: 700, fontSize: 12 }}>
+                  <Sparkles size={12} color={FOREST} /> Oferta de boas-vindas
+                </div>
+                <div style={{ ...txt, fontSize: 26, fontWeight: 800, color: INK, margin: "4px 0" }}>{intro.priceString}</div>
+                <div style={{ ...txt, fontSize: 12, color: INK_SOFT }}>no primeiro mês · depois {produto.priceString}/mês</div>
+              </>
+            ) : (
+              <>
+                <div style={{ ...txt, fontSize: 26, fontWeight: 800, color: INK }}>{produto.priceString}</div>
+                <div style={{ ...txt, fontSize: 12, color: INK_SOFT }}>por mês</div>
+              </>
+            )}
+          </div>
+
+          <button onClick={assinar} disabled={ocupado} style={{
+            ...txt, width: "100%", padding: "14px 0", borderRadius: 14, border: "none", cursor: ocupado ? "default" : "pointer",
+            background: corDestaque, color: "#FFFFFF", fontWeight: 700, fontSize: 14, opacity: ocupado ? 0.7 : 1,
+          }}>
+            {estado === "comprando" ? "Aguardando a App Store…" : "Assinar"}
+          </button>
+
+          {erro && <p style={{ ...txt, fontSize: 12, color: ERROR, textAlign: "center", marginTop: 10 }}>{erro}</p>}
+
+          <button onClick={restaurar} disabled={ocupado} style={{
+            ...txt, background: "none", border: "none", color: corDestaque, fontWeight: 700, fontSize: 12.5,
+            marginTop: 14, cursor: ocupado ? "default" : "pointer",
+          }}>
+            {estado === "restaurando" ? "Restaurando…" : "Restaurar compras"}
+          </button>
+
+          <p style={{ ...txt, fontSize: 10.5, color: INK_SOFT, lineHeight: 1.55, marginTop: 16, textAlign: "center" }}>
+            Assinatura mensal com renovação automática. O valor é cobrado na sua conta da Apple ao confirmar a compra e
+            renovado todo mês, a menos que a renovação seja desativada pelo menos 24 horas antes do fim do período. Você
+            pode gerenciar ou cancelar a assinatura a qualquer momento nos Ajustes da sua conta da Apple.
+          </p>
+          <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8 }}>
+            <button onClick={() => abrirLink(APPLE_EULA_URL)} style={{ ...txt, background: "none", border: "none", color: INK, fontSize: 11, textDecoration: "underline", cursor: "pointer" }}>
+              Termos de Uso (EULA)
+            </button>
+            <button onClick={() => setShowTermos(true)} style={{ ...txt, background: "none", border: "none", color: INK, fontSize: 11, textDecoration: "underline", cursor: "pointer" }}>
+              Política de Privacidade
+            </button>
+          </div>
+        </>
+      )}
+      {showTermos && <TermosModal onClose={() => setShowTermos(false)} corDestaque={corDestaque} />}
+    </div>
+  );
+}
+
+function PagamentoMercadoPago({ perfil, serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
   const metodoInicial = perfil.formaPagamento === "pix" ? "pix" : "cartao";
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
@@ -7293,6 +7465,7 @@ const PAGAMENTO_LABELS = {
   credito: "Cartão de crédito",
   debito: "Cartão de débito",
   boleto: "Boleto",
+  apple_iap: "Assinatura App Store",
 };
 
 const infoPagamento = {
@@ -7300,6 +7473,7 @@ const infoPagamento = {
   credito: { icone: CreditCard, liberacao: "O pagamento no cartão foi confirmado na hora. Seu perfil já está visível para as famílias." },
   debito: { icone: CreditCard, liberacao: "O pagamento no cartão foi confirmado na hora. Seu perfil já está visível para as famílias." },
   boleto: { icone: FileText, liberacao: "Boleto gerado! Assim que o pagamento for compensado (em até 48h), seu perfil será liberado automaticamente." },
+  apple_iap: { icone: CreditCard, liberacao: "Assinatura confirmada pela App Store. Seu perfil já está visível para as famílias." },
 };
 
 function ConfirmacaoEmail({ email, onReenviar }) {
@@ -7361,7 +7535,10 @@ function ConfirmacaoEmail({ email, onReenviar }) {
 }
 
 function ConfirmacaoPagamento({ perfil, onContinuar }) {
-  const info = infoPagamento[perfil.formaPagamento] || infoPagamento.pix;
+  // No iPhone o cadastro não pergunta Pix/cartão: o pagamento é sempre a
+  // assinatura da App Store, mesmo que o perfil ainda guarde o padrão "pix".
+  const forma = EH_IOS ? "apple_iap" : perfil.formaPagamento;
+  const info = infoPagamento[forma] || infoPagamento.pix;
   const Icone = info.icone;
   const liberado = perfil.statusPagamento === "liberado";
 
@@ -7393,7 +7570,7 @@ function ConfirmacaoPagamento({ perfil, onContinuar }) {
         borderRadius: 20, padding: "6px 14px", marginBottom: 4,
       }}>
         <Icone size={14} color={GOLD_DEEP} />
-        <span style={{ fontSize: 11.5, fontFamily: "Manrope, sans-serif", color: INK }}>{PAGAMENTO_LABELS[perfil.formaPagamento] || perfil.formaPagamento}</span>
+        <span style={{ fontSize: 11.5, fontFamily: "Manrope, sans-serif", color: INK }}>{PAGAMENTO_LABELS[forma] || forma}</span>
       </div>
       <p style={{ fontSize: 11, color: "#8B6A52", fontFamily: "Manrope, sans-serif", marginBottom: 16 }}>
         Mensalidade da plataforma: <span style={{ fontWeight: 700, color: INK }}>R$ 29,90/mês</span>

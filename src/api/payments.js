@@ -22,3 +22,9 @@ export function createMensalidadeCard(serviceType, { token, parcelas, issuerId, 
 export function getPaymentStatus(id) {
   return request(`/payments/${id}`);
 }
+
+// iPhone: confirma no servidor uma assinatura comprada pela App Store
+// (JWS da transação, assinado pela Apple — o servidor valida a assinatura).
+export function confirmMensalidadeApple(serviceType, signedTransaction) {
+  return request("/payments/mensalidade/apple", { method: "POST", body: { serviceType, signedTransaction } });
+}

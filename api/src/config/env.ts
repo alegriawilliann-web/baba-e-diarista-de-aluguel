@@ -37,4 +37,11 @@ export const env = {
   // (não falha o boot, só o envio real some), já que nem todo ambiente
   // (dev local) precisa disso configurado.
   FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ?? "",
+
+  // Assinatura da mensalidade pela App Store. APPLE_APP_APPLE_ID é o "Apple
+  // ID" numérico do app (App Store Connect > Informações do app) — a Apple
+  // exige ele pra validar compras do ambiente de produção; sem ele, só
+  // compras de teste (Sandbox/TestFlight) são aceitas.
+  APPLE_BUNDLE_ID: process.env.APPLE_BUNDLE_ID ?? "com.babadealuguel.app",
+  APPLE_APP_APPLE_ID: process.env.APPLE_APP_APPLE_ID ? Number(process.env.APPLE_APP_APPLE_ID) : undefined,
 };

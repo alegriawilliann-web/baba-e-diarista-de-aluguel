@@ -14,7 +14,7 @@ export type Role = (typeof ROLES)[number];
 export const SERVICE_TYPES = ["baba", "diarista"] as const;
 export type ServiceType = (typeof SERVICE_TYPES)[number];
 
-export const PAYMENT_METHODS = ["pix", "credito", "debito", "boleto"] as const;
+export const PAYMENT_METHODS = ["pix", "credito", "debito", "boleto", "apple_iap"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const BOOKING_STATUSES = ["pendente", "agendado", "recusado", "concluido", "cancelado"] as const;
@@ -27,7 +27,7 @@ export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 // (statusPagamento vira "vencida", some da busca até pagar de novo).
 export const MENSALIDADE_GRACE_DAYS = 5;
 
-export const PAYMENT_PROVIDERS = ["mercadopago"] as const;
+export const PAYMENT_PROVIDERS = ["mercadopago", "apple"] as const;
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 
 export const PAYMENT_PURPOSES = ["mensalidade", "boost", "booking"] as const;
@@ -64,6 +64,14 @@ export const TRANSPORTE_OPTIONS = ["carro", "moto", "buscada"] as const;
 export type Transporte = (typeof TRANSPORTE_OPTIONS)[number];
 
 export const MENSALIDADE_CENTS = 2990;
+
+// Assinatura da mensalidade pela App Store (só iPhone). Um grupo de
+// assinatura por tipo de perfil no App Store Connect, já que a mesma pessoa
+// pode ser babá E diarista e pagar as duas mensalidades separadamente.
+export const APPLE_MENSALIDADE_PRODUCTS = {
+  baba: "com.babadealuguel.app.mensalidade.baba",
+  diarista: "com.babadealuguel.app.mensalidade.diarista",
+} as const;
 
 // Validade da Certidão de Antecedentes Criminais (mesmo prazo da própria PF)
 // — depois disso o selo CN para de aparecer publicamente e o profissional

@@ -1,4 +1,5 @@
 import * as paymentsService from "./payments.service";
+import * as appleService from "./apple.service";
 
 export async function publicKey() {
   return { publicKey: await paymentsService.getPublicKey() };
@@ -31,4 +32,14 @@ export async function webhook(ctx: any) {
 export async function bookingPaymentStub(ctx: any) {
   ctx.set.status = 501;
   return { error: { code: "NOT_IMPLEMENTED", message: "Pagamento de reserva ainda não implementado — reaproveita o fluxo de mensalidade quando for construído." } };
+}
+
+export async function confirmMensalidadeApple(ctx: any) {
+  const { serviceType, signedTransaction } = ctx.body as { serviceType: "baba" | "diarista"; signedTransaction: string };
+  return appleService.confirmarAssinaturaApple(ctx.user.sub, serviceType, signedTransaction);
+}
+
+export async function appleWebhook(ctx: any) {
+  const { signedPayload } = ctx.body as { signedPayload: string };
+  return appleService.processarNotificacaoApple(signedPayload);
 }
