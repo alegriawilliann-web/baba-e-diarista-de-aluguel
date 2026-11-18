@@ -31,3 +31,9 @@ services:
         sync: false
       - key: NODE_ENV
         value: production
+      # Assinatura da mensalidade pela App Store (iPhone). Não é segredo:
+      # é o "ID Apple" numérico do app no App Store Connect.
+      - key: APPLE_APP_APPLE_ID
+        value: "6836100621"
+      - key: APPLE_BUNDLE_ID
+        value: com.babadealuguel.app
