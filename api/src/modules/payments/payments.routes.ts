@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { authPlugin } from "../../shared/middleware/auth.middleware";
 import { rateLimitPlugin } from "../../shared/plugins/rate-limit.plugin";
 import * as paymentsController from "./payments.controller";
-import { previewMensalidadePriceQuery, createMensalidadePixBody, createMensalidadeCardBody } from "./payments.schema";
+import { previewMensalidadePriceQuery, createMensalidadePixBody, createMensalidadeCardBody, confirmMensalidadeAppleBody, appleNotificationBody } from "./payments.schema";
 
 const PROFISSIONAL_ROLES = ["profissional_baba", "profissional_diarista"] as const;
 const CLIENTE_ROLES = ["cliente_baba", "cliente_diarista"] as const;
@@ -21,6 +21,10 @@ export const paymentsRoutes = new Elysia({ prefix: "/payments", tags: ["payments
     body: createMensalidadeCardBody, role: [...PROFISSIONAL_ROLES],
     rateLimit: { scope: "mensalidade-cartao", limit: 10, windowMs: FIFTEEN_MIN },
   })
+  .post("/mensalidade/apple", paymentsController.confirmMensalidadeApple, {
+    body: confirmMensalidadeAppleBody, role: [...PROFISSIONAL_ROLES],
+    rateLimit: { scope: "mensalidade-apple", limit: 20, windowMs: FIFTEEN_MIN },
+  })
   .get("/:id", paymentsController.getStatus, { role: [] })
   .post("/bookings/:bookingId/pix", paymentsController.bookingPaymentStub, { role: [...CLIENTE_ROLES] })
   .post("/bookings/:bookingId/cartao", paymentsController.bookingPaymentStub, { role: [...CLIENTE_ROLES] });
@@ -33,4 +37,11 @@ export const paymentsWebhookRoutes = new Elysia({ tags: ["payments"] })
   .use(rateLimitPlugin)
   .post("/webhooks/mercadopago", paymentsController.webhook, {
     rateLimit: { scope: "mp-webhook", limit: 60, windowMs: FIFTEEN_MIN },
+  })
+  // App Store Server Notifications V2. Sem autenticação pelo mesmo motivo
+  // do Mercado Pago — mas o corpo é um JWS assinado pela Apple e verificado
+  // contra o certificado raiz dela, então não dá pra forjar.
+  .post("/webhooks/apple", paymentsController.appleWebhook, {
+    body: appleNotificationBody,
+    rateLimit: { scope: "apple-webhook", limit: 120, windowMs: FIFTEEN_MIN },
   });

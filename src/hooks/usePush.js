@@ -31,7 +31,7 @@ export function usePush(ativo, onAbrirNotificacao) {
         listeners.push(
           await PushNotifications.addListener("registration", (token) => {
             tokenRef.current = token.value;
-            registerPushToken(token.value, "android").catch(() => {});
+            registerPushToken(token.value, Capacitor.getPlatform()).catch(() => {});
           })
         );
         listeners.push(await PushNotifications.addListener("registrationError", () => {}));

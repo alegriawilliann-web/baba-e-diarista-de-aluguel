@@ -15,3 +15,13 @@ export const createMensalidadeCardBody = t.Object({
   issuerId: t.Optional(t.String()),
   paymentMethodId: t.String(),
 });
+
+export const confirmMensalidadeAppleBody = t.Object({
+  serviceType: t.Union([t.Literal("baba"), t.Literal("diarista")]),
+  // JWS da transação (StoreKit 2 `jwsRepresentation`), assinado pela Apple.
+  signedTransaction: t.String({ minLength: 20, maxLength: 20000 }),
+});
+
+export const appleNotificationBody = t.Object({
+  signedPayload: t.String({ minLength: 20, maxLength: 100000 }),
+});

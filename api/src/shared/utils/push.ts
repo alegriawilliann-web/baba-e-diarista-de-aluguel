@@ -39,6 +39,8 @@ export async function sendPush(userId: string, { title, body, data = {} }: { tit
     // sido criado no celular (nunca foi, nesse app) — com um nome que não
     // existe, a notificação chega mas não aparece, silenciosamente.
     android: { priority: "high", notification: { sound: "default" } },
+    // iPhone: sem "sound" no aps a notificação chega muda.
+    apns: { payload: { aps: { sound: "default" } } },
   });
 
   const tokensInvalidos = resposta.responses
