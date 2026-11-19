@@ -5149,22 +5149,26 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
       icone: CreditCard,
       label: "Pagamentos",
       perguntas: [
-        { q: "Quais formas de pagamento são aceitas?", a: "Aceitamos Pix e cartão de crédito, com pagamento seguro direto pelo aplicativo." },
-        { q: "Quando o pagamento é cobrado?", a: "A cobrança acontece na confirmação do agendamento. Em planos mensais, a renovação é cobrada automaticamente todo mês na mesma data." },
-        { q: "O valor vai direto para a profissional?", a: "Não. O pagamento é processado pela plataforma e o repasse é feito depois da confirmação do serviço, para dar mais segurança para as duas partes." },
-        { q: "Posso parcelar o pagamento?", a: "Sim, no cartão de crédito dá para parcelar em até 3x sem juros, dependendo do valor do serviço." },
-        { q: "Fiz o pagamento e não recebi confirmação, o que faço?", a: "Confira em Notificações dentro do app. Se não aparecer em até 1 hora, fale com a gente pelo telefone ou WhatsApp acima." },
+        { q: "Como pago pelo serviço da babá ou diarista?", a: "O pagamento do serviço é combinado e feito diretamente entre você e a profissional (dinheiro, Pix ou como preferirem). O app não cobra nem intermedia esse valor." },
+        { q: "O app cobra alguma coisa das famílias?", a: "Não. Buscar profissionais, conversar e fazer pedidos de contratação é gratuito para quem contrata." },
+        { q: "Como funciona a mensalidade da profissional?", a: EH_IOS
+          ? "Profissionais pagam uma mensalidade para aparecer nas buscas e receber contratações. No iPhone, ela é uma assinatura da App Store, renovada automaticamente todo mês; você pode cancelar a qualquer momento em Ajustes > [seu nome] > Assinaturas."
+          : "Profissionais pagam uma mensalidade para aparecer nas buscas e receber contratações, por Pix ou cartão. A primeira mensalidade tem 50% de desconto." },
+        { q: "Paguei a mensalidade e meu perfil não foi liberado, o que faço?", a: EH_IOS
+          ? "Abra a tela de pagamento e toque em Restaurar compras. Se ainda assim não liberar, fale com a gente pelo telefone ou WhatsApp acima."
+          : "Pix e cartão liberam o perfil na hora. Se não aparecer em até 1 hora, fale com a gente pelo telefone ou WhatsApp acima com o comprovante." },
       ],
     },
     {
       icone: XCircle,
       label: "Cancelamento",
       perguntas: [
-        { q: "Como cancelo um agendamento?", a: "Vá em Histórico, selecione o agendamento e toque em Cancelar. Cancelamentos com menos de 24h de antecedência podem ter cobrança de taxa." },
-        { q: "Tem multa por cancelamento?", a: "Cancelamentos com mais de 24h de antecedência não têm custo. Cancelamentos de última hora podem ter uma taxa para compensar a profissional." },
-        { q: "Como cancelo minha assinatura ou cadastro?", a: "Acesse Meu Perfil > Configurações > Encerrar cadastro. Seu perfil deixa de aparecer nas buscas imediatamente." },
-        { q: "Fui cobrado depois de cancelar, o que faço?", a: "Isso não deveria acontecer. Fale com a gente pelo telefone ou WhatsApp com o comprovante do cancelamento que resolvemos rapidinho." },
-        { q: "Posso remarcar em vez de cancelar?", a: "Sim! Em Histórico, use a opção Remarcar — assim você não perde o valor já pago nem corre risco de taxa." },
+        { q: "Como cancelo uma contratação?", a: "Em Minhas contratações, abra o pedido e toque em Cancelar. O app não cobra taxa de cancelamento; combine qualquer ajuste diretamente com a profissional." },
+        { q: "Posso mudar a data de um pedido?", a: "Cancele o pedido e faça um novo com a data desejada, ou combine a mudança com a profissional pelo chat." },
+        { q: "Como cancelo a mensalidade da profissional?", a: EH_IOS
+          ? "No iPhone, a mensalidade é uma assinatura da App Store: vá em Ajustes > [seu nome] > Assinaturas e cancele. Seu perfil continua ativo até o fim do mês já pago."
+          : "Basta não renovar o pagamento. Seu perfil continua ativo até o fim do mês já pago e depois deixa de aparecer nas buscas." },
+        { q: "Como excluo minha conta?", a: "Em Meu perfil, toque em Excluir minha conta. Seus dados pessoais são apagados, conforme a nossa Política de Privacidade." },
       ],
     },
     {
@@ -5174,11 +5178,11 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel
         { q: "Como funciona a plataforma?", a: "Você busca profissionais perto de você, vê perfil, avaliações e preço, escolhe um horário e confirma o agendamento direto pelo app." },
         { q: "Como me cadastro como babá ou diarista?", a: "Na tela inicial, escolha o serviço desejado e toque em Cadastre-se. Vamos pedir seus dados, referências e uma foto de perfil." },
         { q: "Como entro em contato com a profissional?", a: "Depois de agendar, use o chat ou o botão de ligação no perfil dela — tudo direto pelo app, sem precisar trocar números pessoais." },
-        { q: "Como funciona a verificação de antecedentes?", a: "Todas as profissionais passam por checagem de documentos e antecedentes antes de aparecerem nas buscas. O selo verde no perfil indica que já foi verificada." },
+        { q: "Como funciona a verificação de antecedentes?", a: "As profissionais podem enviar a Certidão de Antecedentes Criminais para análise da nossa equipe. Quando aprovada, o perfil mostra o selo de verificação. Mesmo assim, confira documentos e referências antes de contratar." },
         { q: "Esqueci minha senha, como recupero?", a: "Na tela de login, toque em Esqueci minha senha e siga as instruções enviadas para seu e-mail." },
         { q: "Como avalio um atendimento?", a: "Quando o serviço é concluído, o app abre a tela de avaliação automaticamente. Você também pode avaliar depois em Histórico." },
         { q: "Como denuncio um comportamento inadequado?", a: "No perfil da pessoa, toque nos três pontinhos e em Denunciar. Nossa equipe analisa em até 48h e o perfil pode ser suspenso." },
-        { q: "Meus dados estão seguros?", a: "Sim. Seus dados são criptografados e nunca são compartilhados sem sua autorização." },
+        { q: "Meus dados estão seguros?", a: "Seus dados são usados apenas para o funcionamento do app e não são vendidos a terceiros. Veja os detalhes na nossa Política de Privacidade." },
       ],
     },
   ];

@@ -27,6 +27,7 @@ import { registrarCliqueDownload } from "./modules/analytics/analytics.service";
 // o pedido de exclusão de conta).
 const privacyPolicyHtml = readFileSync(join(import.meta.dir, "../public/privacy-policy.html"), "utf-8");
 const termsOfUseHtml = readFileSync(join(import.meta.dir, "../public/terms-of-use.html"), "utf-8");
+const supportHtml = readFileSync(join(import.meta.dir, "../public/support.html"), "utf-8");
 
 export const app = new Elysia()
   .use(errorMiddleware)
@@ -44,6 +45,7 @@ export const app = new Elysia()
   .get("/", () => ({ ok: true, docs: "/docs" }))
   .get("/privacy-policy", () => new Response(privacyPolicyHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   .get("/terms-of-use", () => new Response(termsOfUseHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
+  .get("/support", () => new Response(supportHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   // Link curto e fácil de divulgar (bio do Instagram, WhatsApp, etc.) —
   // redireciona pra ficha real na Play Store, em vez de expor a URL longa.
   .get("/baixar", ({ set, request }) => {
