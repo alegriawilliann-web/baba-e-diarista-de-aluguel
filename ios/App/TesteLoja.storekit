@@ -1,0 +1,88 @@
+{
+  "identifier": "9C3B1E2A",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_developerTeamID": "5Y55JM8VP7",
+    "_locale": "pt_BR",
+    "_storefront": "BRA",
+    "_storeKitErrors": [],
+    "_failTransactionsEnabled": false
+  },
+  "subscriptionGroups": [
+    {
+      "id": "21000001",
+      "localizations": [],
+      "name": "Mensalidade Babá",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.90",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6782744537",
+          "introductoryOffer": {
+            "internalID": "5282946293",
+            "numberOfPeriods": 1,
+            "paymentMode": "payAsYouGo",
+            "subscriptionPeriod": "P1M",
+            "displayPrice": "14.90"
+          },
+          "localizations": [
+            {
+              "description": "Mantém seu perfil de babá ativo e visível nas buscas.",
+              "displayName": "Mensalidade Babá",
+              "locale": "pt_BR"
+            }
+          ],
+          "productID": "com.babadealuguel.app.mensalidade.baba",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Mensalidade Babá mensal",
+          "subscriptionGroupID": "21000001",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        }
+      ]
+    },
+    {
+      "id": "21000002",
+      "localizations": [],
+      "name": "Mensalidade Diarista",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.90",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "2420696900",
+          "introductoryOffer": {
+            "internalID": "7777560552",
+            "numberOfPeriods": 1,
+            "paymentMode": "payAsYouGo",
+            "subscriptionPeriod": "P1M",
+            "displayPrice": "14.90"
+          },
+          "localizations": [
+            {
+              "description": "Mantém seu perfil de diarista ativo e visível na busca.",
+              "displayName": "Mensalidade Diarista",
+              "locale": "pt_BR"
+            }
+          ],
+          "productID": "com.babadealuguel.app.mensalidade.diarista",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "Mensalidade Diarista mensal",
+          "subscriptionGroupID": "21000002",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}
