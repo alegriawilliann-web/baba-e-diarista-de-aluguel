@@ -5181,7 +5181,7 @@ function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac.babaediarista
         { q: "Como funciona a verificação de antecedentes?", a: "As profissionais podem enviar a Certidão de Antecedentes Criminais para análise da nossa equipe. Quando aprovada, o perfil mostra o selo de verificação. Mesmo assim, confira documentos e referências antes de contratar." },
         { q: "Esqueci minha senha, como recupero?", a: "Na tela de login, toque em Esqueci minha senha e siga as instruções enviadas para seu e-mail." },
         { q: "Como avalio um atendimento?", a: "Quando o serviço é concluído, o app abre a tela de avaliação automaticamente. Você também pode avaliar depois em Histórico." },
-        { q: "Como denuncio um comportamento inadequado?", a: "No perfil da pessoa, toque nos três pontinhos e em Denunciar. Nossa equipe analisa em até 48h e o perfil pode ser suspenso." },
+        { q: "Como denuncio um comportamento inadequado?", a: "No perfil da pessoa, toque nos três pontinhos e em Denunciar. Não toleramos conteúdo ofensivo nem comportamento abusivo: nossa equipe analisa cada denúncia em até 24 horas e remove o conteúdo ou suspende a conta quando procedente. Você também pode bloquear a pessoa." },
         { q: "Meus dados estão seguros?", a: "Seus dados são usados apenas para o funcionamento do app e não são vendidos a terceiros. Veja os detalhes na nossa Política de Privacidade." },
       ],
     },
@@ -6504,6 +6504,7 @@ function reduzirBoostsAtivos(rows) {
 function CadastroMae({
   onConcluir, onVoltar, titulo = "Cadastro de pai ou mãe",
   corFundo = PAPER, corTexto = INK, corBotao, labelBairro = "Seu bairro", pedirFilhos = false,
+  appNome = "Babá de Aluguel", corDestaque = GOLD_DEEP,
 }) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -6513,6 +6514,7 @@ function CadastroMae({
   const [cidade, setCidade] = useState("");
   const [uf, setUf] = useState("");
   const [quantidadeFilhos, setQuantidadeFilhos] = useState("");
+  const [aceitouTermos, setAceitouTermos] = useState(false);
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
@@ -6552,6 +6554,12 @@ function CadastroMae({
     }
     if (senha.length < 8) {
       setErro("A senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
+    // Chat, avaliações e perfis são conteúdo de outras pessoas: o aceite dos
+    // Termos (com as regras contra conteúdo ofensivo) vem antes do acesso.
+    if (!aceitouTermos) {
+      setErro("Para continuar, aceite os Termos de Uso e a Política de Privacidade.");
       return;
     }
     setErro("");
@@ -6609,6 +6617,7 @@ function CadastroMae({
             <ChoicePills options={["1", "2", "3", "4+"]} value={quantidadeFilhos} onChange={setQuantidadeFilhos} />
           </div>
         )}
+        <TermosStep aceito={aceitouTermos} setAceito={setAceitouTermos} corDestaque={corDestaque} appNome={appNome} />
         {erro && <p style={{ fontSize: 11.5, color: ERROR, fontFamily: "Manrope, sans-serif", margin: 0 }}>{erro}</p>}
         <button className="shine-cta" onClick={concluir} disabled={carregando} style={{ ...btnPrimary, width: "100%", marginTop: 6, opacity: carregando ? 0.6 : 1, cursor: carregando ? "default" : "pointer", ...(corBotao || {}) }}>
           {carregando ? "Cadastrando..." : "Concluir cadastro"}
@@ -7235,7 +7244,26 @@ function PagamentoApple({ serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
   );
 }
 
+// SDK do Mercado Pago (cartão): carregado só quando a tela de pagamento do
+// Android/web abre — nunca no iPhone, onde a mensalidade é pela App Store e
+// um script de terceiro rodando no app não estaria na declaração de privacidade.
+let sdkMercadoPagoPromise = null;
+function carregarSdkMercadoPago() {
+  if (window.MercadoPago) return Promise.resolve();
+  if (!sdkMercadoPagoPromise) {
+    sdkMercadoPagoPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://sdk.mercadopago.com/js/v2";
+      script.onload = () => resolve();
+      script.onerror = () => { sdkMercadoPagoPromise = null; reject(new Error("Não foi possível carregar o pagamento. Verifique sua conexão.")); };
+      document.head.appendChild(script);
+    });
+  }
+  return sdkMercadoPagoPromise;
+}
+
 function PagamentoMercadoPago({ perfil, serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
+  useEffect(() => { carregarSdkMercadoPago().catch(() => {}); }, []);
   const metodoInicial = perfil.formaPagamento === "pix" ? "pix" : "cartao";
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
@@ -7305,6 +7333,7 @@ function PagamentoMercadoPago({ perfil, serviceType, corDestaque = GOLD_DEEP, on
     setErro("");
     setCarregando(true);
     try {
+      await carregarSdkMercadoPago();
       if (!window.MercadoPago) throw new Error("O carregador de pagamento não iniciou. Feche e abra o app de novo.");
       const publicKey = await getPublicKey();
       const mp = new window.MercadoPago(publicKey, { locale: "pt-BR" });
@@ -8654,6 +8683,8 @@ export default function App() {
         {tela === "cadastroClienteDiarista" && (
           <CadastroMae
             titulo="Cadastro de cliente"
+            appNome="Diarista de Aluguel"
+            corDestaque={D_CORAL_DEEP}
             onVoltar={() => setTela("diaristaLogin")}
             onConcluir={cadastroClienteDiaristaEnviado}
             corFundo="#FFF6F1"
