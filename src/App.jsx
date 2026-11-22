@@ -5136,7 +5136,7 @@ function RoleToggle({ tipo, setTipo }) {
   );
 }
 
-function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac@babadealuguel.com.br", servico = "Babá de Aluguel" }) {
+function SACModal({ onClose, corDestaque = GOLD_DEEP, email = "sac.babaediarista@babadealuguel.com.br", servico = "Babá de Aluguel" }) {
   const [aberto, setAberto] = useState(null);
   const telefoneNumero = "+5567992430206";
   const telefoneExibicao = "+55 67 99243-0206";
@@ -5842,7 +5842,7 @@ function DiaristaLoginScreen({ tipo, setTipo, onEntrar, onCadastro, onVoltar }) 
         </button>
       </div>
 
-      {showSac && <SACModal onClose={() => setShowSac(false)} corDestaque={D_CORAL_DEEP} email="sac@diaristadealuguel.com.br" servico="Diarista de Aluguel" />}
+      {showSac && <SACModal onClose={() => setShowSac(false)} corDestaque={D_CORAL_DEEP} servico="Diarista de Aluguel" />}
       {mostrarRecuperar && (
         <RecuperarSenhaModal emailInicial={email} corDestaque={D_CORAL_DEEP} onClose={() => setMostrarRecuperar(false)} />
       )}
