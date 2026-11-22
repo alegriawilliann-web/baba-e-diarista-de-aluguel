@@ -7113,11 +7113,19 @@ function PagamentoApple({ serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
     try {
       const userId = await idUsuarioLogado();
       if (!userId) throw new Error("Entre na sua conta novamente para assinar.");
-      const transacao = await NativePurchases.purchaseProduct({
-        productIdentifier: productId,
-        productType: PURCHASE_TYPE.SUBS,
-        appAccountToken: userId,
-      });
+      let transacao;
+      try {
+        transacao = await NativePurchases.purchaseProduct({
+          productIdentifier: productId,
+          productType: PURCHASE_TYPE.SUBS,
+          appAccountToken: userId,
+        });
+      } catch (erroLoja) {
+        // A App Store devolve mensagens em inglês ("Unable to Complete
+        // Request"...); mostra uma em português no lugar.
+        if (/cancel/i.test(String(erroLoja?.message || ""))) throw erroLoja;
+        throw new Error("Não foi possível concluir a compra na App Store. Tente novamente.");
+      }
       if (!transacao?.jwsRepresentation) throw new Error("A App Store não confirmou a compra. Tente novamente.");
       await confirmarNoServidor(transacao.jwsRepresentation);
     } catch (e) {
@@ -7132,8 +7140,13 @@ function PagamentoApple({ serviceType, corDestaque = GOLD_DEEP, onSucesso }) {
     setErro("");
     setEstado("restaurando");
     try {
-      await NativePurchases.restorePurchases();
-      const { purchases } = await NativePurchases.getPurchases({ productType: PURCHASE_TYPE.SUBS, onlyCurrentEntitlements: true });
+      let purchases;
+      try {
+        await NativePurchases.restorePurchases();
+        ({ purchases } = await NativePurchases.getPurchases({ productType: PURCHASE_TYPE.SUBS, onlyCurrentEntitlements: true }));
+      } catch {
+        throw new Error("Não foi possível falar com a App Store agora. Tente novamente.");
+      }
       const ativa = (purchases || []).find((t) => t.productIdentifier === productId && t.jwsRepresentation);
       if (!ativa) throw new Error("Nenhuma assinatura ativa encontrada nesta conta da Apple.");
       await confirmarNoServidor(ativa.jwsRepresentation);
