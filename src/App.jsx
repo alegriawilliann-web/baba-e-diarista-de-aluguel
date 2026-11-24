@@ -20,7 +20,7 @@ import { useAuth } from "./hooks/useAuth.js";
 import { usePush } from "./hooks/usePush.js";
 import {
   grantClientRole, deleteMyAccount, updateMe, searchUsers, shareProfile, updateClientProfile,
-  listTrustedContacts, addTrustedContact, updateTrustedContact, deleteTrustedContact, getUserStats,
+  listTrustedContacts, addTrustedContact, updateTrustedContact, deleteTrustedContact, getUserStats, broadcastNotice,
 } from "./api/users.js";
 import { createProfessionalProfile, updateMyProfessionalProfile, searchProfessionals, getProfessionalById, getMyProfessionalProfile, listMyPortfolio, addPortfolioPost, deletePortfolioPost, reorderPortfolio, followProfessional, unfollowProfessional } from "./api/professionals.js";
 import {
@@ -5345,7 +5345,67 @@ function AdminCadastros() {
           Uma pessoa pode ter mais de um tipo de conta, então a soma pode passar do total.
         </p>
       </div>
+
+      <AvisoParaTodos total={stats.totalUsuarios} />
     </>
+  );
+}
+
+const AVISO_PADRAO = "🎉 Novidade: o Babá & Diarista de Aluguel agora também está no iPhone! Indique para quem usa iPhone: baba-de-aluguel-api.onrender.com/baixar";
+
+// Aviso no sininho de todas as contas (sem notificação no celular). Envio em
+// duas etapas pra não disparar sem querer.
+function AvisoParaTodos({ total }) {
+  const [texto, setTexto] = useState(AVISO_PADRAO);
+  const [etapa, setEtapa] = useState("editar"); // editar | confirmar | enviando | enviado
+  const [resultado, setResultado] = useState(null);
+  const [erro, setErro] = useState("");
+
+  const enviar = async () => {
+    setEtapa("enviando");
+    setErro("");
+    try {
+      const res = await broadcastNotice(texto.trim());
+      setResultado(res?.enviados ?? 0);
+      setEtapa("enviado");
+    } catch (e) {
+      setErro(e.message || "Não foi possível enviar agora.");
+      setEtapa("confirmar");
+    }
+  };
+
+  const caixa = { background: CARD, border: `1px solid ${LINE}`, borderRadius: 12, padding: 14, marginTop: 10, fontFamily: "Manrope, sans-serif" };
+  const botao = (cor) => ({ flex: 1, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: cor, color: "#fff" });
+
+  return (
+    <div style={caixa}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: INK_SOFT, marginBottom: 6 }}>Aviso para todos</div>
+      {etapa === "enviado" ? (
+        <p style={{ fontSize: 12.5, color: FOREST, margin: 0 }}>Aviso enviado para {resultado} pessoas. Aparece no sininho do app.</p>
+      ) : (
+        <>
+          <textarea
+            value={texto} onChange={(e) => { setTexto(e.target.value); setEtapa("editar"); }} maxLength={300} rows={4}
+            disabled={etapa === "enviando"}
+            style={{ ...inputStyle, resize: "vertical", fontSize: 12.5 }}
+          />
+          <p style={{ fontSize: 10.5, color: INK_SOFT, margin: "4px 0 8px" }}>
+            Vai para o sininho de todas as {total} contas (sem notificação no celular). {texto.trim().length}/300
+          </p>
+          {erro && <p style={{ fontSize: 11.5, color: ERROR, margin: "0 0 8px" }}>{erro}</p>}
+          {etapa === "editar" ? (
+            <button onClick={() => setEtapa("confirmar")} disabled={texto.trim().length < 5} style={botao(INK)}>Enviar aviso</button>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setEtapa("editar")} disabled={etapa === "enviando"} style={botao(INK_SOFT)}>Cancelar</button>
+              <button onClick={enviar} disabled={etapa === "enviando"} style={botao(FOREST)}>
+                {etapa === "enviando" ? "Enviando..." : `Confirmar envio para ${total}`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

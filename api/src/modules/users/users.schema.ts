@@ -6,6 +6,10 @@ export const updateMeBody = t.Object({
   photoUrl: t.Optional(t.String()),
 });
 
+export const broadcastNoticeBody = t.Object({
+  texto: t.String({ minLength: 5, maxLength: 300 }),
+});
+
 export const grantClientRoleBody = t.Object({
   serviceType: t.Union([t.Literal("baba"), t.Literal("diarista")]),
   bairro: t.String({ minLength: 2, maxLength: 100 }),

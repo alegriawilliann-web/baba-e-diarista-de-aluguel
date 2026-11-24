@@ -230,6 +230,17 @@ export async function getStats() {
   };
 }
 
+// Painel do admin: aviso para todas as contas, só no sininho do app (sem
+// push). Insere em lotes pra não montar uma query gigante.
+export async function broadcastNotice(texto: string) {
+  const ids = await db.select({ id: users.id }).from(users);
+  const LOTE = 500;
+  for (let i = 0; i < ids.length; i += LOTE) {
+    await db.insert(notifications).values(ids.slice(i, i + LOTE).map(({ id }) => ({ userId: id, tipo: "aviso", texto })));
+  }
+  return { enviados: ids.length };
+}
+
 export async function updateUserRoles(targetUserId: string, roles: Role[]) {
   const validRoles = roles.filter((r): r is Role => (roleEnum.enumValues as readonly string[]).includes(r));
 

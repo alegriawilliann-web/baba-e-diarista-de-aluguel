@@ -47,3 +47,8 @@ export function shareProfile({ targetUserId, nome, professionalId }) {
 export function getUserStats() {
   return request("/users/stats");
 }
+
+// Só admin: aviso no sininho de todas as contas (sem push).
+export function broadcastNotice(texto) {
+  return request("/users/broadcast", { method: "POST", body: { texto } });
+}

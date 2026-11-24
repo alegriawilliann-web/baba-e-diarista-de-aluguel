@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
 import { authPlugin } from "../../shared/middleware/auth.middleware";
 import * as usersController from "./users.controller";
-import { updateMeBody, grantClientRoleBody, updateClientProfileBody, trustedContactBody, trustedContactUpdateBody, roleUpdateBody, shareProfileBody } from "./users.schema";
+import { broadcastNoticeBody, updateMeBody, grantClientRoleBody, updateClientProfileBody, trustedContactBody, trustedContactUpdateBody, roleUpdateBody, shareProfileBody } from "./users.schema";
 
 export const usersRoutes = new Elysia({ prefix: "/users", tags: ["users"] })
   .use(authPlugin)
@@ -17,5 +17,6 @@ export const usersRoutes = new Elysia({ prefix: "/users", tags: ["users"] })
   .patch("/me/trusted-contacts/:id", usersController.updateTrustedContact, { body: trustedContactUpdateBody, role: [] })
   .delete("/me/trusted-contacts/:id", usersController.deleteTrustedContact, { role: [] })
   .get("/stats", usersController.getStats, { role: ["admin"] })
+  .post("/broadcast", usersController.broadcastNotice, { body: broadcastNoticeBody, role: ["admin"] })
   .get("/", usersController.listUsers, { role: ["admin"] })
   .patch("/:id/roles", usersController.updateUserRoles, { body: roleUpdateBody, role: ["admin"] });

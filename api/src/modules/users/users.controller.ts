@@ -51,6 +51,11 @@ export async function listUsers(ctx: any) {
   return usersService.listUsers(ctx.query);
 }
 
+export async function broadcastNotice(ctx: any) {
+  const { texto } = ctx.body as { texto: string };
+  return usersService.broadcastNotice(texto.trim());
+}
+
 export async function getStats() {
   return usersService.getStats();
 }
