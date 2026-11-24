@@ -1,0 +1,270 @@
+<!doctype html>
+<title>Baixar o app</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    color-scheme: light;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --paper: #FBF3E7;
+    --card: #FFFDF8;
+    --ink: #16403C;
+    --ink-soft: #6B5642;
+    --line: rgba(22, 64, 60, 0.14);
+    --gold: #C98A56;
+    --gold-deep: #9C5F35;
+    --coral: #C2412C;
+    --coral-soft: rgba(194, 65, 44, 0.12);
+    --gold-soft: rgba(201, 138, 86, 0.14);
+    --focus: #2F7A6E;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #10201D;
+      --card: #16302C;
+      --ink: #F2E9DC;
+      --ink-soft: #C9B79F;
+      --line: rgba(242, 233, 220, 0.14);
+      --gold: #E3A96F;
+      --gold-deep: #F0C08C;
+      --coral: #E8836A;
+      --coral-soft: rgba(232, 131, 106, 0.16);
+      --gold-soft: rgba(227, 169, 111, 0.14);
+      --focus: #7FBFAE;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #10201D;
+    --card: #16302C;
+    --ink: #F2E9DC;
+    --ink-soft: #C9B79F;
+    --line: rgba(242, 233, 220, 0.14);
+    --gold: #E3A96F;
+    --gold-deep: #F0C08C;
+    --coral: #E8836A;
+    --coral-soft: rgba(232, 131, 106, 0.16);
+    --gold-soft: rgba(227, 169, 111, 0.14);
+    --focus: #7FBFAE;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Manrope", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  a { color: var(--gold-deep); text-decoration-thickness: 1.5px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 64px;
+  }
+
+  header.top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-bottom: 6px;
+  }
+  .brandpair {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .brandtag {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .brandtag.baba { background: var(--gold-soft); color: var(--gold-deep); }
+  .brandtag.diarista { background: var(--coral-soft); color: var(--coral); }
+
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(28px, 6vw, 38px);
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 10px 0 8px;
+  }
+  .meta {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    margin: 0 0 28px;
+  }
+  .intro {
+    font-size: 16.5px;
+    color: var(--ink);
+    max-width: 62ch;
+    margin: 0 0 32px;
+  }
+  .intro strong { color: var(--ink); }
+
+  nav.toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 40px;
+  }
+  nav.toc p {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  nav.toc ol {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    columns: 1;
+    font-size: 14.5px;
+  }
+  nav.toc li { margin-bottom: 7px; }
+  nav.toc a { color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { color: var(--gold-deep); text-decoration: underline; }
+  nav.toc .n { color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-right: 8px; }
+
+  section {
+    margin-bottom: 36px;
+    scroll-margin-top: 20px;
+  }
+  section h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 21px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  section h2 .n {
+    font-size: 14px;
+    color: var(--gold-deep);
+    font-family: "Manrope", sans-serif;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  section p, section li { max-width: 66ch; }
+  section p { margin: 0 0 14px; }
+  section ul { margin: 0 0 14px; padding-left: 22px; }
+  section li { margin-bottom: 8px; }
+
+  .datatable {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0 18px;
+    font-size: 14.5px;
+  }
+  .datatable th, .datatable td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .datatable th {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    font-weight: 700;
+  }
+  .datatable-wrap { overflow-x: auto; margin: 0 0 18px; }
+
+  .callout {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--focus);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14.5px;
+    color: var(--ink);
+    margin: 0 0 16px;
+  }
+  .callout strong { color: var(--focus); }
+
+  footer.contact {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px 22px;
+    margin-top: 44px;
+  }
+  footer.contact h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    border: none;
+    padding: 0;
+  }
+  footer.contact p { margin: 0 0 6px; font-size: 14.5px; color: var(--ink-soft); }
+  footer.contact a { color: var(--ink); font-weight: 700; }
+
+  .backtotop {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-top: 6px;
+  }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 26px; }
+    section h2 { font-size: 18px; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="brandpair">
+      <span class="brandtag baba">Babá de Aluguel</span>
+      <span class="brandtag diarista">Diarista de Aluguel</span>
+    </span>
+  </header>
+  <h1>Baixe o app</h1>
+  <p class="intro">
+    Encontre babás e diaristas da sua região, ou cadastre-se como profissional. Disponível para iPhone e Android.
+  </p>
+  <p style="display:flex;flex-wrap:wrap;gap:12px;margin:28px 0">
+    <a href="https://apps.apple.com/br/app/id6836100621"
+       style="display:inline-block;padding:14px 22px;border-radius:12px;background:var(--ink);color:var(--paper);font-weight:700;text-decoration:none">
+      Baixar na App Store (iPhone)
+    </a>
+    <a href="https://play.google.com/store/apps/details?id=com.babadealuguel.app"
+       style="display:inline-block;padding:14px 22px;border-radius:12px;background:var(--gold-deep);color:#fff;font-weight:700;text-decoration:none">
+      Baixar no Google Play (Android)
+    </a>
+  </p>
+  <p class="meta">Dúvidas? <a href="/support">Fale com o suporte</a>.</p>
+</div>

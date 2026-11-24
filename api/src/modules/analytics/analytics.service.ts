@@ -1,7 +1,7 @@
 import { db } from "../../config/database";
 import { downloadLinkClicks } from "./analytics.model";
 
-function detectarOs(userAgent: string): string {
+export function detectarOs(userAgent: string): string {
   const ua = userAgent.toLowerCase();
   if (/iphone|ipad|ipod/.test(ua)) return "ios";
   if (/android/.test(ua)) return "android";

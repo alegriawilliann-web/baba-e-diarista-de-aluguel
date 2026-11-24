@@ -19,7 +19,7 @@ import { messagesRoutes } from "./modules/messages/messages.routes";
 import { verificationsRoutes } from "./modules/verifications/verifications.routes";
 import { jobsRoutes } from "./modules/jobs/jobs.routes";
 import { pushRoutes } from "./modules/push/push.routes";
-import { registrarCliqueDownload } from "./modules/analytics/analytics.service";
+import { registrarCliqueDownload, detectarOs } from "./modules/analytics/analytics.service";
 
 // Lida uma vez, no boot, e servida como texto estático — é a mesma página
 // referenciada tanto no campo "Política de Privacidade" quanto no campo de
@@ -28,6 +28,9 @@ import { registrarCliqueDownload } from "./modules/analytics/analytics.service";
 const privacyPolicyHtml = readFileSync(join(import.meta.dir, "../public/privacy-policy.html"), "utf-8");
 const termsOfUseHtml = readFileSync(join(import.meta.dir, "../public/terms-of-use.html"), "utf-8");
 const supportHtml = readFileSync(join(import.meta.dir, "../public/support.html"), "utf-8");
+const APP_STORE_URL = "https://apps.apple.com/br/app/id6836100621";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.babadealuguel.app";
+const baixarHtml = readFileSync(join(import.meta.dir, "../public/baixar.html"), "utf-8");
 
 export const app = new Elysia()
   .use(errorMiddleware)
@@ -46,13 +49,19 @@ export const app = new Elysia()
   .get("/privacy-policy", () => new Response(privacyPolicyHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   .get("/terms-of-use", () => new Response(termsOfUseHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
   .get("/support", () => new Response(supportHtml, { headers: { "content-type": "text/html; charset=utf-8" } }))
-  // Link curto e fácil de divulgar (bio do Instagram, WhatsApp, etc.) —
-  // redireciona pra ficha real na Play Store, em vez de expor a URL longa.
+  // Link curto e único pra divulgar (bio do Instagram, WhatsApp, etc.):
+  // iPhone vai pra App Store, Android pra Play Store e, no computador, uma
+  // página com os dois botões.
   .get("/baixar", ({ set, request }) => {
-    registrarCliqueDownload(request.headers.get("user-agent")).catch(() => {});
-    set.status = 302;
-    set.headers.location = "https://play.google.com/store/apps/details?id=com.babadealuguel.app";
-    return "";
+    const userAgent = request.headers.get("user-agent");
+    registrarCliqueDownload(userAgent).catch(() => {});
+    const os = detectarOs(userAgent ?? "");
+    if (os === "ios" || os === "android") {
+      set.status = 302;
+      set.headers.location = os === "ios" ? APP_STORE_URL : PLAY_STORE_URL;
+      return "";
+    }
+    return new Response(baixarHtml, { headers: { "content-type": "text/html; charset=utf-8" } });
   })
   .group("/api", (api) =>
     api
